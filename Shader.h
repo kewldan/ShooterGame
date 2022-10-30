@@ -12,11 +12,18 @@
 class Shader {
     GLuint vertex, fragment, geometry, program;
 public:
-    Shader(const std::string& filename);
+    Shader(const std::string &filename);
+
     GLuint getProgramId() const;
-    GLint getAttribLocation(const char* name) const;
-    GLint getUniformLocation(const char* name) const;
+
+    GLint getAttribLocation(const char *name) const;
+
+    GLint getUniformLocation(const char *name) const;
+
     void bind() const;
+
+    void destroy() const;
+
     static void unbind();
 };
 

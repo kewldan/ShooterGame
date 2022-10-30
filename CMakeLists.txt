@@ -8,8 +8,8 @@ include_directories(${PROJECT_SOURCE_DIR}/glad/include)
 include_directories(${PROJECT_SOURCE_DIR}/linmath/include)
 include_directories(${PROJECT_SOURCE_DIR}/stb)
 include_directories(${PROJECT_SOURCE_DIR}/plog/include)
-
 include_directories(${PROJECT_SOURCE_DIR}/glfw/include)
+
 link_directories(${PROJECT_SOURCE_DIR}/glfw/lib-mingw-w64)
 
 add_executable(OpenGL main.cpp glad/src/gl.c Shader.cpp Shader.h Window.cpp Window.h Mesh.cpp Mesh.h)
