@@ -9,7 +9,8 @@
 
 #include <GLFW/glfw3.h>
 #include <plog/Log.h>
-#include "linmath.h"
+#include <glm/glm.hpp>
+#include <glm/ext.hpp>
 
 class Window {
     static bool glfwInitialized;
@@ -20,7 +21,7 @@ class Window {
     bool vsync;
     int width, height;
     float ratio;
-    mat4x4 ortho, proj;
+    glm::mat4 ortho, proj;
 public:
     Window();
 
@@ -38,9 +39,9 @@ public:
 
     [[nodiscard]] float getRatio() const;
 
-    mat4x4 *getOrtho();
+    glm::mat4 *getOrtho();
 
-    mat4x4 *getProj();
+    glm::mat4 *getProj();
 
     void end();
 

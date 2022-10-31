@@ -8,9 +8,13 @@
 #include <iostream>
 #include <sys/stat.h>
 #include <plog/Log.h>
+#include "sha1.h"
 
 class Shader {
     GLuint vertex, fragment, geometry, program;
+    int8_t shaderParts;
+    std::string filename;
+    bool usingNow;
 public:
     Shader(const std::string &filename);
 
@@ -20,11 +24,11 @@ public:
 
     GLint getUniformLocation(const char *name) const;
 
-    void bind() const;
+    void bind();
+
+    void unbind();
 
     void destroy() const;
-
-    static void unbind();
 };
 
 

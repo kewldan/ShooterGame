@@ -18,23 +18,26 @@ Window::Window(int w, int h, const char *title) {
     height = h;
     ratio = 1;
 
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
     glfwWindowHint(GLFW_SAMPLES, 16);
 
     window = glfwCreateWindow(w, h, title, nullptr, nullptr);
     if (!window) {
-        PLOG_FATAL << "Window cant be initialized";
+        PLOG_FATAL << "Window can not be initialized";
         glfwTerminate();
         exit(EXIT_FAILURE);
     }
     glfwMakeContextCurrent(window);
 
     if (!glfwInitialized) {
-        PLOG_DEBUG << "Glad loaded";
+        PLOG_INFO << "GLAD loaded";
         gladLoadGL(glfwGetProcAddress);
         glfwInitialized = true;
     }
+
+    proj = glm::mat4(1);
+    ortho = glm::mat4(1);
 
     glEnable(GL_DEPTH_TEST);
 }
@@ -53,7 +56,7 @@ static void error_callback(int error, const char *description) {
 }
 
 void Window::initializeGlfw() {
-    PLOG_DEBUG << "GLFW initialized";
+    PLOG_INFO << "GLFW initialized";
     glfwSetErrorCallback(error_callback);
     if (!glfwInit())
         exit(EXIT_FAILURE);
@@ -80,8 +83,8 @@ bool Window::update() {
     glfwGetFramebufferSize(window, &width, &height);
     ratio = (float) width / (float) height;
 
-    mat4x4_ortho(ortho, -ratio, ratio, -1.f, 1.f, 1.f, -1.f);
-    mat4x4_perspective(proj, 90 * (3.1415f / 180), ratio, 0.01f, 100.0);
+    proj = glm::perspective(glm::radians(90.f), ratio, 0.01f, 100.f);
+    ortho = glm::ortho(0, width, height, 0);
 
     glViewport(0, 0, width, height);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -92,10 +95,10 @@ float Window::getRatio() const {
     return ratio;
 }
 
-mat4x4 *Window::getOrtho() {
+glm::mat4 *Window::getOrtho() {
     return &ortho;
 }
 
-mat4x4 *Window::getProj() {
+glm::mat4 *Window::getProj() {
     return &proj;
 }
