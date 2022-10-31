@@ -35,6 +35,8 @@ Window::Window(int w, int h, const char *title) {
         gladLoadGL(glfwGetProcAddress);
         glfwInitialized = true;
     }
+
+    glEnable(GL_DEPTH_TEST);
 }
 
 void Window::setVsync(bool value) {
