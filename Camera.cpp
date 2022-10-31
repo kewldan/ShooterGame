@@ -14,5 +14,6 @@ glm::mat4 Camera::getMatrix() {
     mat = glm::rotate(mat, rotation.x, glm::vec3(1, 0, 0));
     mat = glm::rotate(mat, rotation.y, glm::vec3(0, 1, 0));
     mat = glm::translate(mat, position);
+
     return mat;
 }

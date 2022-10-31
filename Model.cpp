@@ -45,10 +45,11 @@ Model::Model(std::string filename, Shader *shader) {
 void Model::draw(Shader *shader) {
     mvp = glm::mat4(1.0f);
     mvp = glm::translate(mvp, position);
+    mvp = glm::scale(mvp, scale);
     mvp = glm::rotate(mvp, rotation.x, glm::vec3(1, 0, 0));
     mvp = glm::rotate(mvp, rotation.y, glm::vec3(0, 1, 0));
     mvp = glm::rotate(mvp, rotation.z, glm::vec3(0, 0, 1));
-    mvp = glm::scale(mvp, scale);
+
 
     glUniformMatrix4fv(mvp_location, 1, false, glm::value_ptr(mvp));
     glUniform3fv(color_location, 1, glm::value_ptr(color));

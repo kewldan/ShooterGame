@@ -40,6 +40,7 @@ Window::Window(int w, int h, const char *title) {
     ortho = glm::mat4(1);
 
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_CULL_FACE);
 }
 
 void Window::setVsync(bool value) {
@@ -83,7 +84,7 @@ bool Window::update() {
     glfwGetFramebufferSize(window, &width, &height);
     ratio = (float) width / (float) height;
 
-    proj = glm::perspective(glm::radians(90.f), ratio, 0.01f, 100.f);
+    proj = glm::perspective(glm::radians(60.f), ratio, 0.001f, 100.f);
     ortho = glm::ortho(0, width, height, 0);
 
     glViewport(0, 0, width, height);
