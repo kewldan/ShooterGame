@@ -36,8 +36,10 @@ Model::Model(std::string filename, Shader *shader) {
     scale = glm::vec3(1);
     position = glm::vec3(0);
     rotation = glm::vec3(0);
+    color = glm::vec3(1);
 
-    uniform_location = shader->getUniformLocation("mvp");
+    mvp_location = shader->getUniformLocation("mvp");
+    color_location = shader->getUniformLocation("material.color");
 }
 
 void Model::draw(Shader *shader) {
@@ -48,6 +50,8 @@ void Model::draw(Shader *shader) {
     mvp = glm::rotate(mvp, rotation.z, glm::vec3(0, 0, 1));
     mvp = glm::scale(mvp, scale);
 
-    glUniformMatrix4fv(uniform_location, 1, GL_FALSE, glm::value_ptr(mvp));
+    glUniformMatrix4fv(mvp_location, 1, false, glm::value_ptr(mvp));
+    glUniform3fv(color_location, 1, glm::value_ptr(color));
+
     mesh->draw();
 }

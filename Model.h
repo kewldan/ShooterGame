@@ -8,10 +8,10 @@
 
 class Model {
     Mesh *mesh;
-    int uniform_location;
+    int mvp_location, color_location;
     glm::mat4 mvp;
 public:
-    glm::vec3 position, rotation, scale;
+    glm::vec3 position, rotation, scale, color;
 
     Model(std::string filename, Shader *shader);
 

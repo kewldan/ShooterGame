@@ -141,6 +141,9 @@ Shader::Shader(const std::string &filename) {
         }
     }
 #endif
+
+    camera_location = getUniformLocation("camera.transform");
+    camera_pos_location = getUniformLocation("camera.position");
 }
 
 GLuint Shader::getProgramId() const {
@@ -188,4 +191,9 @@ void Shader::destroy() const {
         glDetachShader(program, geometry);
     }
     glDeleteProgram(program);
+}
+
+void Shader::upload(Camera *camera) {
+    glUniformMatrix4fv(camera_location, 1, false, glm::value_ptr(camera->getMatrix()));
+    glUniform3fv(camera_pos_location, 1, glm::value_ptr(-camera->position));
 }

@@ -46,6 +46,10 @@ public:
     void end();
 
     void destroy();
+
+    int getWidth() const;
+
+    int getHeight() const;
 };
 
 

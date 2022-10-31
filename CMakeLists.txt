@@ -14,6 +14,6 @@ include_directories(${PROJECT_SOURCE_DIR}/libraries/glm)
 
 link_directories(${PROJECT_SOURCE_DIR}/libraries/glfw/lib-mingw-w64)
 
-add_executable(ShooterGame libraries/glad/src/gl.c main.cpp Shader.cpp Shader.h Window.cpp Window.h Mesh.cpp Mesh.h Model.cpp Model.h)
+add_executable(ShooterGame libraries/glad/src/gl.c main.cpp Shader.cpp Shader.h Window.cpp Window.h Mesh.cpp Mesh.h Model.cpp Model.h Camera.cpp Camera.h)
 
 target_link_libraries(ShooterGame glfw3 opengl32 gdi32)

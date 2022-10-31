@@ -87,6 +87,7 @@ bool Window::update() {
     ortho = glm::ortho(0, width, height, 0);
 
     glViewport(0, 0, width, height);
+    glClearColor(52 / 255.f, 168 / 255.f, 235 / 255.f, 1.f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     return !glfwWindowShouldClose(window);
 }
@@ -101,4 +102,12 @@ glm::mat4 *Window::getOrtho() {
 
 glm::mat4 *Window::getProj() {
     return &proj;
+}
+
+int Window::getWidth() const {
+    return width;
+}
+
+int Window::getHeight() const {
+    return height;
 }
