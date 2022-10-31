@@ -14,7 +14,7 @@ int main() {
     auto *window = new Window();
 
     auto *shader = new Shader("main");
-    GLint projection_location = shader->getUniformLocation("proj");
+    int projection_location = shader->getUniformLocation("proj");
 
     auto *model = new Model("./data/meshes/monkey.obj", shader);
     model->position.z = -3;
@@ -25,7 +25,7 @@ int main() {
         model->rotation.z = (float) glfwGetTime();
 
         shader->bind();
-        glUniformMatrix4fv(projection_location, 1, GL_FALSE, glm::value_ptr(*window->getProj()));
+        glUniformMatrix4fv(projection_location, 1, false, glm::value_ptr(*window->getProj()));
         model->draw(shader);
 
         window->end();
