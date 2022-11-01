@@ -23,7 +23,7 @@ void main()
 {
     vec3 to_light_source = normalize(camera.position - vertex.position);
     float to_dot_light = (dot(vertex.normal, to_light_source) + 1) * 0.5f;
-    float diffuseFactor = to_dot_light + 0.1;
+    float diffuseFactor = to_dot_light + 0.2;
 
     fragColor = vec4(material.color * diffuseFactor, 1);
 }

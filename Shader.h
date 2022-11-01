@@ -3,33 +3,48 @@
 
 #include "glad/gl.h"
 #include "Camera.h"
+#include "Model.h"
 #include <string>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <map>
 #include <sys/stat.h>
 #include <plog/Log.h>
 
 class Shader {
     unsigned int vertex, fragment, geometry, program;
-    int camera_location, camera_pos_location;
+    std::map<std::string, int> *uniforms;
     int8_t shaderParts;
     std::string filename;
     bool usingNow;
+
+    int getUniformLocation(const char *name) const;
+
+    int getAttribLocation(const char *name) const;
+
 public:
     Shader(const std::string &filename);
 
     unsigned int getProgramId() const;
 
-    int getAttribLocation(const char *name) const;
-
-    int getUniformLocation(const char *name) const;
-
     void bind();
 
     void unbind();
 
-    void upload(Camera *camera);
+    void upload(const char *name, int value) const;
+
+    void upload(const char *name, float value) const;
+
+    void upload(const char *name, glm::vec2 value) const;
+
+    void upload(const char *name, glm::vec3 value) const;
+
+    void upload(const char *name, glm::vec4 value) const;
+
+    void upload(const char *name, glm::mat4 value) const;
+
+    void draw(Model *model) const;
 
     void destroy() const;
 };

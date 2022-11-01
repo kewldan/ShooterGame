@@ -3,15 +3,27 @@
 
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
+#include "Window.h"
 
 class Camera {
+    glm::mat4 orthographic, perspective, view;
+    int *width;
+    int *height;
+    float *ratio;
+    int hFov = 90;
 public:
     glm::vec3 position;
     glm::vec2 rotation;
 
-    Camera();
+    Camera(int *widthPtr, int *heightPtr, float *ratioPtr);
 
-    glm::mat4 getMatrix();
+    void pollEvents(Window *window);
+
+    glm::mat4 &getView();
+
+    const glm::mat4 &getOrthographic();
+
+    const glm::mat4 &getPerspective();
 };
 
 

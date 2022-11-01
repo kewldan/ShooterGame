@@ -11,6 +11,7 @@
 #include <plog/Log.h>
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
+#include <chrono>
 
 class Window {
     static bool glfwInitialized;
@@ -21,7 +22,13 @@ class Window {
     bool vsync;
     int width, height;
     float ratio;
-    glm::mat4 ortho, proj;
+
+    unsigned long lastFps;
+    int fps, fpsCounter;
+    bool debugTitle = true;
+
+    static unsigned long millis();
+
 public:
     Window();
 
@@ -37,17 +44,29 @@ public:
 
     bool update();
 
+    void hideCursor();
+
+    void showCursor();
+
+    void setCursorPosition(int x, int y);
+
+    void getCursorPosition(int *x, int *y);
+
+    bool isKeyPressed(int key);
+
     [[nodiscard]] float getRatio() const;
-
-    glm::mat4 *getOrtho();
-
-    glm::mat4 *getProj();
 
     void destroy();
 
     int getWidth() const;
 
     int getHeight() const;
+
+    int *getWidthPtr();
+
+    int *getHeightPtr();
+
+    float *getRatioPtr();
 };
 
 

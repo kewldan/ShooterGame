@@ -36,12 +36,8 @@ Window::Window(int w, int h, const char *title) {
         glfwInitialized = true;
     }
 
-    proj = glm::mat4(1);
-    ortho = glm::mat4(1);
-
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
-    glClearColor(52 / 255.f, 168 / 255.f, 235 / 255.f, 1.f);
 }
 
 void Window::setVsync(bool value) {
@@ -83,23 +79,26 @@ bool Window::update() {
     glfwGetFramebufferSize(window, &width, &height);
     ratio = (float) width / (float) height;
 
-    proj = glm::perspective(glm::radians(60.f), ratio, 0.001f, 100.f);
-    ortho = glm::ortho(0, width, height, 0);
-
     glViewport(0, 0, width, height);
+    glClearColor(52 / 255.f, 168 / 255.f, 235 / 255.f, 1.f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    if (millis() - lastFps > 1000) {
+        fps = fpsCounter;
+        fpsCounter = 0;
+        lastFps = millis();
+    }
+
+    if (debugTitle) {
+        glfwSetWindowTitle(window, (std::string("FPS: ") + std::to_string(fps)).c_str());
+    }
+    fpsCounter++;
+
     return !glfwWindowShouldClose(window);
 }
 
 float Window::getRatio() const {
     return ratio;
-}
-
-glm::mat4 *Window::getOrtho() {
-    return &ortho;
-}
-
-glm::mat4 *Window::getProj() {
-    return &proj;
 }
 
 int Window::getWidth() const {
@@ -108,4 +107,45 @@ int Window::getWidth() const {
 
 int Window::getHeight() const {
     return height;
+}
+
+int *Window::getWidthPtr() {
+    return &width;
+}
+
+int *Window::getHeightPtr() {
+    return &height;
+}
+
+float *Window::getRatioPtr() {
+    return &ratio;
+}
+
+unsigned long Window::millis() {
+    return std::chrono::system_clock::now().time_since_epoch() /
+           std::chrono::milliseconds(1);
+}
+
+void Window::hideCursor() {
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+}
+
+void Window::showCursor() {
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+}
+
+
+void Window::setCursorPosition(int x, int y) {
+    glfwSetCursorPos(window, x, y);
+}
+
+void Window::getCursorPosition(int *x, int *y) {
+    double _x, _y;
+    glfwGetCursorPos(window, &_x, &_y);
+    *x = (int) _x;
+    *y = (int) _y;
+}
+
+bool Window::isKeyPressed(int key) {
+    return glfwGetKey(window, key) == 1;
 }

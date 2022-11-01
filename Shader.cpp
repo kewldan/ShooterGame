@@ -11,6 +11,8 @@ Shader::Shader(const std::string &filename) {
     shaderParts = 0;
     program = glCreateProgram();
 
+    uniforms = new std::map<std::string, int>;
+
 #ifndef NDEBUG
     std::string path = "./data/shaders/" + filename + ".vert";
     if (std::filesystem::exists(path)) {
@@ -141,9 +143,6 @@ Shader::Shader(const std::string &filename) {
         }
     }
 #endif
-
-    camera_location = getUniformLocation("camera.transform");
-    camera_pos_location = getUniformLocation("camera.position");
 }
 
 GLuint Shader::getProgramId() const {
@@ -153,16 +152,20 @@ GLuint Shader::getProgramId() const {
 GLint Shader::getAttribLocation(const char *name) const {
     GLint value = glGetAttribLocation(program, name);
     if (value == -1) {
-        PLOG_ERROR << "Attrib location in shader [" << filename << "] not found > " << name;
+        PLOG_ERROR << "Attrib location in shader not found > " << name;
     }
     return value;
 }
 
 GLint Shader::getUniformLocation(const char *name) const {
+    if (uniforms->contains(name)) {
+        return uniforms->at(name);
+    }
     GLint value = glGetUniformLocation(program, name);
     if (value == -1) {
-        PLOG_ERROR << "Uniform location in shader [" << filename << "] not found > " << name;
+        PLOG_ERROR << "Uniform location in shader not found > " << name;
     }
+    (*uniforms)[name] = value;
     return value;
 }
 
@@ -193,7 +196,32 @@ void Shader::destroy() const {
     glDeleteProgram(program);
 }
 
-void Shader::upload(Camera *camera) {
-    glUniformMatrix4fv(camera_location, 1, false, glm::value_ptr(camera->getMatrix()));
-    glUniform3fv(camera_pos_location, 1, glm::value_ptr(-camera->position));
+void Shader::upload(const char *name, int value) const {
+    glUniform1i(getUniformLocation(name), value);
+}
+
+void Shader::upload(const char *name, float value) const {
+    glUniform1f(getUniformLocation(name), value);
+}
+
+void Shader::upload(const char *name, glm::vec2 value) const {
+    glUniform2fv(getUniformLocation(name), 1, glm::value_ptr(value));
+}
+
+void Shader::upload(const char *name, glm::vec3 value) const {
+    glUniform3fv(getUniformLocation(name), 1, glm::value_ptr(value));
+}
+
+void Shader::upload(const char *name, glm::vec4 value) const {
+    glUniform4fv(getUniformLocation(name), 1, glm::value_ptr(value));
+}
+
+void Shader::upload(const char *name, glm::mat4 value) const {
+    glUniformMatrix4fv(getUniformLocation(name), 1, false, glm::value_ptr(value));
+}
+
+void Shader::draw(Model *model) const {
+    upload("mvp", model->getMVP());
+    upload("material.color", model->color);
+    model->getMesh()->draw();
 }

@@ -2,7 +2,7 @@
 #include "OBJ_Loader.h"
 
 
-Model::Model(std::string filename, Shader *shader) {
+Model::Model(std::string filename) {
     std::vector<unsigned int> indices;
     std::vector<float> output;
 
@@ -29,30 +29,26 @@ Model::Model(std::string filename, Shader *shader) {
     }
 
     mesh = new Mesh(&output, &indices, 8);
-    mesh->addParameter(shader->getAttribLocation("vPos"), 3);
-    mesh->addParameter(shader->getAttribLocation("vTexCoord"), 2);
-    mesh->addParameter(shader->getAttribLocation("vNormal"), 3);
+    mesh->addParameter(0, 3);
+    mesh->addParameter(1, 2);
+    mesh->addParameter(2, 3);
 
     scale = glm::vec3(1);
     position = glm::vec3(0);
     rotation = glm::vec3(0);
     color = glm::vec3(1);
-
-    mvp_location = shader->getUniformLocation("mvp");
-    color_location = shader->getUniformLocation("material.color");
 }
 
-void Model::draw(Shader *shader) {
+glm::mat4 Model::getMVP() {
     mvp = glm::mat4(1.0f);
     mvp = glm::translate(mvp, position);
     mvp = glm::scale(mvp, scale);
     mvp = glm::rotate(mvp, rotation.x, glm::vec3(1, 0, 0));
     mvp = glm::rotate(mvp, rotation.y, glm::vec3(0, 1, 0));
     mvp = glm::rotate(mvp, rotation.z, glm::vec3(0, 0, 1));
+    return mvp;
+}
 
-
-    glUniformMatrix4fv(mvp_location, 1, false, glm::value_ptr(mvp));
-    glUniform3fv(color_location, 1, glm::value_ptr(color));
-
-    mesh->draw();
+Mesh *Model::getMesh() const {
+    return mesh;
 }
