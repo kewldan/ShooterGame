@@ -3,7 +3,6 @@
 #define SHADER_PART_VERTEX 1
 #define SHADER_PART_FRAGMENT 2
 #define SHADER_PART_GEOMETRY 4
-#define SHADER_PART_COMPUTE 8
 
 Shader::Shader(const std::string &filename) {
     usingNow = false;
@@ -13,7 +12,6 @@ Shader::Shader(const std::string &filename) {
 
     uniforms = new std::map<std::string, int>;
 
-#ifndef NDEBUG
     std::string path = "./data/shaders/" + filename + ".vert";
     if (std::filesystem::exists(path)) {
         std::ifstream in(path);
@@ -101,48 +99,7 @@ Shader::Shader(const std::string &filename) {
               << ((shaderParts & SHADER_PART_VERTEX) != 0 ? 'V' : '\0')
               << ((shaderParts & SHADER_PART_FRAGMENT) != 0 ? 'F' : '\0')
               << ((shaderParts & SHADER_PART_GEOMETRY) != 0 ? 'G' : '\0')
-              << ((shaderParts & SHADER_PART_COMPUTE) != 0 ? 'C' : '\0')
               << ']';
-
-    GLint length = 0;
-    glGetProgramiv(program, GL_PROGRAM_BINARY_LENGTH, &length);
-
-    std::vector<GLubyte> buffer(length);
-    GLenum format = 0;
-    glGetProgramBinary(program, length, nullptr, &format, buffer.data());
-
-    std::string fName("./data/shaders/" + filename + ".bin");
-    std::ofstream out(fName.c_str(), std::ios::binary);
-    out.write(reinterpret_cast<char *>(buffer.data()), length);
-    out.close();
-
-    PLOG_INFO << "Shader cache created [" << format << ']';
-#else
-    std::string path = "./data/shaders/" + filename + ".bin";
-    if (std::filesystem::exists(path)) {
-        std::ifstream infile(path, std::ios_base::binary);
-        std::vector<char> buffer((std::istreambuf_iterator<char>(infile)),
-                                 std::istreambuf_iterator<char>());
-        glProgramBinary(program, 36385, &buffer[0], (int) buffer.size());
-
-        int length = 0;
-        glGetProgramiv(program, GL_INFO_LOG_LENGTH, &length);
-        if (length > 0) {
-            char log[length];
-            glGetProgramInfoLog(program, length, nullptr, log);
-            PLOG_WARNING << "Program " << filename << " log:\n" << std::string(log);
-        }
-
-        int success = 0;
-        glGetProgramiv(program, GL_VALIDATE_STATUS, &success);
-        if (success == GL_FALSE) {
-            PLOG_ERROR << "Program " << filename << " not validated!";
-        } else {
-            PLOG_INFO << filename << " used cache";
-            return;
-        }
-    }
-#endif
 }
 
 GLuint Shader::getProgramId() const {

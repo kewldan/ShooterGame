@@ -17,7 +17,7 @@ int main() {
     auto *shader = new Shader("main");
 
     auto *sniperRifle = new Model("./data/meshes/sniper.obj");
-    sniperRifle->scale *= 0.2f;
+    sniperRifle->scale *= 2.f;
     auto *monkey = new Model("./data/meshes/monkey.obj");
     monkey->color = {214, 58, 56};
     monkey->color /= 255.f;

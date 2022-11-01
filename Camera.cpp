@@ -47,20 +47,20 @@ void Camera::pollEvents(Window *window) {
     }
 
     if (window->isKeyPressed(GLFW_KEY_W)) {
-        position.x -= std::cos(rotation.y + 1.57f) * 0.03f;
-        position.y -= std::sin(rotation.x) * 0.03f;
-        position.z -= std::sin(rotation.y + 1.57f) * 0.03f;
+        position.x -= std::cos(rotation.y + 1.57f) * 0.1f * window->getTimeScale();
+        position.y -= std::sin(rotation.x) * 0.1f * window->getTimeScale();
+        position.z -= std::sin(rotation.y + 1.57f) * 0.1f * window->getTimeScale();
     } else if (window->isKeyPressed(GLFW_KEY_S)) {
-        position.x += std::cos(rotation.y + 1.57f) * 0.03f;
-        position.y += std::sin(rotation.x) * 0.03f;
-        position.z += std::sin(rotation.y + 1.57f) * 0.03f;
+        position.x += std::cos(rotation.y + 1.57f) * 0.1f * window->getTimeScale();
+        position.y += std::sin(rotation.x) * 0.03f * window->getTimeScale();
+        position.z += std::sin(rotation.y + 1.57f) * 0.1f * window->getTimeScale();
     }
 
     if (window->isKeyPressed(GLFW_KEY_A)) {
-        position.x -= std::cos(rotation.y) * 0.03f;
-        position.z -= std::sin(rotation.y) * 0.03f;
+        position.x -= std::cos(rotation.y) * 0.1f * window->getTimeScale();
+        position.z -= std::sin(rotation.y) * 0.1f * window->getTimeScale();
     } else if (window->isKeyPressed(GLFW_KEY_D)) {
-        position.x += std::cos(rotation.y) * 0.03f;
-        position.z += std::sin(rotation.y) * 0.03f;
+        position.x += std::cos(rotation.y) * 0.1f * window->getTimeScale();
+        position.z += std::sin(rotation.y) * 0.1f * window->getTimeScale();
     }
 }

@@ -25,7 +25,7 @@ class Window {
 
     unsigned long lastFps;
     int fps, fpsCounter;
-    bool debugTitle = true;
+    float timeScale;
 
     static unsigned long millis();
 
@@ -67,6 +67,10 @@ public:
     int *getHeightPtr();
 
     float *getRatioPtr();
+
+    int getFps() const;
+
+    float getTimeScale() const;
 };
 
 

@@ -89,9 +89,10 @@ bool Window::update() {
         lastFps = millis();
     }
 
-    if (debugTitle) {
-        glfwSetWindowTitle(window, (std::string("FPS: ") + std::to_string(fps)).c_str());
-    }
+    timeScale = 60.f / (float) fps;
+#ifndef NDEBUG
+    glfwSetWindowTitle(window, (std::string("FPS: ") + std::to_string(fps)).c_str());
+#endif
     fpsCounter++;
 
     return !glfwWindowShouldClose(window);
@@ -148,4 +149,12 @@ void Window::getCursorPosition(int *x, int *y) {
 
 bool Window::isKeyPressed(int key) {
     return glfwGetKey(window, key) == 1;
+}
+
+int Window::getFps() const {
+    return fps;
+}
+
+float Window::getTimeScale() const {
+    return timeScale;
 }
