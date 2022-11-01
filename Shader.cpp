@@ -153,7 +153,7 @@ GLuint Shader::getProgramId() const {
 GLint Shader::getAttribLocation(const char *name) const {
     GLint value = glGetAttribLocation(program, name);
     if (value == -1) {
-        PLOG_ERROR << "Attrib location in shader not found > " << name;
+        PLOG_ERROR << "Attrib location in shader [" << filename << "] not found > " << name;
     }
     return value;
 }
@@ -161,7 +161,7 @@ GLint Shader::getAttribLocation(const char *name) const {
 GLint Shader::getUniformLocation(const char *name) const {
     GLint value = glGetUniformLocation(program, name);
     if (value == -1) {
-        PLOG_ERROR << "Uniform location in shader not found > " << name;
+        PLOG_ERROR << "Uniform location in shader [" << filename << "] not found > " << name;
     }
     return value;
 }

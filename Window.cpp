@@ -41,6 +41,7 @@ Window::Window(int w, int h, const char *title) {
 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
+    glClearColor(52 / 255.f, 168 / 255.f, 235 / 255.f, 1.f);
 }
 
 void Window::setVsync(bool value) {
@@ -67,11 +68,6 @@ GLFWwindow *Window::getId() {
     return window;
 }
 
-void Window::end() {
-    glfwSwapBuffers(window);
-    glfwPollEvents();
-}
-
 void Window::destroy() {
     PLOG_DEBUG << "Window destroyed";
     glfwDestroyWindow(window);
@@ -81,6 +77,9 @@ void Window::destroy() {
 bool Window::glfwInitialized = false;
 
 bool Window::update() {
+    glfwSwapBuffers(window);
+    glfwPollEvents();
+
     glfwGetFramebufferSize(window, &width, &height);
     ratio = (float) width / (float) height;
 
@@ -88,8 +87,6 @@ bool Window::update() {
     ortho = glm::ortho(0, width, height, 0);
 
     glViewport(0, 0, width, height);
-    glClearColor(52 / 255.f, 168 / 255.f, 235 / 255.f, 1.f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     return !glfwWindowShouldClose(window);
 }
 

@@ -43,8 +43,6 @@ public:
 
     glm::mat4 *getProj();
 
-    void end();
-
     void destroy();
 
     int getWidth() const;
