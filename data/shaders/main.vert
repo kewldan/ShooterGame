@@ -6,6 +6,7 @@ layout(location = 2) in vec3 vNormal;
 
 out Vertex {
     vec3 normal;
+    vec2 texCoord;
     vec3 position;
 } vertex;
 
@@ -25,5 +26,6 @@ void main()
     gl_Position = proj * camera.transform * mvPos;
 
     vertex.normal = vNormal;
+    vertex.texCoord = vTexCoord;
     vertex.position = mvPos.xyz;
 }

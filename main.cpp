@@ -6,6 +6,7 @@
 #include "plog/Initializers/RollingFileInitializer.h"
 #include "Model.h"
 #include "Camera.h"
+#include "Texture.h"
 
 int main() {
     std::remove("latest.log");
@@ -26,6 +27,8 @@ int main() {
     floor->scale *= 500;
     floor->color *= 0.2f;
 
+    auto *sniperTexture = new Texture("./data/textures/sniper.png");
+
     auto *camera = new Camera(window->getWidthPtr(), window->getHeightPtr(), window->getRatioPtr());
     while (window->update()) {
         camera->pollEvents(window);
@@ -37,15 +40,24 @@ int main() {
         monkey->rotation.y = (float) glfwGetTime();
 
         shader->bind();
+
         shader->upload("proj", camera->getPerspective());
 
         shader->upload("camera.transform", camera->getView());
         shader->upload("camera.position", camera->position);
+        shader->upload("hasTexture", 1);
+        shader->upload("aTexture", 0);
 
+        glActiveTexture(GL_TEXTURE0);
+        sniperTexture->bind();
         shader->draw(sniperRifle);
+        Texture::unbind();
+
+        shader->upload("hasTexture", 0);
         shader->draw(floor);
         shader->draw(monkey);
         shader->unbind();
+
     }
 
     window->destroy();

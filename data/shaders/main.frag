@@ -2,6 +2,7 @@
 
 in Vertex {
     vec3 normal;
+    vec2 texCoord;
     vec3 position;
 } vertex;
 
@@ -17,6 +18,9 @@ uniform struct Camera
     mat4 transform;
 } camera;
 
+uniform sampler2D aTexture;
+uniform int hasTexture = 0;
+
 out vec4 fragColor;
 
 void main()
@@ -25,5 +29,9 @@ void main()
     float to_dot_light = (dot(vertex.normal, to_light_source) + 1) * 0.5f;
     float diffuseFactor = to_dot_light + 0.2;
 
-    fragColor = vec4(material.color * diffuseFactor, 1);
+    if (hasTexture == 0){
+        fragColor = vec4(material.color * diffuseFactor, 1);
+    } else {
+        fragColor = vec4(material.color * diffuseFactor * texture(aTexture, vertex.texCoord).xyz, 1);
+    }
 }
