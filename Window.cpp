@@ -37,7 +37,9 @@ Window::Window(int w, int h, const char *title) {
     }
 
     glEnable(GL_DEPTH_TEST);
+#ifdef NGEBUG
     glEnable(GL_CULL_FACE);
+#endif
 }
 
 void Window::setVsync(bool value) {

@@ -12,8 +12,6 @@ public:
     Texture(const char *filename);
 
     void bind() const;
-
-    static void unbind();
 };
 
 

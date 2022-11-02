@@ -32,6 +32,6 @@ void main()
     if (hasTexture == 0){
         fragColor = vec4(material.color * diffuseFactor, 1);
     } else {
-        fragColor = vec4(material.color * diffuseFactor * texture(aTexture, vertex.texCoord).xyz, 1);
+        fragColor = vec4(material.color * diffuseFactor * texture(aTexture, vec2(vertex.texCoord.x, 1 - vertex.texCoord.y)).xyz, 1);
     }
 }

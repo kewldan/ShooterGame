@@ -10,10 +10,11 @@ class Camera {
     int *width;
     int *height;
     float *ratio;
-    int hFov = 90;
+    int hFov = 70;
 public:
     glm::vec3 position;
     glm::vec2 rotation;
+    float yVelocity = 0;
 
     Camera(int *widthPtr, int *heightPtr, float *ratioPtr);
 
@@ -24,6 +25,8 @@ public:
     const glm::mat4 &getOrthographic();
 
     const glm::mat4 &getPerspective();
+
+    bool freeCamera = true;
 };
 
 

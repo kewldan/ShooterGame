@@ -22,14 +22,8 @@ Texture::Texture(const char *filename) {
         PLOG_ERROR << "Failed to load texture [" << filename << "]";
     }
     stbi_image_free(data);
-
-    unbind();
 }
 
 void Texture::bind() const {
     glBindTexture(GL_TEXTURE_2D, texture);
-}
-
-void Texture::unbind() {
-    glBindTexture(GL_TEXTURE_2D, 0);
 }

@@ -37,6 +37,7 @@ Model::Model(std::string filename) {
     position = glm::vec3(0);
     rotation = glm::vec3(0);
     color = glm::vec3(1);
+    velocity = glm::vec3(0);
 }
 
 glm::mat4 Model::getMVP() {
@@ -51,4 +52,14 @@ glm::mat4 Model::getMVP() {
 
 Mesh *Model::getMesh() const {
     return mesh;
+}
+
+void Model::update() {
+    velocity.y -= 0.01f;
+    float i = position.y;
+    position += velocity;
+    position.y = std::max(-5.5f, position.y);
+    if (i != position.y) {
+        velocity.y = 0.f;
+    }
 }
