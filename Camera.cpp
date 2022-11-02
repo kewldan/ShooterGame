@@ -40,7 +40,7 @@ void Camera::pollEvents(Window *window) {
         int px = window->getWidth() / 2 - x;
         int py = window->getHeight() / 2 - y;
         rotation.x -= (float) py * 0.001f;
-        rotation.x = std::max(-1.4f, std::min(rotation.x, 1.4f));
+        rotation.x = std::max(-1.5f, std::min(rotation.x, 1.5f));
         rotation.y -= (float) px * 0.001f;
         window->hideCursor();
     } else {
@@ -48,37 +48,40 @@ void Camera::pollEvents(Window *window) {
     }
 
     if (window->isKeyPressed(GLFW_KEY_W)) {
-        position.x -= std::cos(rotation.y + 1.57f) * 0.1f * window->getTimeScale();
+        position.x -= std::cos(rotation.y + 1.57f) * 5.f * window->getTimeScale();
         if (freeCamera) {
-            position.y -= std::sin(rotation.x) * 0.1f * window->getTimeScale();
+            position.y -= std::sin(rotation.x) * 5.f * window->getTimeScale();
         }
-        position.z -= std::sin(rotation.y + 1.57f) * 0.1f * window->getTimeScale();
+        position.z -= std::sin(rotation.y + 1.57f) * 5.f * window->getTimeScale();
     } else if (window->isKeyPressed(GLFW_KEY_S)) {
-        position.x += std::cos(rotation.y + 1.57f) * 0.1f * window->getTimeScale();
+        position.x += std::cos(rotation.y + 1.57f) * 5.f * window->getTimeScale();
         if (freeCamera) {
-            position.y += std::sin(rotation.x) * 0.03f * window->getTimeScale();
+            position.y += std::sin(rotation.x) * 5.f * window->getTimeScale();
         }
-        position.z += std::sin(rotation.y + 1.57f) * 0.1f * window->getTimeScale();
+        position.z += std::sin(rotation.y + 1.57f) * 5.f * window->getTimeScale();
     }
 
     if (window->isKeyPressed(GLFW_KEY_A)) {
-        position.x -= std::cos(rotation.y) * 0.1f * window->getTimeScale();
-        position.z -= std::sin(rotation.y) * 0.1f * window->getTimeScale();
+        position.x -= std::cos(rotation.y) * 5.f * window->getTimeScale();
+        position.z -= std::sin(rotation.y) * 5.f * window->getTimeScale();
     } else if (window->isKeyPressed(GLFW_KEY_D)) {
-        position.x += std::cos(rotation.y) * 0.1f * window->getTimeScale();
-        position.z += std::sin(rotation.y) * 0.1f * window->getTimeScale();
+        position.x += std::cos(rotation.y) * 5.f * window->getTimeScale();
+        position.z += std::sin(rotation.y) * 5.f * window->getTimeScale();
     }
 
     if (!freeCamera) {
-        yVelocity -= 0.01f;
-        position.y += yVelocity;
-        float i = position.y;
-        position.y = std::max(-4.5f, position.y);
-        if (i != position.y) {
+        if (position.y == -4.5f) {
             yVelocity = 0.f;
+            if (window->isKeyPressed(GLFW_KEY_SPACE)) {
+                yVelocity = 5.f;
+            }
+        } else {
+            yVelocity -= 9.8f * window->getTimeScale();
         }
+        position.y += yVelocity * window->getTimeScale();
 
         position.x = std::min(30.f, std::max(position.x, -30.f));
+        position.y = std::min(100.f, std::max(position.y, -4.5f));
         position.z = std::min(30.f, std::max(position.z, -30.f));
     }
 }

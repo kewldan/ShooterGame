@@ -179,6 +179,5 @@ void Shader::upload(const char *name, glm::mat4 value) const {
 
 void Shader::draw(Model *model) const {
     upload("mvp", model->getMVP());
-    upload("material.color", model->color);
     model->getMesh()->draw();
 }

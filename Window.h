@@ -24,7 +24,7 @@ class Window {
     float ratio;
 
     unsigned long lastFps;
-    int fps, fpsCounter;
+    int fps;
     float timeScale;
 
     static unsigned long millis();
@@ -54,7 +54,9 @@ public:
 
     bool isKeyPressed(int key);
 
-    [[nodiscard]] float getRatio() const;
+    static void debugDraw(bool value);
+
+    float getRatio() const;
 
     void destroy();
 

@@ -43,10 +43,10 @@ Model::Model(std::string filename) {
 glm::mat4 Model::getMVP() {
     mvp = glm::mat4(1.0f);
     mvp = glm::translate(mvp, position);
-    mvp = glm::scale(mvp, scale);
     mvp = glm::rotate(mvp, rotation.x, glm::vec3(1, 0, 0));
     mvp = glm::rotate(mvp, rotation.y, glm::vec3(0, 1, 0));
     mvp = glm::rotate(mvp, rotation.z, glm::vec3(0, 0, 1));
+    mvp = glm::scale(mvp, scale);
     return mvp;
 }
 
@@ -55,11 +55,14 @@ Mesh *Model::getMesh() const {
 }
 
 void Model::update() {
-    velocity.y -= 0.01f;
-    float i = position.y;
-    position += velocity;
-    position.y = std::max(-5.5f, position.y);
-    if (i != position.y) {
+    if (position.y == -5.5f) {
         velocity.y = 0.f;
+    } else {
+        velocity.y -= 9.8f;
     }
+    position += velocity;
+
+    position.x = std::min(30.f, std::max(position.x, -30.f));
+    position.y = std::min(100.f, std::max(position.y, -5.5f));
+    position.z = std::min(30.f, std::max(position.z, -30.f));
 }

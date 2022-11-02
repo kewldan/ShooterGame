@@ -17,6 +17,8 @@ Window::Window(int w, int h, const char *title) {
     width = w;
     height = h;
     ratio = 1;
+    fps = 60;
+    timeScale = 0.016f;
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
@@ -37,9 +39,7 @@ Window::Window(int w, int h, const char *title) {
     }
 
     glEnable(GL_DEPTH_TEST);
-#ifdef NGEBUG
     glEnable(GL_CULL_FACE);
-#endif
 }
 
 void Window::setVsync(bool value) {
@@ -85,18 +85,10 @@ bool Window::update() {
     glClearColor(52 / 255.f, 168 / 255.f, 235 / 255.f, 1.f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    if (millis() - lastFps > 1000) {
-        fps = fpsCounter;
-        fpsCounter = 0;
-        lastFps = millis();
-    }
+    timeScale = (float) (millis() - lastFps) * 0.001f;
+    lastFps = millis();
 
-    timeScale = 60.f / (float) fps;
-#ifndef NDEBUG
-    glfwSetWindowTitle(window, (std::string("FPS: ") + std::to_string(fps)).c_str());
-#endif
-    fpsCounter++;
-
+    fps = (int) (1.f / timeScale);
     return !glfwWindowShouldClose(window);
 }
 
@@ -159,4 +151,8 @@ int Window::getFps() const {
 
 float Window::getTimeScale() const {
     return timeScale;
+}
+
+void Window::debugDraw(bool value) {
+    glPolygonMode(GL_FRONT_AND_BACK, value ? GL_LINE : GL_FILL);
 }

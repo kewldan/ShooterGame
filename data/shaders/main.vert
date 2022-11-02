@@ -8,6 +8,7 @@ out Vertex {
     vec3 normal;
     vec2 texCoord;
     vec3 position;
+    vec4 posLightSpace;
 } vertex;
 
 uniform struct Camera
@@ -17,7 +18,7 @@ uniform struct Camera
     mat4 transform;
 } camera;
 
-uniform mat4 mvp, proj;
+uniform mat4 mvp, proj, lightSpaceMatrix;
 
 void main()
 {
@@ -25,7 +26,8 @@ void main()
 
     gl_Position = proj * camera.transform * mvPos;
 
-    vertex.normal = vNormal;
+    vertex.normal = transpose(inverse(mat3(mvp))) * vNormal;
     vertex.texCoord = vTexCoord;
     vertex.position = mvPos.xyz;
+    vertex.posLightSpace = lightSpaceMatrix * mvPos;
 }
