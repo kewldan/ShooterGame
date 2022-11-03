@@ -40,6 +40,8 @@ Window::Window(int w, int h, const char *title) {
 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
+
+    glClearColor(52 / 255.f, 168 / 255.f, 235 / 255.f, 1.f);
 }
 
 void Window::setVsync(bool value) {
@@ -80,10 +82,6 @@ bool Window::update() {
 
     glfwGetFramebufferSize(window, &width, &height);
     ratio = (float) width / (float) height;
-
-    glViewport(0, 0, width, height);
-    glClearColor(52 / 255.f, 168 / 255.f, 235 / 255.f, 1.f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     timeScale = (float) (millis() - lastFps) * 0.001f;
     lastFps = millis();
@@ -155,4 +153,9 @@ float Window::getTimeScale() const {
 
 void Window::debugDraw(bool value) {
     glPolygonMode(GL_FRONT_AND_BACK, value ? GL_LINE : GL_FILL);
+}
+
+void Window::reset() const {
+    glViewport(0, 0, width, height);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }

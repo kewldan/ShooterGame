@@ -15,7 +15,7 @@ public:
 
     glm::mat4 getMVP();
 
-    void update();
+    void update(float timeScale);
 
     Mesh *getMesh() const;
 };

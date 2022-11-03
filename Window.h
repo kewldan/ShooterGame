@@ -40,6 +40,8 @@ public:
 
     [[nodiscard]] bool getVsync() const;
 
+    void reset() const;
+
     GLFWwindow *getId();
 
     bool update();

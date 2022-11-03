@@ -17,7 +17,6 @@ class Shader {
     std::map<std::string, int> *uniforms;
     int8_t shaderParts;
     std::string filename;
-    bool usingNow;
 
     int getUniformLocation(const char *name) const;
 
@@ -38,9 +37,15 @@ public:
 
     void upload(const char *name, glm::vec2 value) const;
 
+    void upload(const char *name, float x, float y) const;
+
     void upload(const char *name, glm::vec3 value) const;
 
+    void upload(const char *name, float x, float y, float z) const;
+
     void upload(const char *name, glm::vec4 value) const;
+
+    void upload(const char *name, float x, float y, float z, float w) const;
 
     void upload(const char *name, glm::mat4 value) const;
 

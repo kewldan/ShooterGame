@@ -8,5 +8,6 @@ uniform mat4 mvp;
 
 void main()
 {
-    gl_Position = lightSpaceMatrix * mvp * vec4(vPos, 1.0);
+    vec4 pos = mvp * vec4(vPos, 1.0);
+    gl_Position = lightSpaceMatrix * pos;
 }

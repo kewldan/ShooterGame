@@ -54,13 +54,15 @@ Mesh *Model::getMesh() const {
     return mesh;
 }
 
-void Model::update() {
-    if (position.y == -5.5f) {
+void Model::update(float timeScale) {
+    position += velocity * timeScale;
+    if (position.y <= -5.4f) {
         velocity.y = 0.f;
+        velocity.x *= 0.95f;
+        velocity.z *= 0.95f;
     } else {
-        velocity.y -= 9.8f;
+        velocity.y -= 9.8f * timeScale;
     }
-    position += velocity;
 
     position.x = std::min(30.f, std::max(position.x, -30.f));
     position.y = std::min(100.f, std::max(position.y, -5.5f));

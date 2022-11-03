@@ -15,6 +15,7 @@ public:
     glm::vec3 position;
     glm::vec2 rotation;
     float yVelocity = 0;
+    float speed = 1;
 
     Camera(int *widthPtr, int *heightPtr, float *ratioPtr);
 

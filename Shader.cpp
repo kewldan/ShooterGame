@@ -5,7 +5,6 @@
 #define SHADER_PART_GEOMETRY 4
 
 Shader::Shader(const std::string &filename) {
-    usingNow = false;
     this->filename = filename;
     shaderParts = 0;
     program = glCreateProgram();
@@ -127,17 +126,11 @@ GLint Shader::getUniformLocation(const char *name) const {
 }
 
 void Shader::bind() {
-    if (!usingNow) {
-        glUseProgram(program);
-    }
-    usingNow = true;
+    glUseProgram(program);
 }
 
 void Shader::unbind() {
-    if (usingNow) {
-        glUseProgram(0);
-    }
-    usingNow = false;
+    glUseProgram(0);
 }
 
 void Shader::destroy() const {
@@ -180,4 +173,16 @@ void Shader::upload(const char *name, glm::mat4 value) const {
 void Shader::draw(Model *model) const {
     upload("mvp", model->getMVP());
     model->getMesh()->draw();
+}
+
+void Shader::upload(const char *name, float x, float y) const {
+    glUniform2f(getUniformLocation(name), x, y);
+}
+
+void Shader::upload(const char *name, float x, float y, float z) const {
+    glUniform3f(getUniformLocation(name), x, y, z);
+}
+
+void Shader::upload(const char *name, float x, float y, float z, float w) const {
+    glUniform4f(getUniformLocation(name), x, y, z, w);
 }

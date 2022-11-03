@@ -11,9 +11,30 @@ include_directories(${PROJECT_SOURCE_DIR}/libraries/plog/include)
 include_directories(${PROJECT_SOURCE_DIR}/libraries/glfw/include)
 include_directories(${PROJECT_SOURCE_DIR}/libraries/loader/include)
 include_directories(${PROJECT_SOURCE_DIR}/libraries/glm)
+include_directories(${PROJECT_SOURCE_DIR}/imgui)
 
 link_directories(${PROJECT_SOURCE_DIR}/libraries/glfw/lib-mingw-w64)
 
-add_executable(ShooterGame libraries/glad/src/gl.c main.cpp Shader.cpp Shader.h Window.cpp Window.h Mesh.cpp Mesh.h Model.cpp Model.h Camera.cpp Camera.h Texture.cpp Texture.h)
+add_executable(ShooterGame
+        libraries/glad/src/gl.c
+        main.cpp
+        Shader.cpp Shader.h
+        Window.cpp Window.h
+        Mesh.cpp Mesh.h
+        Model.cpp Model.h
+        Camera.cpp Camera.h
+        Texture.cpp Texture.h
+        ShadowsCaster.cpp ShadowsCaster.h
+
+        imgui/imconfig.h
+        imgui/imgui_draw.cpp
+        imgui/imgui_demo.cpp
+        imgui/imgui_internal.h
+        imgui/imgui_tables.cpp
+        imgui/imgui_widgets.cpp
+        imgui/backends/imgui_impl_glfw.cpp imgui/backends/imgui_impl_glfw.h
+        imgui/backends/imgui_impl_opengl3.cpp imgui/backends/imgui_impl_opengl3.h
+        imgui/imgui.cpp imgui/imgui.h
+        HUD.cpp HUD.h Profiler.cpp Profiler.h)
 
 target_link_libraries(ShooterGame glfw3 opengl32 gdi32)

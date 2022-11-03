@@ -48,29 +48,29 @@ void Camera::pollEvents(Window *window) {
     }
 
     if (window->isKeyPressed(GLFW_KEY_W)) {
-        position.x -= std::cos(rotation.y + 1.57f) * 5.f * window->getTimeScale();
+        position.x -= std::cos(rotation.y + 1.57f) * 5.f * window->getTimeScale() * speed;
         if (freeCamera) {
-            position.y -= std::sin(rotation.x) * 5.f * window->getTimeScale();
+            position.y -= std::sin(rotation.x) * 5.f * window->getTimeScale() * speed;
         }
-        position.z -= std::sin(rotation.y + 1.57f) * 5.f * window->getTimeScale();
+        position.z -= std::sin(rotation.y + 1.57f) * 5.f * window->getTimeScale() * speed;
     } else if (window->isKeyPressed(GLFW_KEY_S)) {
-        position.x += std::cos(rotation.y + 1.57f) * 5.f * window->getTimeScale();
+        position.x += std::cos(rotation.y + 1.57f) * 5.f * window->getTimeScale() * speed;
         if (freeCamera) {
-            position.y += std::sin(rotation.x) * 5.f * window->getTimeScale();
+            position.y += std::sin(rotation.x) * 5.f * window->getTimeScale() * speed;
         }
-        position.z += std::sin(rotation.y + 1.57f) * 5.f * window->getTimeScale();
+        position.z += std::sin(rotation.y + 1.57f) * 5.f * window->getTimeScale() * speed;
     }
 
     if (window->isKeyPressed(GLFW_KEY_A)) {
-        position.x -= std::cos(rotation.y) * 5.f * window->getTimeScale();
-        position.z -= std::sin(rotation.y) * 5.f * window->getTimeScale();
+        position.x -= std::cos(rotation.y) * 5.f * window->getTimeScale() * speed;
+        position.z -= std::sin(rotation.y) * 5.f * window->getTimeScale() * speed;
     } else if (window->isKeyPressed(GLFW_KEY_D)) {
-        position.x += std::cos(rotation.y) * 5.f * window->getTimeScale();
-        position.z += std::sin(rotation.y) * 5.f * window->getTimeScale();
+        position.x += std::cos(rotation.y) * 5.f * window->getTimeScale() * speed;
+        position.z += std::sin(rotation.y) * 5.f * window->getTimeScale() * speed;
     }
 
     if (!freeCamera) {
-        if (position.y == -4.5f) {
+        if (position.y <= -4.5f) {
             yVelocity = 0.f;
             if (window->isKeyPressed(GLFW_KEY_SPACE)) {
                 yVelocity = 5.f;
