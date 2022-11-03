@@ -42,7 +42,7 @@ int main() {
     profiler->endBlock();
 
     while (window->update()) {
-        static bool debugWindow, vsync = true, sort_invert = false, freeze = false;
+        static bool debugWindow, vsync = true, sort_invert = false, freeze = false, menuWindow = true;
 
         profiler->startBlock("Update");
         camera->pollEvents(window);
@@ -94,8 +94,10 @@ int main() {
             shader->draw(sniperRifle);
             mapTexture->bind();
             shader->draw(map);
-            shader->upload("hasTexture", 0);
-            shader->draw(player);
+            if(camera->freeCamera) {
+                shader->upload("hasTexture", 0);
+                shader->draw(player);
+            }
             shader->unbind();
         }
         profiler->endBlock();
@@ -106,7 +108,7 @@ int main() {
             static const char *items[] = {"Average", "All time", "Iterations"};
             static int item_current = 0;
 
-            ImGui::SetNextWindowPos(ImVec2(10, 120), ImGuiCond_Once);
+            ImGui::SetNextWindowPos(ImVec2(10, 170), ImGuiCond_Once);
 
             if (ImGui::Begin("Debug", &debugWindow, ImGuiWindowFlags_AlwaysAutoResize)) {
                 if (ImGui::CollapsingHeader("Configuration")) {
@@ -152,7 +154,7 @@ int main() {
                     });
 
                     if (ImGui::TreeNode("Called many times")) {
-                        if (ImGui::Button("Reset all")) {
+                        if (ImGui::Button("Reset")) {
                             for (const auto &kv: others) {
                                 profiler->blocks.erase(kv.first);
                             }
@@ -168,10 +170,6 @@ int main() {
                                             (float) kv.second.allTime / (float) kv.second.iterations);
                                 ImGui::Text("CPU time: %d ms", kv.second.allTime);
                                 ImGui::Text("Iterations: %d", kv.second.iterations);
-                                ImGui::SameLine();
-                                if (ImGui::Button("Reset")) {
-                                    profiler->blocks.erase(kv.first);
-                                }
                                 ImGui::TreePop();
                                 ImGui::Separator();
                             }
@@ -179,26 +177,81 @@ int main() {
                         ImGui::TreePop();
                     }
                 }
+            }
+            ImGui::End();
+
+            ImGui::SetNextWindowPos(ImVec2(300, 10), ImGuiCond_Once);
+
+            if (ImGui::Begin("Menu", &menuWindow, ImGuiWindowFlags_AlwaysAutoResize)) {
+                static char *nickname = new char[64];
+                static char *ip = new char[16];
+                nickname = (char *) "Player";
+                ip = (char *) "255.255.255.255";
+
+                ImGui::InputText("Nickname", nickname, 64, ImGuiInputTextFlags_NoHorizontalScroll);
+                ImGui::Separator();
+                ImGui::Spacing();
+
+                ImGui::InputText("IP", ip, 16, ImGuiInputTextFlags_NoHorizontalScroll);
+                if (ImGui::Button("Connect")) {
+
+                }
+                ImGui::Separator();
+                ImGui::Spacing();
+
+                if (ImGui::Button("Host")) {
+
+                }
+            }
+            ImGui::End();
+
+            {
+                ImGuiIO &io = ImGui::GetIO();
+                ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_Once);
+                ImGui::SetNextWindowBgAlpha(0.35f);
+                if (ImGui::Begin("Debug overlay", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
+                                                     ImGuiWindowFlags_NoSavedSettings |
+                                                     ImGuiWindowFlags_NoFocusOnAppearing |
+                                                     ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove)) {
+                    ImGui::Text("Physics: %s", freeze ? "off" : "on");
+                    ImGui::Text("Screen: %dx%d", window->getWidth(), window->getHeight());
+                    ImGui::Text("FPS: %.2f", ImGui::GetIO().Framerate);
+                    ImGui::Text("Position: X: %.2f, Y: %.2f, Z: %.2f", camera->position.x, camera->position.y,
+                                camera->position.z);
+                    ImGui::Text("Rotation: X: %.2f, Y: %.2f", camera->rotation.x, camera->rotation.y);
+                    ImGui::Separator();
+                    ImGui::Spacing();
+                    ImGui::Text("Network: %s", "nothing");
+                }
+                ImGui::End();
+
+                const float PAD = 20.0f;
+                const ImGuiViewport *viewport = ImGui::GetMainViewport();
+                ImVec2 work_pos = viewport->WorkPos; // Use work area to avoid menu-bar/task-bar, if any!
+                ImVec2 work_size = viewport->WorkSize;
+                ImVec2 window_pos, window_pos_pivot;
+                window_pos.x = work_pos.x + work_size.x - PAD;
+                window_pos.y = work_pos.y + work_size.y - PAD;
+                window_pos_pivot.x = 1;
+                window_pos_pivot.y = 1;
+                ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
+                ImGui::SetNextWindowBgAlpha(0.35f);
+
+                if (ImGui::Begin("Info overlay", nullptr,
+                                 ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
+                                 ImGuiWindowFlags_NoSavedSettings |
+                                 ImGuiWindowFlags_NoFocusOnAppearing |
+                                 ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove)) {
+                    ImGui::Text("Health: %d / %d", 80, 100);
+                    ImGui::Text("Have weapon:");
+                    ImGui::SameLine();
+                    ImGui::TextColored(ImVec4(1, 0, 0, 1), "no");
+                    ImGui::Text("Name: %s", "AK-47");
+                    ImGui::Text("Ammo: %d / %d", 17, 30);
+                }
                 ImGui::End();
             }
 
-            ImGuiIO &io = ImGui::GetIO();
-            ImGui::SetNextWindowPos(ImVec2(10, 10), ImGuiCond_Once);
-            ImGui::SetNextWindowBgAlpha(0.35f);
-            if (ImGui::Begin("Overlay", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
-                                                 ImGuiWindowFlags_NoSavedSettings |
-                                                 ImGuiWindowFlags_NoFocusOnAppearing |
-                                                 ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove)) {
-                ImGui::Text("Ultra graphics new shooter game");
-                ImGui::Separator();
-                ImGui::Text("Physics: %s", freeze ? "off" : "on");
-                ImGui::Text("Screen: %dx%d", window->getWidth(), window->getHeight());
-                ImGui::Text("FPS: %.2f", ImGui::GetIO().Framerate);
-                ImGui::Text("Position: X: %.2f, Y: %.2f, Z: %.2f", camera->position.x, camera->position.y,
-                            camera->position.z);
-                ImGui::Text("Rotation: X: %.2f, Y: %.2f", camera->rotation.x, camera->rotation.y);
-            }
-            ImGui::End();
 
             window->setVsync(vsync);
             camera->freeCamera = freeze;
