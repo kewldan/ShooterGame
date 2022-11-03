@@ -14,14 +14,16 @@
 // AppView
 //-----------------------------------------------------------------------------------
 
-@interface AppView : NSOpenGLView {
-    NSTimer *animationTimer;
+@interface AppView : NSOpenGLView
+{
+    NSTimer*    animationTimer;
 }
 @end
 
 @implementation AppView
 
-- (void)prepareOpenGL {
+-(void)prepareOpenGL
+{
     [super prepareOpenGL];
 
 #ifndef DEBUG
@@ -32,13 +34,13 @@
 #endif
 }
 
-- (void)initialize {
+-(void)initialize
+{
     // Setup Dear ImGui context
     // FIXME: This example doesn't have proper cleanup...
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
-    ImGuiIO &io = ImGui::GetIO();
-    (void) io;
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
     //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
     //io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 
@@ -67,7 +69,8 @@
     //IM_ASSERT(font != NULL);
 }
 
-- (void)updateAndDrawDemoView {
+-(void)updateAndDrawDemoView
+{
     // Start the Dear ImGui frame
     ImGui_ImplOpenGL2_NewFrame();
     ImGui_ImplOSX_NewFrame(self);
@@ -87,31 +90,28 @@
         static float f = 0.0f;
         static int counter = 0;
 
-        ImGui::Begin(
-                "Hello, world!");                          // Create a window called "Hello, world!" and append into it.
+        ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
 
         ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
         ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
         ImGui::Checkbox("Another Window", &show_another_window);
 
         ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-        ImGui::ColorEdit3("clear color", (float *) &clear_color); // Edit 3 floats representing a color
+        ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
 
-        if (ImGui::Button(
-                "Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
+        if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
             counter++;
         ImGui::SameLine();
         ImGui::Text("counter = %d", counter);
 
-        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
-                    ImGui::GetIO().Framerate);
+        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
         ImGui::End();
     }
 
     // 3. Show another simple window.
-    if (show_another_window) {
-        ImGui::Begin("Another Window",
-                     &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+    if (show_another_window)
+    {
+        ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
         ImGui::Text("Hello from another window!");
         if (ImGui::Button("Close Me"))
             show_another_window = false;
@@ -120,14 +120,13 @@
 
     // Rendering
     ImGui::Render();
-    ImDrawData *draw_data = ImGui::GetDrawData();
+    ImDrawData* draw_data = ImGui::GetDrawData();
 
     [[self openGLContext] makeCurrentContext];
-    GLsizei width = (GLsizei)(draw_data->DisplaySize.x * draw_data->FramebufferScale.x);
+    GLsizei width  = (GLsizei)(draw_data->DisplaySize.x * draw_data->FramebufferScale.x);
     GLsizei height = (GLsizei)(draw_data->DisplaySize.y * draw_data->FramebufferScale.y);
     glViewport(0, 0, width, height);
-    glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w,
-                 clear_color.w);
+    glClearColor(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w);
     glClear(GL_COLOR_BUFFER_BIT);
 
     ImGui_ImplOpenGL2_RenderDrawData(draw_data);
@@ -139,17 +138,10 @@
         animationTimer = [NSTimer scheduledTimerWithTimeInterval:0.017 target:self selector:@selector(animationTimerFired:) userInfo:nil repeats:YES];
 }
 
-- (void)reshape {
-    [super reshape];
-    [[self openGLContext] update];
-    [self updateAndDrawDemoView];
-}
-
-- (void)drawRect:(NSRect)bounds { [self updateAndDrawDemoView]; }
-
-- (void)animationTimerFired:(NSTimer *)timer { [self setNeedsDisplay:YES]; }
-
-- (void)dealloc { animationTimer = nil; }
+-(void)reshape                              { [super reshape]; [[self openGLContext] update]; [self updateAndDrawDemoView]; }
+-(void)drawRect:(NSRect)bounds              { [self updateAndDrawDemoView]; }
+-(void)animationTimerFired:(NSTimer*)timer  { [self setNeedsDisplay:YES]; }
+-(void)dealloc                              { animationTimer = nil; }
 
 @end
 
@@ -158,26 +150,25 @@
 //-----------------------------------------------------------------------------------
 
 @interface AppDelegate : NSObject <NSApplicationDelegate>
-@property(nonatomic, readonly) NSWindow *window;
+@property (nonatomic, readonly) NSWindow* window;
 @end
 
 @implementation AppDelegate
 @synthesize window = _window;
 
-- (BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)theApplication {
+-(BOOL)applicationShouldTerminateAfterLastWindowClosed:(NSApplication *)theApplication
+{
     return YES;
 }
 
-- (NSWindow *)window {
+-(NSWindow*)window
+{
     if (_window != nil)
         return (_window);
 
     NSRect viewRect = NSMakeRect(100.0, 100.0, 100.0 + 1280.0, 100 + 720.0);
 
-    _window = [[NSWindow alloc] initWithContentRect:viewRect styleMask:NSWindowStyleMaskTitled |
-                                                                       NSWindowStyleMaskMiniaturizable |
-                                                                       NSWindowStyleMaskResizable |
-                                                                       NSWindowStyleMaskClosable backing:NSBackingStoreBuffered defer:YES];
+    _window = [[NSWindow alloc] initWithContentRect:viewRect styleMask:NSWindowStyleMaskTitled|NSWindowStyleMaskMiniaturizable|NSWindowStyleMaskResizable|NSWindowStyleMaskClosable backing:NSBackingStoreBuffered defer:YES];
     [_window setTitle:@"Dear ImGui OSX+OpenGL2 Example"];
     [_window setAcceptsMouseMovedEvents:YES];
     [_window setOpaque:YES];
@@ -186,10 +177,11 @@
     return (_window);
 }
 
-- (void)setupMenu {
-    NSMenu *mainMenuBar = [[NSMenu alloc] init];
-    NSMenu *appMenu;
-    NSMenuItem *menuItem;
+-(void)setupMenu
+{
+    NSMenu* mainMenuBar = [[NSMenu alloc] init];
+    NSMenu* appMenu;
+    NSMenuItem* menuItem;
 
     appMenu = [[NSMenu alloc] initWithTitle:@"Dear ImGui OSX+OpenGL2 Example"];
     menuItem = [appMenu addItemWithTitle:@"Quit Dear ImGui OSX+OpenGL2 Example" action:@selector(terminate:) keyEquivalent:@"q"];
@@ -204,11 +196,13 @@
     [NSApp setMainMenu:mainMenuBar];
 }
 
-- (void)dealloc {
+-(void)dealloc
+{
     _window = nil;
 }
 
-- (void)applicationDidFinishLaunching:(NSNotification *)aNotification {
+-(void)applicationDidFinishLaunching:(NSNotification *)aNotification
+{
     // Make the application a foreground application (else it won't receive keyboard events)
     ProcessSerialNumber psn = {0, kCurrentProcess};
     TransformProcessType(&psn, kProcessTransformToForegroundApplication);
@@ -217,14 +211,14 @@
     [self setupMenu];
 
     NSOpenGLPixelFormatAttribute attrs[] =
-            {
-                    NSOpenGLPFADoubleBuffer,
-                    NSOpenGLPFADepthSize, 32,
-                    0
-            };
+    {
+        NSOpenGLPFADoubleBuffer,
+        NSOpenGLPFADepthSize, 32,
+        0
+    };
 
-    NSOpenGLPixelFormat *format = [[NSOpenGLPixelFormat alloc] initWithAttributes:attrs];
-    AppView *view = [[AppView alloc] initWithFrame:self.window.frame pixelFormat:format];
+    NSOpenGLPixelFormat* format = [[NSOpenGLPixelFormat alloc] initWithAttributes:attrs];
+    AppView* view = [[AppView alloc] initWithFrame:self.window.frame pixelFormat:format];
     format = nil;
 #if MAC_OS_X_VERSION_MAX_ALLOWED >= 1070
     if (floor(NSAppKitVersionNumber) > NSAppKitVersionNumber10_6)
@@ -244,10 +238,12 @@
 // Application main() function
 //-----------------------------------------------------------------------------------
 
-int main(int argc, const char *argv[]) {
-    @autoreleasepool {
+int main(int argc, const char* argv[])
+{
+    @autoreleasepool
+    {
         NSApp = [NSApplication sharedApplication];
-        AppDelegate *delegate = [[AppDelegate alloc] init];
+        AppDelegate* delegate = [[AppDelegate alloc] init];
         [[NSApplication sharedApplication] setDelegate:delegate];
         [NSApp run];
     }

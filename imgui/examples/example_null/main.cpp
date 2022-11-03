@@ -4,17 +4,19 @@
 #include "imgui.h"
 #include <stdio.h>
 
-int main(int, char **) {
+int main(int, char**)
+{
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
-    ImGuiIO &io = ImGui::GetIO();
+    ImGuiIO& io = ImGui::GetIO();
 
     // Build atlas
-    unsigned char *tex_pixels = NULL;
+    unsigned char* tex_pixels = NULL;
     int tex_w, tex_h;
     io.Fonts->GetTexDataAsRGBA32(&tex_pixels, &tex_w, &tex_h);
 
-    for (int n = 0; n < 20; n++) {
+    for (int n = 0; n < 20; n++)
+    {
         printf("NewFrame() %d\n", n);
         io.DisplaySize = ImVec2(1920, 1080);
         io.DeltaTime = 1.0f / 60.0f;

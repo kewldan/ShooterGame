@@ -2,7 +2,7 @@
 /cmake-build-debug/
 /cmake-build-release/
 .gitignore
-ShooterGame.exe
 *.log
-/libraries/
+*.exe
+*.log
 *.bin

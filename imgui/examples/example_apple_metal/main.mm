@@ -7,9 +7,7 @@
 #if TARGET_OS_OSX
 #import <Cocoa/Cocoa.h>
 #else
-
 #import <UIKit/UIKit.h>
-
 #endif
 
 #import <Metal/Metal.h>
@@ -17,22 +15,19 @@
 
 #include "imgui.h"
 #include "imgui_impl_metal.h"
-
 #if TARGET_OS_OSX
 #include "imgui_impl_osx.h"
 @interface AppViewController : NSViewController<NSWindowDelegate>
 @end
 #else
-
 @interface AppViewController : UIViewController
 @end
-
 #endif
 
 @interface AppViewController () <MTKViewDelegate>
-@property(nonatomic, readonly) MTKView *mtkView;
-@property(nonatomic, strong) id <MTLDevice> device;
-@property(nonatomic, strong) id <MTLCommandQueue> commandQueue;
+@property (nonatomic, readonly) MTKView *mtkView;
+@property (nonatomic, strong) id <MTLDevice> device;
+@property (nonatomic, strong) id <MTLCommandQueue> commandQueue;
 @end
 
 //-----------------------------------------------------------------------------------
@@ -41,20 +36,15 @@
 
 @implementation AppViewController
 
-- (instancetype)initWithNibName:(nullable NSString
-
-*)
-nibNameOrNil bundle
-:(
-nullable NSBundle
-*)nibBundleOrNil
+-(instancetype)initWithNibName:(nullable NSString *)nibNameOrNil bundle:(nullable NSBundle *)nibBundleOrNil
 {
     self = [super initWithNibName:nibNameOrNil bundle:nibBundleOrNil];
 
     _device = MTLCreateSystemDefaultDevice();
     _commandQueue = [_device newCommandQueue];
 
-    if (!self.device) {
+    if (!self.device)
+    {
         NSLog(@"Metal is not supported");
         abort();
     }
@@ -63,8 +53,7 @@ nullable NSBundle
     // FIXME: This example doesn't have proper cleanup...
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
-    ImGuiIO &io = ImGui::GetIO();
-    (void) io;
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
     //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
     //io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 
@@ -94,15 +83,18 @@ nullable NSBundle
     return self;
 }
 
-- (MTKView *)mtkView {
-    return (MTKView *) self.view;
+-(MTKView *)mtkView
+{
+    return (MTKView *)self.view;
 }
 
-- (void)loadView {
+-(void)loadView
+{
     self.view = [[MTKView alloc] initWithFrame:CGRectMake(0, 0, 1200, 720)];
 }
 
-- (void)viewDidLoad {
+-(void)viewDidLoad
+{
     [super viewDidLoad];
 
     self.mtkView.device = self.device;
@@ -114,8 +106,9 @@ nullable NSBundle
 #endif
 }
 
-- (void)drawInMTKView:(MTKView *)view {
-    ImGuiIO &io = ImGui::GetIO();
+-(void)drawInMTKView:(MTKView*)view
+{
+    ImGuiIO& io = ImGui::GetIO();
     io.DisplaySize.x = view.bounds.size.width;
     io.DisplaySize.y = view.bounds.size.height;
 
@@ -126,12 +119,13 @@ nullable NSBundle
 #endif
     io.DisplayFramebufferScale = ImVec2(framebufferScale, framebufferScale);
 
-    id <MTLCommandBuffer> commandBuffer = [self.commandQueue commandBuffer];
+    id<MTLCommandBuffer> commandBuffer = [self.commandQueue commandBuffer];
 
-    MTLRenderPassDescriptor *renderPassDescriptor = view.currentRenderPassDescriptor;
-    if (renderPassDescriptor == nil) {
+    MTLRenderPassDescriptor* renderPassDescriptor = view.currentRenderPassDescriptor;
+    if (renderPassDescriptor == nil)
+    {
         [commandBuffer commit];
-        return;
+		return;
     }
 
     // Start the Dear ImGui frame
@@ -155,31 +149,28 @@ nullable NSBundle
         static float f = 0.0f;
         static int counter = 0;
 
-        ImGui::Begin(
-                "Hello, world!");                          // Create a window called "Hello, world!" and append into it.
+        ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
 
         ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
         ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
         ImGui::Checkbox("Another Window", &show_another_window);
 
         ImGui::SliderFloat("float", &f, 0.0f, 1.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-        ImGui::ColorEdit3("clear color", (float *) &clear_color); // Edit 3 floats representing a color
+        ImGui::ColorEdit3("clear color", (float*)&clear_color); // Edit 3 floats representing a color
 
-        if (ImGui::Button(
-                "Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
+        if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
             counter++;
         ImGui::SameLine();
         ImGui::Text("counter = %d", counter);
 
-        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
-                    ImGui::GetIO().Framerate);
+        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
         ImGui::End();
     }
 
     // 3. Show another simple window.
-    if (show_another_window) {
-        ImGui::Begin("Another Window",
-                     &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+    if (show_another_window)
+    {
+        ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
         ImGui::Text("Hello from another window!");
         if (ImGui::Button("Close Me"))
             show_another_window = false;
@@ -188,24 +179,22 @@ nullable NSBundle
 
     // Rendering
     ImGui::Render();
-    ImDrawData *draw_data = ImGui::GetDrawData();
+    ImDrawData* draw_data = ImGui::GetDrawData();
 
-    renderPassDescriptor.colorAttachments[0].clearColor = MTLClearColorMake(clear_color.x * clear_color.w,
-                                                                            clear_color.y * clear_color.w,
-                                                                            clear_color.z * clear_color.w,
-                                                                            clear_color.w);
+    renderPassDescriptor.colorAttachments[0].clearColor = MTLClearColorMake(clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w);
     id <MTLRenderCommandEncoder> renderEncoder = [commandBuffer renderCommandEncoderWithDescriptor:renderPassDescriptor];
     [renderEncoder pushDebugGroup:@"Dear ImGui rendering"];
     ImGui_ImplMetal_RenderDrawData(draw_data, commandBuffer, renderEncoder);
     [renderEncoder popDebugGroup];
     [renderEncoder endEncoding];
 
-    // Present
+	// Present
     [commandBuffer presentDrawable:view.currentDrawable];
     [commandBuffer commit];
 }
 
-- (void)mtkView:(MTKView *)view drawableSizeWillChange:(CGSize)size {
+-(void)mtkView:(MTKView*)view drawableSizeWillChange:(CGSize)size
+{
 }
 
 //-----------------------------------------------------------------------------------
@@ -234,15 +223,18 @@ nullable NSBundle
 // multitouch correctly at all. This causes the "cursor" to behave very erratically
 // when there are multiple active touches. But for demo purposes, single-touch
 // interaction actually works surprisingly well.
-- (void)updateIOWithTouchEvent:(UIEvent *)event {
+-(void)updateIOWithTouchEvent:(UIEvent *)event
+{
     UITouch *anyTouch = event.allTouches.anyObject;
     CGPoint touchLocation = [anyTouch locationInView:self.view];
     ImGuiIO &io = ImGui::GetIO();
     io.AddMousePosEvent(touchLocation.x, touchLocation.y);
 
     BOOL hasActiveTouch = NO;
-    for (UITouch *touch in event.allTouches) {
-        if (touch.phase != UITouchPhaseEnded && touch.phase != UITouchPhaseCancelled) {
+    for (UITouch *touch in event.allTouches)
+    {
+        if (touch.phase != UITouchPhaseEnded && touch.phase != UITouchPhaseCancelled)
+        {
             hasActiveTouch = YES;
             break;
         }
@@ -250,29 +242,10 @@ nullable NSBundle
     io.AddMouseButtonEvent(0, hasActiveTouch);
 }
 
-- (void)touchesBegan:(NSSet
-
-<UITouch *> *)
-touches withEvent
-:(UIEvent *)event      { [self updateIOWithTouchEvent:event]; }
-
-- (void)touchesMoved:(NSSet
-
-<UITouch *> *)
-touches withEvent
-:(UIEvent *)event      { [self updateIOWithTouchEvent:event]; }
-
-- (void)touchesCancelled:(NSSet
-
-<UITouch *> *)
-touches withEvent
-:(UIEvent *)event  { [self updateIOWithTouchEvent:event]; }
-
-- (void)touchesEnded:(NSSet
-
-<UITouch *> *)
-touches withEvent
-:(UIEvent *)event      { [self updateIOWithTouchEvent:event]; }
+-(void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event      { [self updateIOWithTouchEvent:event]; }
+-(void)touchesMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event      { [self updateIOWithTouchEvent:event]; }
+-(void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event  { [self updateIOWithTouchEvent:event]; }
+-(void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event      { [self updateIOWithTouchEvent:event]; }
 
 #endif
 
@@ -316,13 +289,14 @@ touches withEvent
 #else
 
 @interface AppDelegate : UIResponder <UIApplicationDelegate>
-@property(strong, nonatomic) UIWindow *window;
+@property (strong, nonatomic) UIWindow *window;
 @end
 
 @implementation AppDelegate
 
-- (BOOL)          application:(UIApplication *)application
-didFinishLaunchingWithOptions:(NSDictionary <UIApplicationLaunchOptionsKey, id> *)launchOptions {
+-(BOOL)application:(UIApplication *)application
+    didFinishLaunchingWithOptions:(NSDictionary<UIApplicationLaunchOptionsKey,id> *)launchOptions
+{
     UIViewController *rootViewController = [[AppViewController alloc] init];
     self.window = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
     self.window.rootViewController = rootViewController;
@@ -347,8 +321,10 @@ int main(int argc, const char * argv[])
 
 #else
 
-int main(int argc, char *argv[]) {
-    @autoreleasepool {
+int main(int argc, char * argv[])
+{
+    @autoreleasepool
+    {
         return UIApplicationMain(argc, argv, nil, NSStringFromClass([AppDelegate class]));
     }
 }

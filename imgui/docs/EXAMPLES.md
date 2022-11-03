@@ -1,21 +1,17 @@
-_(You may browse this at https://github.com/ocornut/imgui/blob/master/docs/EXAMPLES.md or view this file with any
-Markdown viewer)_
+_(You may browse this at https://github.com/ocornut/imgui/blob/master/docs/EXAMPLES.md or view this file with any Markdown viewer)_
 
 ## Dear ImGui: Examples
 
-**The [examples/](https://github.com/ocornut/imgui/blob/master/examples) folder example applications (standalone,
-ready-to-build) for variety of
-platforms and graphics APIs.** They all use standard backends from
-the [backends/](https://github.com/ocornut/imgui/blob/master/backends) folder (
-see [BACKENDS.md](https://github.com/ocornut/imgui/blob/master/docs/BACKENDS.md)).
+**The [examples/](https://github.com/ocornut/imgui/blob/master/examples) folder example applications (standalone, ready-to-build) for variety of
+platforms and graphics APIs.** They all use standard backends from the [backends/](https://github.com/ocornut/imgui/blob/master/backends) folder (see [BACKENDS.md](https://github.com/ocornut/imgui/blob/master/docs/BACKENDS.md)).
 
 The purpose of Examples is to showcase integration with backends, let you try Dear ImGui, and guide you toward
 integrating Dear ImGui in your own application/game/engine.
-**Once Dear ImGui is setup and running, run and refer to `ImGui::ShowDemoWindow()` in imgui_demo.cpp for usage of the
-end-user API.**
+**Once Dear ImGui is setup and running, run and refer to `ImGui::ShowDemoWindow()` in imgui_demo.cpp for usage of the end-user API.**
 
 You can find Windows binaries for some of those example applications at:
-http://www.dearimgui.org/binaries
+  http://www.dearimgui.org/binaries
+
 
 ### Getting Started
 
@@ -39,9 +35,7 @@ At shutdown:
   call ImGui::DestroyContext()
 ```
 
-Example (
-using [backends/imgui_impl_win32.cpp](https://github.com/ocornut/imgui/blob/master/backends/imgui_impl_win32.cpp)
-+ [backends/imgui_impl_dx11.cpp](https://github.com/ocornut/imgui/blob/master/backends/imgui_impl_dx11.cpp)):
+Example (using [backends/imgui_impl_win32.cpp](https://github.com/ocornut/imgui/blob/master/backends/imgui_impl_win32.cpp) + [backends/imgui_impl_dx11.cpp](https://github.com/ocornut/imgui/blob/master/backends/imgui_impl_dx11.cpp)):
 
 ```cpp
 // Create a Dear ImGui context, setup some options
@@ -86,6 +80,7 @@ If you are using any of the backends provided here, you can add the backends/img
 files to your project and use as-in. Each imgui_impl_xxxx.cpp file comes with its own individual
 Changelog, so if you want to update them later it will be easier to catch up with what changed.
 
+
 ### Examples Applications
 
 [example_allegro5/](https://github.com/ocornut/imgui/blob/master/examples/example_allegro5/) <BR>
@@ -107,7 +102,7 @@ You may prefer to use the GLFW Or SDL backends, which will also support Windows 
 OSX + OpenGL2 example. <BR>
 = main.mm + imgui_impl_osx.mm + imgui_impl_opengl2.cpp <BR>
 (NB: imgui_impl_osx.mm is currently not as feature complete as other platforms backends.
-You may prefer to use the GLFW Or SDL backends, which will also support Windows and Linux.)
+ You may prefer to use the GLFW Or SDL backends, which will also support Windows and Linux.)
 
 [example_emscripten_opengl3/](https://github.com/ocornut/imgui/blob/master/examples/example_emscripten_opengl3/) <BR>
 Emcripten + SDL2 + OpenGL3+/ES2/ES3 example. <BR>
@@ -209,6 +204,7 @@ DirectX12 example, Windows only. <BR>
 = main.cpp + imgui_impl_win32.cpp + imgui_impl_dx12.cpp <BR>
 This is quite long and tedious, because: DirectX12.
 
+
 ### Miscellaneous
 
 **Building**
@@ -216,17 +212,16 @@ This is quite long and tedious, because: DirectX12.
 Unfortunately nowadays it is still tedious to create and maintain portable build files using external
 libraries (the kind we're using here to create a window and render 3D triangles) without relying on
 third party software and build systems. For most examples here we choose to provide:
-
-- Makefiles for Linux/OSX
-- Batch files for Visual Studio 2008+
-- A .sln project file for Visual Studio 2012+
-- Xcode project files for the Apple examples
-  Please let us know if they don't work with your setup!
-  You can probably just import the imgui_impl_xxx.cpp/.h files into your own codebase or compile those
-  directly with a command-line compiler.
+ - Makefiles for Linux/OSX
+ - Batch files for Visual Studio 2008+
+ - A .sln project file for Visual Studio 2012+
+ - Xcode project files for the Apple examples
+Please let us know if they don't work with your setup!
+You can probably just import the imgui_impl_xxx.cpp/.h files into your own codebase or compile those
+directly with a command-line compiler.
 
 If you are interested in using Cmake to build and links examples, see:
-https://github.com/ocornut/imgui/pull/1713 and https://github.com/ocornut/imgui/pull/3027
+  https://github.com/ocornut/imgui/pull/1713 and https://github.com/ocornut/imgui/pull/3027
 
 **About mouse cursor latency**
 

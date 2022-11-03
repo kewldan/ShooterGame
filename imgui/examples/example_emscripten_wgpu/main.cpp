@@ -15,11 +15,11 @@
 #include <webgpu/webgpu_cpp.h>
 
 // Global WebGPU required states
-static WGPUDevice wgpu_device = NULL;
-static WGPUSurface wgpu_surface = NULL;
+static WGPUDevice    wgpu_device = NULL;
+static WGPUSurface   wgpu_surface = NULL;
 static WGPUSwapChain wgpu_swap_chain = NULL;
-static int wgpu_swap_chain_width = 0;
-static int wgpu_swap_chain_height = 0;
+static int           wgpu_swap_chain_width = 0;
+static int           wgpu_swap_chain_height = 0;
 
 // States tracked across render frames
 static bool show_demo_window = true;
@@ -28,14 +28,12 @@ static ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
 // Forward declarations
 static bool init_wgpu();
+static void main_loop(void* window);
+static void print_glfw_error(int error, const char* description);
+static void print_wgpu_error(WGPUErrorType error_type, const char* message, void*);
 
-static void main_loop(void *window);
-
-static void print_glfw_error(int error, const char *description);
-
-static void print_wgpu_error(WGPUErrorType error_type, const char *message, void *);
-
-int main(int, char **) {
+int main(int, char**)
+{
     glfwSetErrorCallback(print_glfw_error);
     if (!glfwInit())
         return 1;
@@ -44,14 +42,16 @@ int main(int, char **) {
     // This needs to be done explicitly later
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
-    GLFWwindow *window = glfwCreateWindow(1280, 720, "Dear ImGui GLFW+WebGPU example", NULL, NULL);
-    if (!window) {
+    GLFWwindow* window = glfwCreateWindow(1280, 720, "Dear ImGui GLFW+WebGPU example", NULL, NULL);
+    if (!window)
+    {
         glfwTerminate();
         return 1;
     }
 
     // Initialize the WebGPU environment
-    if (!init_wgpu()) {
+    if (!init_wgpu())
+    {
         if (window)
             glfwDestroyWindow(window);
         glfwTerminate();
@@ -62,8 +62,7 @@ int main(int, char **) {
     // Setup Dear ImGui context
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
-    ImGuiIO &io = ImGui::GetIO();
-    (void) io;
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
     //io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
     //io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 
@@ -107,7 +106,8 @@ int main(int, char **) {
     return 0;
 }
 
-static bool init_wgpu() {
+static bool init_wgpu()
+{
     wgpu_device = emscripten_webgpu_get_device();
     if (!wgpu_device)
         return false;
@@ -130,14 +130,16 @@ static bool init_wgpu() {
     return true;
 }
 
-static void main_loop(void *window) {
+static void main_loop(void* window)
+{
     glfwPollEvents();
 
     int width, height;
-    glfwGetFramebufferSize((GLFWwindow *) window, &width, &height);
+    glfwGetFramebufferSize((GLFWwindow*) window, &width, &height);
 
     // React to changes in screen size
-    if (width != wgpu_swap_chain_width && height != wgpu_swap_chain_height) {
+    if (width != wgpu_swap_chain_width && height != wgpu_swap_chain_height)
+    {
         ImGui_ImplWGPU_InvalidateDeviceObjects();
 
         if (wgpu_swap_chain)
@@ -171,32 +173,28 @@ static void main_loop(void *window) {
         static float f = 0.0f;
         static int counter = 0;
 
-        ImGui::Begin(
-                "Hello, world!");                                // Create a window called "Hello, world!" and append into it.
+        ImGui::Begin("Hello, world!");                                // Create a window called "Hello, world!" and append into it.
 
-        ImGui::Text(
-                "This is some useful text.");                     // Display some text (you can use a format strings too)
+        ImGui::Text("This is some useful text.");                     // Display some text (you can use a format strings too)
         ImGui::Checkbox("Demo Window", &show_demo_window);            // Edit bools storing our window open/close state
         ImGui::Checkbox("Another Window", &show_another_window);
 
         ImGui::SliderFloat("float", &f, 0.0f, 1.0f);                  // Edit 1 float using a slider from 0.0f to 1.0f
-        ImGui::ColorEdit3("clear color", (float *) &clear_color);       // Edit 3 floats representing a color
+        ImGui::ColorEdit3("clear color", (float*)&clear_color);       // Edit 3 floats representing a color
 
-        if (ImGui::Button(
-                "Button"))                                  // Buttons return true when clicked (most widgets return true when edited/activated)
+        if (ImGui::Button("Button"))                                  // Buttons return true when clicked (most widgets return true when edited/activated)
             counter++;
         ImGui::SameLine();
         ImGui::Text("counter = %d", counter);
 
-        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate,
-                    ImGui::GetIO().Framerate);
+        ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
         ImGui::End();
     }
 
     // 3. Show another simple window.
-    if (show_another_window) {
-        ImGui::Begin("Another Window",
-                     &show_another_window);         // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+    if (show_another_window)
+    {
+        ImGui::Begin("Another Window", &show_another_window);         // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
         ImGui::Text("Hello from another window!");
         if (ImGui::Button("Close Me"))
             show_another_window = false;
@@ -209,8 +207,7 @@ static void main_loop(void *window) {
     WGPURenderPassColorAttachment color_attachments = {};
     color_attachments.loadOp = WGPULoadOp_Clear;
     color_attachments.storeOp = WGPUStoreOp_Store;
-    color_attachments.clearValue = {clear_color.x * clear_color.w, clear_color.y * clear_color.w,
-                                    clear_color.z * clear_color.w, clear_color.w};
+    color_attachments.clearValue = { clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w };
     color_attachments.view = wgpuSwapChainGetCurrentTextureView(wgpu_swap_chain);
     WGPURenderPassDescriptor render_pass_desc = {};
     render_pass_desc.colorAttachmentCount = 1;
@@ -230,27 +227,21 @@ static void main_loop(void *window) {
     wgpuQueueSubmit(queue, 1, &cmd_buffer);
 }
 
-static void print_glfw_error(int error, const char *description) {
+static void print_glfw_error(int error, const char* description)
+{
     printf("Glfw Error %d: %s\n", error, description);
 }
 
-static void print_wgpu_error(WGPUErrorType error_type, const char *message, void *) {
-    const char *error_type_lbl = "";
-    switch (error_type) {
-        case WGPUErrorType_Validation:
-            error_type_lbl = "Validation";
-            break;
-        case WGPUErrorType_OutOfMemory:
-            error_type_lbl = "Out of memory";
-            break;
-        case WGPUErrorType_Unknown:
-            error_type_lbl = "Unknown";
-            break;
-        case WGPUErrorType_DeviceLost:
-            error_type_lbl = "Device lost";
-            break;
-        default:
-            error_type_lbl = "Unknown";
+static void print_wgpu_error(WGPUErrorType error_type, const char* message, void*)
+{
+    const char* error_type_lbl = "";
+    switch (error_type)
+    {
+    case WGPUErrorType_Validation:  error_type_lbl = "Validation"; break;
+    case WGPUErrorType_OutOfMemory: error_type_lbl = "Out of memory"; break;
+    case WGPUErrorType_Unknown:     error_type_lbl = "Unknown"; break;
+    case WGPUErrorType_DeviceLost:  error_type_lbl = "Device lost"; break;
+    default:                        error_type_lbl = "Unknown";
     }
     printf("%s error: %s\n", error_type_lbl, message);
 }

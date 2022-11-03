@@ -1,57 +1,44 @@
-_(You may browse this at https://github.com/ocornut/imgui/blob/master/docs/BACKENDS.md or view this file with any
-Markdown viewer)_
+_(You may browse this at https://github.com/ocornut/imgui/blob/master/docs/BACKENDS.md or view this file with any Markdown viewer)_
 
 ## Dear ImGui: Backends
 
 **The backends/ folder contains backends for popular platforms/graphics API, which you can use in
-your application or engine to easily integrate Dear ImGui.** Each backend is typically self-contained in a pair of
-files: imgui_impl_XXXX.cpp + imgui_impl_XXXX.h.
+your application or engine to easily integrate Dear ImGui.** Each backend is typically self-contained in a pair of files: imgui_impl_XXXX.cpp + imgui_impl_XXXX.h.
 
 - The 'Platform' backends are in charge of: mouse/keyboard/gamepad inputs, cursor shape, timing, and windowing.<BR>
-  e.g. Windows ([imgui_impl_win32.cpp](https://github.com/ocornut/imgui/blob/master/backends/imgui_impl_win32.cpp)),
-  GLFW ([imgui_impl_glfw.cpp](https://github.com/ocornut/imgui/blob/master/backends/imgui_impl_glfw.cpp)),
-  SDL2 ([imgui_impl_sdl.cpp](https://github.com/ocornut/imgui/blob/master/backends/imgui_impl_sdl.cpp)), etc.
+  e.g. Windows ([imgui_impl_win32.cpp](https://github.com/ocornut/imgui/blob/master/backends/imgui_impl_win32.cpp)), GLFW ([imgui_impl_glfw.cpp](https://github.com/ocornut/imgui/blob/master/backends/imgui_impl_glfw.cpp)), SDL2 ([imgui_impl_sdl.cpp](https://github.com/ocornut/imgui/blob/master/backends/imgui_impl_sdl.cpp)), etc.
 
 - The 'Renderer' backends are in charge of: creating atlas texture, and rendering imgui draw data.<BR>
-  e.g. DirectX11 ([imgui_impl_dx11.cpp](https://github.com/ocornut/imgui/blob/master/backends/imgui_impl_dx11.cpp)),
-  OpenGL/WebGL ([imgui_impl_opengl3.cpp](https://github.com/ocornut/imgui/blob/master/backends/imgui_impl_opengl3.cpp)),
-  Vulkan ([imgui_impl_vulkan.cpp](https://github.com/ocornut/imgui/blob/master/backends/imgui_impl_vulkan.cpp)), etc.
+  e.g. DirectX11 ([imgui_impl_dx11.cpp](https://github.com/ocornut/imgui/blob/master/backends/imgui_impl_dx11.cpp)), OpenGL/WebGL ([imgui_impl_opengl3.cpp](https://github.com/ocornut/imgui/blob/master/backends/imgui_impl_opengl3.cpp)), Vulkan ([imgui_impl_vulkan.cpp](https://github.com/ocornut/imgui/blob/master/backends/imgui_impl_vulkan.cpp)), etc.
 
 - For some high-level frameworks, a single backend usually handles both 'Platform' and 'Renderer' parts.<BR>
-  e.g. Allegro
-  5 ([imgui_impl_allegro5.cpp](https://github.com/ocornut/imgui/blob/master/backends/imgui_impl_allegro5.cpp)). If you
-  end up creating a custom backend for your engine, you may want to do the same.
+  e.g. Allegro 5 ([imgui_impl_allegro5.cpp](https://github.com/ocornut/imgui/blob/master/backends/imgui_impl_allegro5.cpp)). If you end up creating a custom backend for your engine, you may want to do the same.
 
 An application usually combines one Platform backend + one Renderer backend + main Dear ImGui sources.
-For example,
-the [example_win32_directx11](https://github.com/ocornut/imgui/tree/master/examples/example_win32_directx11) application
-combines imgui_impl_win32.cpp + imgui_impl_dx11.cpp. There are 20+ examples in
-the [examples/](https://github.com/ocornut/imgui/blob/master/examples/) folder.
-See [EXAMPLES.MD](https://github.com/ocornut/imgui/blob/master/docs/EXAMPLES.md) for details.
+For example, the [example_win32_directx11](https://github.com/ocornut/imgui/tree/master/examples/example_win32_directx11) application combines imgui_impl_win32.cpp + imgui_impl_dx11.cpp. There are 20+ examples in the [examples/](https://github.com/ocornut/imgui/blob/master/examples/) folder. See [EXAMPLES.MD](https://github.com/ocornut/imgui/blob/master/docs/EXAMPLES.md) for details.
 
-**Once Dear ImGui is setup and running, run and refer to `ImGui::ShowDemoWindow()` in imgui_demo.cpp for usage of the
-end-user API.**
+**Once Dear ImGui is setup and running, run and refer to `ImGui::ShowDemoWindow()` in imgui_demo.cpp for usage of the end-user API.**
+
 
 ### What are backends?
 
 Dear ImGui is highly portable and only requires a few things to run and render, typically:
 
-- Required: providing mouse/keyboard inputs (fed into the `ImGuiIO` structure).
-- Required: uploading the font atlas texture into graphics memory.
-- Required: rendering indexed textured triangles with a clipping rectangle.
+ - Required: providing mouse/keyboard inputs (fed into the `ImGuiIO` structure).
+ - Required: uploading the font atlas texture into graphics memory.
+ - Required: rendering indexed textured triangles with a clipping rectangle.
 
-Extra features are opt-in, our backends try to support as many as possible:
+ Extra features are opt-in, our backends try to support as many as possible:
 
-- Optional: custom texture binding support.
-- Optional: clipboard support.
-- Optional: gamepad support.
-- Optional: mouse cursor shape support.
-- Optional: IME support.
-- Optional: multi-viewports support.
-  etc.
+ - Optional: custom texture binding support.
+ - Optional: clipboard support.
+ - Optional: gamepad support.
+ - Optional: mouse cursor shape support.
+ - Optional: IME support.
+ - Optional: multi-viewports support.
+ etc.
 
-This is essentially what each backend is doing + obligatory portability cruft. Using default backends ensure you can get
-all those features including the ones that would be harder to implement on your side (e.g. multi-viewports support).
+This is essentially what each backend is doing + obligatory portability cruft. Using default backends ensure you can get all those features including the ones that would be harder to implement on your side (e.g. multi-viewports support).
 
 It is important to understand the difference between the core Dear ImGui library (files in the root folder)
 and the backends which we are describing here (backends/ folder).
@@ -60,10 +47,11 @@ and the backends which we are describing here (backends/ folder).
 - You should be able to write backends for pretty much any platform and any 3D graphics API.
   e.g. you can get creative and use software rendering or render remotely on a different machine.
 
+
 ### Integrating a backend
 
-See "Getting Started" section of [EXAMPLES.MD](https://github.com/ocornut/imgui/blob/master/docs/EXAMPLES.md) for more
-details.
+See "Getting Started" section of [EXAMPLES.MD](https://github.com/ocornut/imgui/blob/master/docs/EXAMPLES.md) for more details.
+
 
 ### List of backends
 
@@ -96,14 +84,11 @@ List of high-level Frameworks Backends (combining Platform + Renderer):
     imgui_impl_allegro5.cpp
 
 Emscripten is also supported.
-The [example_emscripten_opengl3](https://github.com/ocornut/imgui/tree/master/examples/example_emscripten_opengl3) app
-uses imgui_impl_sdl.cpp + imgui_impl_opengl3.cpp, but other combos are possible.
+The [example_emscripten_opengl3](https://github.com/ocornut/imgui/tree/master/examples/example_emscripten_opengl3) app uses imgui_impl_sdl.cpp + imgui_impl_opengl3.cpp, but other combos are possible.
 
 ### Backends for third-party frameworks, graphics API or other languages
 
-See https://github.com/ocornut/imgui/wiki/Bindings for the full list (e.g. Adventure Game Studio, Cinder, Cocos2d-x,
-Game Maker Studio2, Godot, LÖVE+LUA, Magnum, Monogame, Ogre, openFrameworks, OpenSceneGraph, SFML, Sokol, Unity, Unreal
-Engine and many others).
+See https://github.com/ocornut/imgui/wiki/Bindings for the full list (e.g. Adventure Game Studio, Cinder, Cocos2d-x, Game Maker Studio2, Godot, LÖVE+LUA, Magnum, Monogame, Ogre, openFrameworks, OpenSceneGraph, SFML, Sokol, Unity, Unreal Engine and many others).
 
 ### Recommended Backends
 
@@ -114,6 +99,7 @@ If you are not sure which backend to use, the recommended platform/frameworks fo
 | GLFW | https://github.com/glfw/glfw | imgui_impl_glfw.cpp | |
 | SDL2 | https://www.libsdl.org | imgui_impl_sdl.cpp | |
 | Sokol | https://github.com/floooh/sokol | [util/sokol_imgui.h](https://github.com/floooh/sokol/blob/master/util/sokol_imgui.h) | Lower-level than GLFW/SDL |
+
 
 ### Using a custom engine?
 
