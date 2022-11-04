@@ -2,69 +2,69 @@
 #include "OBJ_Loader.h"
 
 
-Model::Model(std::string filename) {
-    std::vector<unsigned int> indices;
-    std::vector<float> output;
+Model::Model(std::string filename, PhysicsWorld* world, PhysicsCommon* common, bool createConcaveCollider) {
+	std::vector<float> output;
 
-    objl::Loader Loader;
-    Loader.LoadFile(filename);
-    objl::Mesh curMesh = Loader.LoadedMeshes[0];
-    for (auto &vertex: curMesh.Vertices) {
-        output.push_back(vertex.Position.X);
-        output.push_back(vertex.Position.Y);
-        output.push_back(vertex.Position.Z);
+	indices = new std::vector<int>();
+	vertices = new std::vector<float>();
 
-        output.push_back(vertex.TextureCoordinate.X);
-        output.push_back(vertex.TextureCoordinate.Y);
+	objl::Loader Loader;
+	Loader.LoadFile(filename);
+	objl::Mesh curMesh = Loader.LoadedMeshes[0];
+	for (auto& vertex : curMesh.Vertices) {
+		output.push_back(vertex.Position.X);
+		output.push_back(vertex.Position.Y);
+		output.push_back(vertex.Position.Z);
 
-        output.push_back(vertex.Normal.X);
-        output.push_back(vertex.Normal.Y);
-        output.push_back(vertex.Normal.Z);
-    }
+		vertices->push_back(vertex.Position.X);
+		vertices->push_back(vertex.Position.Y);
+		vertices->push_back(vertex.Position.Z);
 
-    for (int j = 0; j < curMesh.Indices.size(); j += 3) {
-        indices.push_back(curMesh.Indices[j]);
-        indices.push_back(curMesh.Indices[j + 1]);
-        indices.push_back(curMesh.Indices[j + 2]);
-    }
+		output.push_back(vertex.TextureCoordinate.X);
+		output.push_back(vertex.TextureCoordinate.Y);
 
-    mesh = new Mesh(&output, &indices, 8);
-    mesh->addParameter(0, 3);
-    mesh->addParameter(1, 2);
-    mesh->addParameter(2, 3);
+		output.push_back(vertex.Normal.X);
+		output.push_back(vertex.Normal.Y);
+		output.push_back(vertex.Normal.Z);
+	}
 
-    scale = glm::vec3(1);
-    position = glm::vec3(0);
-    rotation = glm::vec3(0);
-    color = glm::vec3(1);
-    velocity = glm::vec3(0);
+	for (int j = 0; j < curMesh.Indices.size(); j += 3) {
+		indices->push_back(curMesh.Indices[j]);
+		indices->push_back(curMesh.Indices[j + 1]);
+		indices->push_back(curMesh.Indices[j + 2]);
+	}
+
+	mesh = new MyMesh(&output, indices, 8);
+	mesh->addParameter(0, 3);
+	mesh->addParameter(1, 2);
+	mesh->addParameter(2, 3);
+
+	rb = world->createRigidBody(Transform(Vector3(0, 0, 0), Quaternion::identity()));
+
+	if (createConcaveCollider) {
+		rb->setType(BodyType::STATIC);
+		TriangleVertexArray* triangleArray =
+			new TriangleVertexArray(vertices->size() / 3, vertices->data(), 3 * sizeof(
+				float), indices->size() / 3,
+				indices->data(), 3 * sizeof(int),
+				TriangleVertexArray::VertexDataType::VERTEX_FLOAT_TYPE,
+				TriangleVertexArray::IndexDataType::INDEX_INTEGER_TYPE);
+		TriangleMesh *triangleMesh = common->createTriangleMesh();
+		triangleMesh->addSubpart(triangleArray);
+		rb->addCollider(common->createConcaveMeshShape(triangleMesh), Transform(Vector3(0, 0, 0), Quaternion::identity()));
+	}
 }
 
 glm::mat4 Model::getMVP() {
-    mvp = glm::mat4(1.0f);
-    mvp = glm::translate(mvp, position);
-    mvp = glm::rotate(mvp, rotation.x, glm::vec3(1, 0, 0));
-    mvp = glm::rotate(mvp, rotation.y, glm::vec3(0, 1, 0));
-    mvp = glm::rotate(mvp, rotation.z, glm::vec3(0, 0, 1));
-    mvp = glm::scale(mvp, scale);
-    return mvp;
+	mvp = glm::mat4(1.0f);
+	Transform transform = rb->getTransform();
+	mvp = glm::translate(mvp, { transform.getPosition().x, transform.getPosition().y, transform.getPosition().z });
+	mvp = glm::rotate(mvp, transform.getOrientation().x, glm::vec3(1, 0, 0));
+	mvp = glm::rotate(mvp, transform.getOrientation().y, glm::vec3(0, 1, 0));
+	mvp = glm::rotate(mvp, transform.getOrientation().z, glm::vec3(0, 0, 1));
+	return mvp;
 }
 
-Mesh *Model::getMesh() const {
-    return mesh;
-}
-
-void Model::update(float timeScale) {
-    position += velocity * timeScale;
-    if (position.y <= -5.4f) {
-        velocity.y = 0.f;
-        velocity.x *= 0.95f;
-        velocity.z *= 0.95f;
-    } else {
-        velocity.y -= 9.8f * timeScale;
-    }
-
-    position.x = std::min(30.f, std::max(position.x, -30.f));
-    position.y = std::min(100.f, std::max(position.y, -5.5f));
-    position.z = std::min(30.f, std::max(position.z, -30.f));
+MyMesh* Model::getMesh() const {
+	return mesh;
 }

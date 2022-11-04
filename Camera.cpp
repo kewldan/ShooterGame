@@ -68,20 +68,4 @@ void Camera::pollEvents(Window *window) {
         position.x += std::cos(rotation.y) * 5.f * window->getTimeScale() * speed;
         position.z += std::sin(rotation.y) * 5.f * window->getTimeScale() * speed;
     }
-
-    if (!freeCamera) {
-        if (position.y <= -4.5f) {
-            yVelocity = 0.f;
-            if (window->isKeyPressed(GLFW_KEY_SPACE)) {
-                yVelocity = 5.f;
-            }
-        } else {
-            yVelocity -= 9.8f * window->getTimeScale();
-        }
-        position.y += yVelocity * window->getTimeScale();
-
-        position.x = std::min(30.f, std::max(position.x, -30.f));
-        position.y = std::min(100.f, std::max(position.y, -4.5f));
-        position.z = std::min(30.f, std::max(position.z, -30.f));
-    }
 }

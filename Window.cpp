@@ -22,7 +22,7 @@ Window::Window(int w, int h, const char *title) {
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-    glfwWindowHint(GLFW_SAMPLES, 16);
+    glfwWindowHint(GLFW_SAMPLES, 0);
 
     window = glfwCreateWindow(w, h, title, nullptr, nullptr);
     if (!window) {

@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.23)
 project(ShooterGame)
 
 set(CMAKE_CXX_STANDARD 20)
-#set(CMAKE_EXE_LINKER_FLAGS "-static")
+set(CMAKE_EXE_LINKER_FLAGS "-static")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 include_directories(${PROJECT_SOURCE_DIR}/libraries/glad/include)
@@ -22,7 +22,7 @@ add_executable(ShooterGame
         main.cpp
         Shader.cpp Shader.h
         Window.cpp Window.h
-        Mesh.cpp Mesh.h
+        "MyMesh.cpp" "MyMesh.h"
         Model.cpp Model.h
         Camera.cpp Camera.h
         Texture.cpp Texture.h
@@ -38,6 +38,6 @@ add_executable(ShooterGame
         imgui/backends/imgui_impl_opengl3.cpp imgui/backends/imgui_impl_opengl3.h
         imgui/imgui.cpp imgui/imgui.h
         HUD.cpp HUD.h
-        Profiler.cpp Profiler.h)
+        "MyProfiler.cpp" "MyProfiler.h")
 
 target_link_libraries(ShooterGame glfw3 opengl32 gdi32 ReactPhysics3D::ReactPhysics3D)

@@ -6,3 +6,9 @@
 *.exe
 *.log
 *.bin
+/ShooterGame.pdb
+/ShooterGame.ilk
+/ShooterGame.exe.manifest
+/OpenGLTest.zip
+/out/build
+/.vs
