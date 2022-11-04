@@ -24,7 +24,7 @@ Shader::Shader(const std::string &filename) {
         int length = 0;
         glGetShaderiv(vertex, GL_INFO_LOG_LENGTH, &length);
         if (length > 0) {
-            char log[length];
+            char *log = new char[length];
             glGetShaderInfoLog(vertex, length, nullptr, log);
             PLOG_WARNING << "Vertex shader log:\n" << std::string(log);
         }
@@ -51,7 +51,7 @@ Shader::Shader(const std::string &filename) {
         int length = 0;
         glGetShaderiv(fragment, GL_INFO_LOG_LENGTH, &length);
         if (length > 0) {
-            char log[length];
+            char* log = new char[length];
             glGetShaderInfoLog(fragment, length, nullptr, log);
             PLOG_WARNING << "Fragment shader log:\n" << std::string(log);
         }
@@ -78,7 +78,7 @@ Shader::Shader(const std::string &filename) {
         int length = 0;
         glGetShaderiv(geometry, GL_INFO_LOG_LENGTH, &length);
         if (length > 0) {
-            char log[length];
+            char* log = new char[length];
             glGetShaderInfoLog(geometry, length, nullptr, log);
             PLOG_WARNING << "Geometry shader log:\n" << std::string(log);
         }

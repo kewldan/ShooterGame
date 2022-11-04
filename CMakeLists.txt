@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.23)
 project(ShooterGame)
 
 set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_EXE_LINKER_FLAGS "-static")
+#set(CMAKE_EXE_LINKER_FLAGS "-static")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 include_directories(${PROJECT_SOURCE_DIR}/libraries/glad/include)
@@ -13,7 +13,9 @@ include_directories(${PROJECT_SOURCE_DIR}/libraries/loader/include)
 include_directories(${PROJECT_SOURCE_DIR}/libraries/glm)
 include_directories(${PROJECT_SOURCE_DIR}/imgui)
 
-link_directories(${PROJECT_SOURCE_DIR}/libraries/glfw/lib-mingw-w64)
+link_directories(${PROJECT_SOURCE_DIR}/libraries/glfw/lib-vc2022)
+
+find_package (ReactPhysics3D REQUIRED)
 
 add_executable(ShooterGame
         libraries/glad/src/gl.c
@@ -35,6 +37,7 @@ add_executable(ShooterGame
         imgui/backends/imgui_impl_glfw.cpp imgui/backends/imgui_impl_glfw.h
         imgui/backends/imgui_impl_opengl3.cpp imgui/backends/imgui_impl_opengl3.h
         imgui/imgui.cpp imgui/imgui.h
-        HUD.cpp HUD.h Profiler.cpp Profiler.h)
+        HUD.cpp HUD.h
+        Profiler.cpp Profiler.h)
 
-target_link_libraries(ShooterGame glfw3 opengl32 gdi32)
+target_link_libraries(ShooterGame glfw3 opengl32 gdi32 ReactPhysics3D::ReactPhysics3D)

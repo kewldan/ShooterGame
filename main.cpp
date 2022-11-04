@@ -13,10 +13,16 @@
 #include "HUD.h"
 #include "Profiler.h"
 
+#include <reactphysics3d/reactphysics3d.h>
+#include <iostream>
+
 int main() {
     std::remove("latest.log");
     plog::init(plog::debug, "latest.log");
     PLOG_INFO << "Logger initialized";
+
+    reactphysics3d::PhysicsCommon physicsCommon;
+    reactphysics3d::PhysicsWorld* world = physicsCommon.createPhysicsWorld();
 
     auto *profiler = new Profiler();
 
@@ -127,6 +133,16 @@ int main() {
                         } else {
                             others.emplace_back(kv);
                         }
+                    }
+
+                    if (ImGui::TreeNode("Memory")) {
+                        MemoryInfo* info = profiler->getMemoryInfo();
+
+                        ImGui::Text("Virual: %.1f mb / %.1f mb (%.1f%%)", info->virtualMemoryUsed / 1024.f / 1024.f, info->virtualMemoryTotal / 1024.f / 1024.f, 100.f / (info->virtualMemoryTotal / (float) info->virtualMemoryUsed));
+                        ImGui::Text("Physical: %.1f mb / %.1f mb (%.1f%%)", info->physicalMemoryUsed / 1024.f / 1024.f, info->physicalMemoryTotal / 1024.f / 1024.f, 100.f / (info->physicalMemoryTotal / (float)info->physicalMemoryUsed));
+
+                        ImGui::TreePop();
+                        ImGui::Separator();
                     }
 
                     if (ImGui::TreeNode("Called once")) {
