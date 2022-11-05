@@ -23,6 +23,7 @@ uniform struct Environment
 uniform sampler2D shadowMap;
 uniform sampler2D aTexture;
 uniform int hasTexture = 0;
+uniform int displayWireframe = 0;
 
 out vec4 fragColor;
 
@@ -87,5 +88,5 @@ void main()
     float fNearest = min(min(vertex.distance[0], vertex.distance[1]), vertex.distance[2]);
     float fEdgeIntensity = clamp(exp2(-0.1 * fNearest * fNearest), 0.0, 1.0);
 
-    fragColor = vec4(fEdgeIntensity > 0.97 ? vec3(0) : lighting, 1);
+    fragColor = vec4((fEdgeIntensity > 0.97 && displayWireframe == 1) ? vec3(0) : lighting, 1);
 }
