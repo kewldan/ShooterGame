@@ -28,7 +28,7 @@ const glm::mat4 &Camera::getOrthographic() {
 const glm::mat4 &Camera::getPerspective() {
     float hfovRad = (float) hFov * 3.1415f / 180;
     float vfovRad = 2.f * std::atan(std::tan(hfovRad / 2) * *ratio);
-    perspective = glm::perspective(vfovRad, *ratio, 0.001f, 100.f);
+    perspective = glm::perspective(vfovRad, *ratio, 0.005f, 100.f);
     return perspective;
 }
 
@@ -47,25 +47,33 @@ void Camera::pollEvents(Window *window) {
         window->showCursor();
     }
 
+    float crouch = window->isKeyPressed(GLFW_KEY_LEFT_SHIFT) ? 1.f : 2.f;
     if (window->isKeyPressed(GLFW_KEY_W)) {
-        position.x -= std::cos(rotation.y + 1.57f) * 5.f * window->getTimeScale() * speed;
+        position.x -= std::cos(rotation.y + 1.57f) * 5.f * window->getTimeScale() * speed * crouch;
         if (freeCamera) {
-            position.y -= std::sin(rotation.x) * 5.f * window->getTimeScale() * speed;
+            position.y -= std::sin(rotation.x) * 5.f * window->getTimeScale() * speed * crouch;
         }
-        position.z -= std::sin(rotation.y + 1.57f) * 5.f * window->getTimeScale() * speed;
+        position.z -= std::sin(rotation.y + 1.57f) * 5.f * window->getTimeScale() * speed * crouch;
     } else if (window->isKeyPressed(GLFW_KEY_S)) {
-        position.x += std::cos(rotation.y + 1.57f) * 5.f * window->getTimeScale() * speed;
+        position.x += std::cos(rotation.y + 1.57f) * 5.f * window->getTimeScale() * speed * crouch;
         if (freeCamera) {
-            position.y += std::sin(rotation.x) * 5.f * window->getTimeScale() * speed;
+            position.y += std::sin(rotation.x) * 5.f * window->getTimeScale() * speed * crouch;
         }
-        position.z += std::sin(rotation.y + 1.57f) * 5.f * window->getTimeScale() * speed;
+        position.z += std::sin(rotation.y + 1.57f) * 5.f * window->getTimeScale() * speed * crouch;
     }
 
     if (window->isKeyPressed(GLFW_KEY_A)) {
-        position.x -= std::cos(rotation.y) * 5.f * window->getTimeScale() * speed;
-        position.z -= std::sin(rotation.y) * 5.f * window->getTimeScale() * speed;
+        position.x -= std::cos(rotation.y) * 5.f * window->getTimeScale() * speed * crouch;
+        position.z -= std::sin(rotation.y) * 5.f * window->getTimeScale() * speed * crouch;
     } else if (window->isKeyPressed(GLFW_KEY_D)) {
-        position.x += std::cos(rotation.y) * 5.f * window->getTimeScale() * speed;
-        position.z += std::sin(rotation.y) * 5.f * window->getTimeScale() * speed;
+        position.x += std::cos(rotation.y) * 5.f * window->getTimeScale() * speed * crouch;
+        position.z += std::sin(rotation.y) * 5.f * window->getTimeScale() * speed * crouch;
+    }
+
+    if (window->isKeyPressed(GLFW_KEY_C)) {
+        hFov = 10;
+    }
+    else {
+        hFov = 60;
     }
 }

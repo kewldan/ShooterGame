@@ -1,9 +1,10 @@
 #version 330
 
-in Vertex {
+in VertexData {
+    vec3 distance;
     vec3 normal;
-    vec2 texCoord;
     vec3 position;
+    vec2 texCoord;
     vec4 posLightSpace;
 } vertex;
 
@@ -83,5 +84,8 @@ void main()
     float shadow = ShadowCalculation(vertex.posLightSpace);
     vec3 lighting = (ambient + (1.0 - shadow) * diffuse) * color;
 
-    fragColor = vec4(lighting, 1);
+    float fNearest = min(min(vertex.distance[0], vertex.distance[1]), vertex.distance[2]);
+    float fEdgeIntensity = clamp(exp2(-0.1 * fNearest * fNearest), 0.0, 1.0);
+
+    fragColor = vec4(fEdgeIntensity > 0.97 ? vec3(0) : lighting, 1);
 }

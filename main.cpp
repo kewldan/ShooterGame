@@ -28,14 +28,15 @@ int main() {
 	profiler->startBlock("Init");
 	auto* window = new Window();
 	auto* shader = new Shader("main");
-	auto lightPos = glm::vec3(-5.0f, 10.0f, -3.0f);
+	auto lightPos = glm::vec3(-7.0f, 10.0f, -3.0f);
 	auto lightLook = glm::vec3(0);
 	auto* shadows = new ShadowsCaster(1024, 1024, "depth", 2.f, 30.f, &lightPos, &lightLook);
 
 	auto* map = new Model("./data/meshes/map.obj", world, &physicsCommon, true);
 	auto* player = new Model("./data/meshes/player.obj", world, &physicsCommon);
+	player->rb->addCollider(physicsCommon.createCapsuleShape(1, 2), Transform(Vector3::zero(), Quaternion::identity()));
 	auto* sniperRifle = new Model("./data/meshes/sniper.obj", world, &physicsCommon);
-	sniperRifle->rb->addCollider(physicsCommon.createBoxShape(Vector3(0.06f, 0.26f, 1.35f)), Transform(Vector3(0, -0.02f, 0.19f), Quaternion::identity()));
+	sniperRifle->rb->addCollider(physicsCommon.createBoxShape(Vector3(0.4f, 1.f, 4.f)), Transform(Vector3::zero(), Quaternion::identity()));
 	sniperRifle->rb->setMass(1);
 
 	auto* sniperTexture = new Texture("data/textures/sniper.png");
@@ -48,7 +49,7 @@ int main() {
 	profiler->endBlock();
 
 	while (window->update()) {
-		static bool debugWindow, vsync = true, sort_invert = false, freeze = true, menuWindow = true;
+		static bool debugWindow, vsync = true, sort_invert = false, menuWindow = true;
 
 		profiler->startBlock("Physics and update");
 		camera->pollEvents(window);
@@ -58,19 +59,15 @@ int main() {
 			Vector3 position(camera->position.x, camera->position.y, camera->position.z);
 			Transform newTransform(position, Quaternion::identity());
 			sniperRifle->rb->setTransform(newTransform);
-			sniperRifle->rb->setLinearVelocity(Vector3(0, 0, 0));
-			sniperRifle->rb->setAngularVelocity(Vector3(0, 0, 0));
-			sniperRifle->rb->applyLocalForceAtCenterOfMass(
-				Vector3(
-					std::cos(camera->rotation.y + 1.57f) * 100,
-					30,
-					std::sin(camera->rotation.y + 1.57f) * 100)
-			);
+			sniperRifle->rb->setLinearVelocity(Vector3::zero());
+			sniperRifle->rb->setAngularVelocity(Vector3::zero());
+			sniperRifle->rb->applyWorldForceAtCenterOfMass(Vector3(
+				std::cos(camera->rotation.y - 1.57f) * 200,
+				300,
+				std::sin(camera->rotation.y - 1.57f) * 200));
 		}
 
-		if (!freeze) {
-			world->update(ImGui::GetIO().DeltaTime);
-		}
+		world->update(ImGui::GetIO().DeltaTime);
 		profiler->endBlock();
 
 		profiler->startBlock("Shadows");
@@ -78,7 +75,7 @@ int main() {
 			Shader* depth = shadows->begin();
 			depth->draw(sniperRifle);
 			depth->draw(map);
-			//depth->draw(player);
+			depth->draw(player);
 			shadows->end();
 		}
 		profiler->endBlock();
@@ -102,6 +99,8 @@ int main() {
 			shader->draw(sniperRifle);
 			mapTexture->bind();
 			shader->draw(map);
+			shader->upload("hasTexture", 0);
+			shader->draw(player);
 			shader->unbind();
 		}
 		profiler->endBlock();
@@ -114,12 +113,12 @@ int main() {
 
 			ImGui::SetNextWindowPos(ImVec2(10, 170), ImGuiCond_Once);
 
-			if (ImGui::Begin("Debug", &debugWindow, ImGuiWindowFlags_AlwaysAutoResize)) {
+			if (ImGui::Begin("Debug", &debugWindow, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
+				ImGui::Text("Sniper rifle freeze: %s", sniperRifle->rb->isSleeping() ? "Yes" : "No");
 				if (ImGui::CollapsingHeader("Configuration")) {
 					ImGui::SliderFloat("Camera speed", &camera->speed, 0.01f, 10.f);
 					ImGui::Separator();
 					ImGui::Checkbox("VSync", &vsync);
-					ImGui::Checkbox("Freeze", &freeze);
 					ImGui::Separator();
 				}
 				if (ImGui::CollapsingHeader("Profiling")) {
@@ -156,14 +155,14 @@ int main() {
 					std::sort(others.begin(), others.end(), [](std::pair<std::string, ProfilerBlock> const& lhs,
 						std::pair<std::string, ProfilerBlock> const& rhs) -> bool {
 							if (item_current == 0) {
-								return ((float)lhs.second.allTime / (float)lhs.second.iterations) >
-									((float)rhs.second.allTime / (float)rhs.second.iterations);
+								return ((float)lhs.second.allTime / (float)lhs.second.iterations) <=
+									((float)rhs.second.allTime / (float)rhs.second.iterations) != !sort_invert;
 							}
 							if (item_current == 1) {
-								return lhs.second.allTime > rhs.second.allTime;
+								return lhs.second.allTime <= rhs.second.allTime != !sort_invert;
 							}
 							if (item_current == 2) {
-								return lhs.second.iterations > rhs.second.iterations;
+								return lhs.second.iterations <= rhs.second.iterations != !sort_invert;
 							}
 							return false;
 						});
@@ -197,7 +196,7 @@ int main() {
 
 			ImGui::SetNextWindowPos(ImVec2(300, 10), ImGuiCond_Once);
 
-			if (ImGui::Begin("Menu", &menuWindow, ImGuiWindowFlags_AlwaysAutoResize)) {
+			if (ImGui::Begin("Menu", &menuWindow, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
 				static char* nickname = new char[64];
 				static char* ip = new char[16];
 				nickname = (char*)"Player";
@@ -228,7 +227,6 @@ int main() {
 					ImGuiWindowFlags_NoSavedSettings |
 					ImGuiWindowFlags_NoFocusOnAppearing |
 					ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove)) {
-					ImGui::Text("Physics: %s", freeze ? "off" : "on");
 					ImGui::Text("Screen: %dx%d", window->getWidth(), window->getHeight());
 					ImGui::Text("FPS: %.2f", ImGui::GetIO().Framerate);
 					ImGui::Text("Position: X: %.2f, Y: %.2f, Z: %.2f", camera->position.x, camera->position.y,
