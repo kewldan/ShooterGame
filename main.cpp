@@ -22,21 +22,31 @@ int main() {
 
 	PhysicsCommon physicsCommon;
 	PhysicsWorld* world = physicsCommon.createPhysicsWorld();
+	world->setIsDebugRenderingEnabled(true);
+
+	DebugRenderer& debugRenderer = world->getDebugRenderer();
+	// Select the contact points and contact normals to be displayed
+	debugRenderer.setIsDebugItemDisplayed(DebugRenderer::DebugItem::COLLISION_SHAPE, true);
 
 	auto* profiler = new MyProfiler();
 
 	profiler->startBlock("Init");
 	auto* window = new Window();
 	auto* shader = new Shader("main");
+	auto* debugShader = new Shader("debug");
 	auto lightPos = glm::vec3(-7.0f, 10.0f, -3.0f);
 	auto lightLook = glm::vec3(0);
-	auto* shadows = new ShadowsCaster(1024, 1024, "depth", 2.f, 30.f, &lightPos, &lightLook);
+	auto* shadows = new ShadowsCaster(2048, 2048, "depth", 2.f, 30.f, &lightPos, &lightLook);
 
 	auto* map = new Model("./data/meshes/map.obj", world, &physicsCommon, true);
 	auto* player = new Model("./data/meshes/player.obj", world, &physicsCommon);
-	player->rb->addCollider(physicsCommon.createCapsuleShape(1, 2), Transform(Vector3::zero(), Quaternion::identity()));
+	player->rb->addCollider(physicsCommon.createCapsuleShape(1.f, 2.5f), Transform(Vector3(0, 1.2f, 0), Quaternion::identity()));
+	player->rb->updateMassFromColliders();
+	player->rb->updateLocalCenterOfMassFromColliders();
 	auto* sniperRifle = new Model("./data/meshes/sniper.obj", world, &physicsCommon);
-	sniperRifle->rb->addCollider(physicsCommon.createBoxShape(Vector3(0.4f, 1.f, 4.f)), Transform(Vector3::zero(), Quaternion::identity()));
+	BoxShape* sniperShape = physicsCommon.createBoxShape(Vector3(0.12f, 0.587f, 2.7f));
+	Transform colliderOffset = Transform(Vector3(0, -0.08f, -0.36f), Quaternion::identity());
+	sniperRifle->rb->addCollider(sniperShape, colliderOffset);
 	sniperRifle->rb->setMass(1);
 
 	auto* sniperTexture = new Texture("data/textures/sniper.png");
@@ -49,10 +59,12 @@ int main() {
 	profiler->endBlock();
 
 	while (window->update()) {
-		static bool debugWindow, vsync = true, sort_invert = false, menuWindow = true;
+		static bool debugWindow, vsync = true, menuWindow = true, profileDebugRender;
 
 		profiler->startBlock("Physics and update");
 		camera->pollEvents(window);
+
+		player->rb->setAngularLockAxisFactor(Vector3::zero());
 
 		if (window->isKeyPressed(GLFW_KEY_E)) {
 			//Add force of drop
@@ -105,20 +117,63 @@ int main() {
 		}
 		profiler->endBlock();
 
+		if (profileDebugRender) {
+			profiler->startBlock("Physics render");
+			{
+				int verticesCount = debugRenderer.getNbTriangles() * 9;
+				float* vertices = new float[verticesCount];
+				for (int i = 0; i < debugRenderer.getNbTriangles(); i++) {
+					DebugRenderer::DebugTriangle t = debugRenderer.getTriangles()[i];
+					vertices[i * 9] = t.point1.x;
+					vertices[i * 9 + 1] = t.point1.y;
+					vertices[i * 9 + 2] = t.point1.z;
+
+					vertices[i * 9 + 3] = t.point2.x;
+					vertices[i * 9 + 4] = t.point2.y;
+					vertices[i * 9 + 5] = t.point2.z;
+
+					vertices[i * 9 + 6] = t.point3.x;
+					vertices[i * 9 + 7] = t.point3.y;
+					vertices[i * 9 + 8] = t.point3.z;
+				}
+
+				unsigned int VAO, VBO;
+
+				glGenVertexArrays(1, &VAO);
+				glBindVertexArray(VAO);
+
+				glGenBuffers(1, &VBO);
+				glBindBuffer(GL_ARRAY_BUFFER, VBO);
+				glBufferData(GL_ARRAY_BUFFER, (int)(verticesCount * sizeof(float)), vertices, GL_STATIC_DRAW);
+
+				glEnableVertexAttribArray(0);
+				glVertexAttribPointer(0, 3, GL_FLOAT, false,
+					3 * sizeof(float), (void*)0);
+
+				debugShader->bind();
+				debugShader->upload("proj", camera->getPerspective());
+				debugShader->upload("view", camera->getView());
+				glDrawArrays(GL_TRIANGLES, 0, verticesCount);
+				debugShader->unbind();
+
+				glDeleteBuffers(1, &VBO);
+				glDeleteVertexArrays(1, &VAO);
+				delete[] vertices;
+			}
+			profiler->endBlock();
+		}
+
 		profiler->startBlock("HUD");
 		{
 			hud->begin();
-			static const char* items[] = { "Average", "All time", "Iterations" };
-			static int item_current = 0;
-
 			ImGui::SetNextWindowPos(ImVec2(10, 170), ImGuiCond_Once);
 
 			if (ImGui::Begin("Debug", &debugWindow, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
-				ImGui::Text("Sniper rifle freeze: %s", sniperRifle->rb->isSleeping() ? "Yes" : "No");
 				if (ImGui::CollapsingHeader("Configuration")) {
 					ImGui::SliderFloat("Camera speed", &camera->speed, 0.01f, 10.f);
 					ImGui::Separator();
 					ImGui::Checkbox("VSync", &vsync);
+					ImGui::Checkbox("Debug render", &profileDebugRender);
 					ImGui::Separator();
 				}
 				if (ImGui::CollapsingHeader("Profiling")) {
@@ -154,17 +209,8 @@ int main() {
 
 					std::sort(others.begin(), others.end(), [](std::pair<std::string, ProfilerBlock> const& lhs,
 						std::pair<std::string, ProfilerBlock> const& rhs) -> bool {
-							if (item_current == 0) {
-								return ((float)lhs.second.allTime / (float)lhs.second.iterations) <=
-									((float)rhs.second.allTime / (float)rhs.second.iterations) != !sort_invert;
-							}
-							if (item_current == 1) {
-								return lhs.second.allTime <= rhs.second.allTime != !sort_invert;
-							}
-							if (item_current == 2) {
-								return lhs.second.iterations <= rhs.second.iterations != !sort_invert;
-							}
-							return false;
+								return ((float)lhs.second.allTime / (float)lhs.second.iterations) >
+									((float)rhs.second.allTime / (float)rhs.second.iterations);
 						});
 
 					if (ImGui::TreeNode("Called many times")) {
@@ -173,20 +219,27 @@ int main() {
 								profiler->blocks.erase(kv.first);
 							}
 						}
-						ImGui::SameLine();
-						ImGui::Combo("Sort by", &item_current, items, 3);
-						ImGui::SameLine();
-						ImGui::Checkbox("Inv", &sort_invert);
 						ImGui::Spacing();
-						for (const auto& kv : others) {
-							if (ImGui::TreeNode(kv.first.c_str())) {
-								ImGui::Text("Average: %.2f ms",
-									(float)kv.second.allTime / (float)kv.second.iterations);
-								ImGui::Text("CPU time: %d ms", kv.second.allTime);
-								ImGui::Text("Iterations: %d", kv.second.iterations);
-								ImGui::TreePop();
-								ImGui::Separator();
+						if (ImGui::BeginTable("Table", 4, ImGuiTableFlags_Borders | ImGuiCol_TableRowBg))
+						{
+							ImGui::TableSetupColumn("Block");
+							ImGui::TableSetupColumn("Average");
+							ImGui::TableSetupColumn("Time");
+							ImGui::TableSetupColumn("Iterations");
+							ImGui::TableHeadersRow();
+							for (const auto& kv : others)
+							{
+								ImGui::TableNextRow();
+								ImGui::TableNextColumn();
+								ImGui::Text(kv.first.c_str());
+								ImGui::TableNextColumn();
+								ImGui::Text("%.2f ms", (float)kv.second.allTime / (float)kv.second.iterations);
+								ImGui::TableNextColumn();
+								ImGui::Text("%d ms", kv.second.allTime);
+								ImGui::TableNextColumn();
+								ImGui::Text("%d", kv.second.iterations);
 							}
+							ImGui::EndTable();
 						}
 						ImGui::TreePop();
 					}
@@ -232,9 +285,6 @@ int main() {
 					ImGui::Text("Position: X: %.2f, Y: %.2f, Z: %.2f", camera->position.x, camera->position.y,
 						camera->position.z);
 					ImGui::Text("Rotation: X: %.2f, Y: %.2f", camera->rotation.x, camera->rotation.y);
-					ImGui::Separator();
-					ImGui::Spacing();
-					ImGui::Text("Network: %s", "nothing");
 				}
 				ImGui::End();
 

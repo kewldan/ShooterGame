@@ -39,7 +39,7 @@ Model::Model(std::string filename, PhysicsWorld* world, PhysicsCommon* common, b
 	mesh->addParameter(1, 2);
 	mesh->addParameter(2, 3);
 
-	rb = world->createRigidBody(Transform(Vector3(0, 0, 0), Quaternion::identity()));
+	rb = world->createRigidBody(Transform::identity());
 
 	if (createConcaveCollider) {
 		rb->setType(BodyType::STATIC);
@@ -51,7 +51,7 @@ Model::Model(std::string filename, PhysicsWorld* world, PhysicsCommon* common, b
 				TriangleVertexArray::IndexDataType::INDEX_INTEGER_TYPE);
 		TriangleMesh *triangleMesh = common->createTriangleMesh();
 		triangleMesh->addSubpart(triangleArray);
-		rb->addCollider(common->createConcaveMeshShape(triangleMesh), Transform(Vector3(0, 0, 0), Quaternion::identity()));
+		rb->addCollider(common->createConcaveMeshShape(triangleMesh), Transform::identity());
 	}
 }
 
@@ -59,9 +59,12 @@ glm::mat4 Model::getMVP() {
 	mvp = glm::mat4(1.0f);
 	Transform transform = rb->getTransform();
 	mvp = glm::translate(mvp, { transform.getPosition().x, transform.getPosition().y, transform.getPosition().z });
-	mvp = glm::rotate(mvp, transform.getOrientation().x, glm::vec3(1, 0, 0));
-	mvp = glm::rotate(mvp, transform.getOrientation().y, glm::vec3(0, 1, 0));
-	mvp = glm::rotate(mvp, transform.getOrientation().z, glm::vec3(0, 0, 1));
+	Vector3 axis;
+	float angle;
+	transform.getOrientation().getRotationAngleAxis(angle, axis);
+	if (angle != 0) {
+		mvp = glm::rotate(mvp, angle, glm::vec3(axis.x, axis.y, axis.z));
+	}
 	return mvp;
 }
 
