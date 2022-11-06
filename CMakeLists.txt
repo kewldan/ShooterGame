@@ -16,6 +16,7 @@ include_directories(${PROJECT_SOURCE_DIR}/imgui)
 link_directories(${PROJECT_SOURCE_DIR}/libraries/glfw/lib-vc2022)
 
 find_package (ReactPhysics3D REQUIRED)
+find_package(assimp REQUIRED)
 
 add_executable(ShooterGame
         libraries/glad/src/gl.c
@@ -42,4 +43,4 @@ add_executable(ShooterGame
         Client.cpp Client.h
 )
 
-target_link_libraries(ShooterGame glfw3 opengl32 gdi32 ReactPhysics3D::ReactPhysics3D Ws2_32)
+target_link_libraries(ShooterGame glfw3 opengl32 gdi32 ReactPhysics3D::ReactPhysics3D Ws2_32 assimp::assimp)
