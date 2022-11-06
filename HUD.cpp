@@ -21,7 +21,7 @@ void HUD::end() {
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
-void HUD::destroy() {
+HUD::~HUD() {
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
 }

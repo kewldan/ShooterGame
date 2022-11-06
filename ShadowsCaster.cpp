@@ -52,6 +52,13 @@ glm::mat4 *ShadowsCaster::getLightSpaceMatrix() {
     return &lightSpaceMatrix;
 }
 
+ShadowsCaster::~ShadowsCaster()
+{
+    delete shader;
+    glDeleteFramebuffers(1, &FBO);
+    glDeleteTextures(1, &map);
+}
+
 unsigned int ShadowsCaster::getMap() const {
     return map;
 }

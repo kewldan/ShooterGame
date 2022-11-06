@@ -137,7 +137,7 @@ void Shader::unbind() {
 	glUseProgram(0);
 }
 
-void Shader::destroy() const {
+Shader::~Shader() {
 	if ((shaderParts & SHADER_PART_VERTEX) != 0) {
 		glDetachShader(program, vertex);
 	}

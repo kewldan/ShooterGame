@@ -10,18 +10,20 @@
 using namespace reactphysics3d;
 
 class Model {
-    MyMesh *mesh;
-    glm::mat4 mvp;
+	MyMesh* mesh;
+	glm::mat4 mvp;
 public:
-    RigidBody *rb;
-    std::vector<int> *indices;
-    std::vector<float> *vertices;
+	RigidBody* rb;
+	PhysicsWorld* world;
+	std::vector<int>* indices;
+	std::vector<float>* vertices;
 
-    Model(std::string filename, PhysicsWorld *world, PhysicsCommon *common, bool createConcaveCollider = false);
+	Model(std::string filename, PhysicsWorld* world, PhysicsCommon* common, bool createConcaveCollider = false);
+	~Model();
 
-    glm::mat4 getMVP();
+	glm::mat4 getMVP();
 
-    MyMesh *getMesh() const;
+	MyMesh* getMesh() const;
 };
 
 

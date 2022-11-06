@@ -3,14 +3,15 @@
 
 
 Model::Model(std::string filename, PhysicsWorld* world, PhysicsCommon* common, bool createConcaveCollider) {
+	this->world = world;
 	std::vector<float> output;
 
 	indices = new std::vector<int>();
 	vertices = new std::vector<float>();
 
-	objl::Loader Loader;
-	Loader.LoadFile(filename);
-	objl::Mesh curMesh = Loader.LoadedMeshes[0];
+	objl::Loader* Loader = new objl::Loader();
+	Loader->LoadFile(filename);
+	objl::Mesh curMesh = Loader->LoadedMeshes[0];
 	for (auto& vertex : curMesh.Vertices) {
 		output.push_back(vertex.Position.X);
 		output.push_back(vertex.Position.Y);
@@ -34,6 +35,8 @@ Model::Model(std::string filename, PhysicsWorld* world, PhysicsCommon* common, b
 		indices->push_back(curMesh.Indices[j + 2]);
 	}
 
+	delete Loader;
+
 	mesh = new MyMesh(&output, indices, 8);
 	mesh->addParameter(0, 3);
 	mesh->addParameter(1, 2);
@@ -53,6 +56,11 @@ Model::Model(std::string filename, PhysicsWorld* world, PhysicsCommon* common, b
 		triangleMesh->addSubpart(triangleArray);
 		rb->addCollider(common->createConcaveMeshShape(triangleMesh), Transform::identity());
 	}
+}
+
+Model::~Model()
+{
+	delete mesh;
 }
 
 glm::mat4 Model::getMVP() {

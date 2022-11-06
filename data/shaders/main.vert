@@ -13,7 +13,6 @@ out Vertex {
 
 uniform struct Camera
 {
-    vec3 position;
     vec2 rotation;
     mat4 transform;
 } camera;

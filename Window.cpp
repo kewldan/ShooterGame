@@ -17,12 +17,10 @@ Window::Window(int w, int h, const char *title) {
     width = w;
     height = h;
     ratio = 1;
-    fps = 60;
-    timeScale = 0.016f;
 
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-    glfwWindowHint(GLFW_SAMPLES, 0);
+    glfwWindowHint(GLFW_SAMPLES, 16);
 
     window = glfwCreateWindow(w, h, title, nullptr, nullptr);
     if (!window) {
@@ -68,8 +66,7 @@ GLFWwindow *Window::getId() {
     return window;
 }
 
-void Window::destroy() {
-    PLOG_DEBUG << "Window destroyed";
+Window::~Window() {
     glfwDestroyWindow(window);
     glfwTerminate();
 }
@@ -83,10 +80,6 @@ bool Window::update() {
     glfwGetFramebufferSize(window, &width, &height);
     ratio = (float) width / (float) height;
 
-    timeScale = (float) (millis() - lastFps) * 0.001f;
-    lastFps = millis();
-
-    fps = (int) (1.f / timeScale);
     return !glfwWindowShouldClose(window);
 }
 
@@ -114,11 +107,6 @@ float *Window::getRatioPtr() {
     return &ratio;
 }
 
-unsigned long Window::millis() {
-    return std::chrono::system_clock::now().time_since_epoch() /
-           std::chrono::milliseconds(1);
-}
-
 void Window::hideCursor() {
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 }
@@ -141,14 +129,6 @@ void Window::getCursorPosition(int *x, int *y) {
 
 bool Window::isKeyPressed(int key) {
     return glfwGetKey(window, key) == 1;
-}
-
-int Window::getFps() const {
-    return fps;
-}
-
-float Window::getTimeScale() const {
-    return timeScale;
 }
 
 void Window::debugDraw(bool value) {

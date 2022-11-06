@@ -9,12 +9,11 @@
 class HUD {
 public:
     HUD(Window *window);
+    ~HUD();
 
     void begin();
 
     void end();
-
-    void destroy();
 };
 
 

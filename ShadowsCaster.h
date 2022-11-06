@@ -12,6 +12,7 @@ class ShadowsCaster {
 public:
     ShadowsCaster(int width, int height, const char *shaderName, float z_near, float z_far, glm::vec3 *position,
                   glm::vec3 *lookAt);
+    ~ShadowsCaster();
 
     Shader *begin();
 

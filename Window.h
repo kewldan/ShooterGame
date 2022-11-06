@@ -23,18 +23,14 @@ class Window {
     int width, height;
     float ratio;
 
-    unsigned long lastFps;
-    int fps;
-    float timeScale;
-
-    static unsigned long millis();
-
 public:
     Window();
 
     Window(int w, int h);
 
     Window(int w, int h, const char *title);
+
+    ~Window();
 
     void setVsync(bool value);
 
@@ -60,8 +56,6 @@ public:
 
     float getRatio() const;
 
-    void destroy();
-
     int getWidth() const;
 
     int getHeight() const;
@@ -71,10 +65,6 @@ public:
     int *getHeightPtr();
 
     float *getRatioPtr();
-
-    int getFps() const;
-
-    float getTimeScale() const;
 };
 
 

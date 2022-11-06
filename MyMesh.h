@@ -11,14 +11,13 @@ class MyMesh {
     unsigned long long vertexOffset;
 public:
     MyMesh(std::vector<float> *vertices, std::vector<int> *indices, unsigned int vertexSize);
+    ~MyMesh();
 
     void draw() const;
 
     void addParameter(int location, int size);
 
     void addParameter(int location, int size, bool normalized);
-
-    void destroy();
 };
 
 

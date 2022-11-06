@@ -6,6 +6,8 @@
 
 #include <plog/Log.h>
 #include "plog/Initializers/RollingFileInitializer.h"
+#include "plog/Formatters/TxtFormatter.h"
+#include "plog/Appenders/ColorConsoleAppender.h"
 #include "Model.h"
 #include "Camera.h"
 #include "Texture.h"
@@ -15,14 +17,10 @@
 #include "HUD.h"
 #include "MyProfiler.h"
 
-struct bodyUserData {
-	char* name;
-	bool grounded;
-};
-
 int main() {
 	std::remove("latest.log");
 	plog::init(plog::debug, "latest.log");
+	plog::get()->addAppender(new plog::ColorConsoleAppender<plog::TxtFormatter>());
 	PLOG_INFO << "Logger initialized";
 
 	PhysicsCommon physicsCommon;
@@ -40,7 +38,7 @@ int main() {
 	auto* debugShader = new Shader("debug");
 	auto lightPos = glm::vec3(-7.0f, 10.0f, -3.0f);
 	auto lightLook = glm::vec3(0);
-	auto* shadows = new ShadowsCaster(2048, 2048, "depth", 2.f, 30.f, &lightPos, &lightLook);
+	auto* shadows = new ShadowsCaster(4096, 4096, "depth", 2.f, 30.f, &lightPos, &lightLook);
 
 	auto* map = new Model("./data/meshes/map.obj", world, &physicsCommon, true);
 	auto* player = new Model("./data/meshes/player.obj", world, &physicsCommon);
@@ -52,20 +50,18 @@ int main() {
 	Transform colliderOffset = Transform(Vector3(0, -0.08f, -0.36f), Quaternion::identity());
 	sniperRifle->rb->addCollider(sniperShape, colliderOffset);
 	sniperRifle->rb->setMass(1);
-
-	RigidBody* ground = world->createRigidBody(Transform(Vector3(0, -6.9f, 0), Quaternion::identity()));
-	ground->addCollider(physicsCommon.createBoxShape(Vector3(200, 0.1f, 200)), Transform::identity());
-	ground->setType(BodyType::DYNAMIC);
+	player->rb->setAngularLockAxisFactor(Vector3::zero());
+	PLOGI << "Loading models and physics successfully";
 
 	auto* sniperTexture = new Texture("data/textures/sniper.png");
 	auto* mapTexture = new Texture("data/textures/palette.png");
+	PLOGI << "Loading textures successfully";
 
 	auto* camera = new Camera(window->getWidthPtr(), window->getHeightPtr(), window->getRatioPtr());
 
 	HUD* hud = new HUD(window);
+	PLOGI << "Loading HUD (ImGui) successfully";
 	profiler->endBlock();
-
-	player->rb->setAngularLockAxisFactor(Vector3::zero());
 
 	while (window->update()) {
 		static bool debugWindow, menuWindow = true, wireframe, showControl = true;
@@ -90,7 +86,6 @@ int main() {
 					std::sin(camera->rotation.y - 1.57f) * 200)
 			);
 		}
-
 		world->update(ImGui::GetIO().DeltaTime);
 		profiler->endBlock();
 
@@ -110,7 +105,6 @@ int main() {
 			shader->bind();
 			shader->upload("proj", camera->getPerspective());
 			shader->upload("camera.transform", camera->getView());
-			shader->upload("camera.position", camera->position);
 			shader->upload("environment.sun_position", lightPos);
 			shader->upload("hasTexture", 1);
 			shader->upload("displayWireframe", wireframe ? 1 : 0);
@@ -151,27 +145,30 @@ int main() {
 						vertices[i * 9 + 8] = t.point3.z;
 					}
 
-					unsigned int VAO, VBO;
+					static unsigned int VAO = -1, VBO;
 
-					glGenVertexArrays(1, &VAO);
-					glBindVertexArray(VAO);
+					if (VAO == -1) {
+						glGenVertexArrays(1, &VAO);
+						glBindVertexArray(VAO);
 
-					glGenBuffers(1, &VBO);
-					glBindBuffer(GL_ARRAY_BUFFER, VBO);
-					glBufferData(GL_ARRAY_BUFFER, (int)(verticesCount * sizeof(float)), vertices, GL_STATIC_DRAW);
-
-					glEnableVertexAttribArray(0);
-					glVertexAttribPointer(0, 3, GL_FLOAT, false,
-						3 * sizeof(float), (void*)0);
+						glGenBuffers(1, &VBO);
+						glBindBuffer(GL_ARRAY_BUFFER, VBO);
+						glBufferData(GL_ARRAY_BUFFER, (int)(verticesCount * sizeof(float)), vertices, GL_DYNAMIC_DRAW);
+						glEnableVertexAttribArray(0);
+						glVertexAttribPointer(0, 3, GL_FLOAT, false,
+							3 * sizeof(float), (void*)0);
+					}
+					else {
+						glBindVertexArray(VAO);
+						glBindBuffer(GL_ARRAY_BUFFER, VBO);
+						glBufferData(GL_ARRAY_BUFFER, (int)(verticesCount * sizeof(float)), vertices, GL_DYNAMIC_DRAW);
+					}
 
 					debugShader->bind();
 					debugShader->upload("proj", camera->getPerspective());
 					debugShader->upload("view", camera->getView());
 					glDrawArrays(GL_TRIANGLES, 0, verticesCount);
 					debugShader->unbind();
-
-					glDeleteBuffers(1, &VBO);
-					glDeleteVertexArrays(1, &VAO);
 					delete[] vertices;
 				}
 			}
@@ -328,7 +325,7 @@ int main() {
 					ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
 					ImGui::SetNextWindowBgAlpha(0.35f);
 
-					if (ImGui::Begin("Info overlay", nullptr,
+					if (ImGui::Begin("Ammo overlay", nullptr,
 						ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
 						ImGuiWindowFlags_NoSavedSettings |
 						ImGuiWindowFlags_NoFocusOnAppearing |
@@ -372,8 +369,17 @@ int main() {
 		profiler->endBlock();
 	}
 
-	hud->destroy();
-	window->destroy();
-	shader->destroy();
+	physicsCommon.destroyPhysicsWorld(world);
+	delete hud;
+	delete shader;
+	delete debugShader;
+	delete player;
+	delete map;
+	delete sniperRifle;
+	delete sniperTexture;
+	delete mapTexture;
+	delete shadows;
+	delete window;
+	system("pause");
 	exit(EXIT_SUCCESS);
 }

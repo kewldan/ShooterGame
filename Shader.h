@@ -24,6 +24,7 @@ class Shader {
 
 public:
     Shader(const std::string &filename);
+    ~Shader();
 
     unsigned int getProgramId() const;
 
@@ -50,8 +51,6 @@ public:
     void upload(const char *name, glm::mat4 value) const;
 
     void draw(Model *model) const;
-
-    void destroy() const;
 };
 
 

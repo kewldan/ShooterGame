@@ -28,7 +28,7 @@ void MyMesh::draw() const {
 	glDrawElements(GL_TRIANGLES, indicesCount, GL_UNSIGNED_INT, nullptr);
 }
 
-void MyMesh::destroy() {
+MyMesh::~MyMesh() {
 	glDeleteBuffers(1, &VBO);
 	glDeleteBuffers(1, &EBO);
 	glDeleteVertexArrays(1, &VAO);

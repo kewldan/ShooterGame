@@ -10,6 +10,7 @@ class Texture {
     unsigned int texture;
 public:
     Texture(const char *filename);
+    ~Texture();
 
     void bind() const;
 };
