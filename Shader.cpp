@@ -176,7 +176,7 @@ void Shader::upload(const char* name, glm::mat4 value) const {
 
 void Shader::draw(Model* model) const {
 	upload("mvp", model->getMVP());
-	model->getMesh()->draw();
+	model->draw();
 }
 
 void Shader::upload(const char* name, float x, float y) const {

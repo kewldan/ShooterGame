@@ -1,5 +1,3 @@
-#include <reactphysics3d/reactphysics3d.h>
-
 #include "Shader.h"
 #include <cstdlib>
 #include "Window.h"
@@ -23,16 +21,8 @@ int main() {
 	plog::get()->addAppender(new plog::ColorConsoleAppender<plog::TxtFormatter>());
 	PLOG_INFO << "Logger initialized";
 
-	PhysicsCommon physicsCommon;
-	PhysicsWorld* world = physicsCommon.createPhysicsWorld();
-
-	DebugRenderer& debugRenderer = world->getDebugRenderer();
-	debugRenderer.setIsDebugItemDisplayed(DebugRenderer::DebugItem::COLLISION_SHAPE, true);
-	world->setIsDebugRenderingEnabled(false);
-
 	auto* profiler = new MyProfiler();
 
-	profiler->startBlock("Init");
 	auto* window = new Window();
 	auto* shader = new Shader("main");
 	auto* debugShader = new Shader("debug");
@@ -40,17 +30,11 @@ int main() {
 	auto lightLook = glm::vec3(0);
 	auto* shadows = new ShadowsCaster(4096, 4096, "depth", 2.f, 30.f, &lightPos, &lightLook);
 
-	auto* map = new Model("./data/meshes/map.obj", world, &physicsCommon, true);
-	auto* player = new Model("./data/meshes/player.obj", world, &physicsCommon);
-	player->rb->addCollider(physicsCommon.createCapsuleShape(1.f, 2.5f), Transform(Vector3(0, 1.2f, 0), Quaternion::identity()));
-	player->rb->updateMassFromColliders();
-	player->rb->updateLocalCenterOfMassFromColliders();
-	auto* sniperRifle = new Model("./data/meshes/sniper.obj", world, &physicsCommon);
-	BoxShape* sniperShape = physicsCommon.createBoxShape(Vector3(0.12f, 0.587f, 2.7f));
-	Transform colliderOffset = Transform(Vector3(0, -0.08f, -0.36f), Quaternion::identity());
-	sniperRifle->rb->addCollider(sniperShape, colliderOffset);
-	sniperRifle->rb->setMass(1);
-	player->rb->setAngularLockAxisFactor(Vector3::zero());
+	auto* map = new Model("./data/meshes/map.obj");
+	auto* player = new Model("./data/meshes/player.obj");
+
+	auto* sniperRifle = new Model("./data/meshes/sniper.obj");
+
 	PLOGI << "Loading models and physics successfully";
 
 	auto* sniperTexture = new Texture("data/textures/sniper.png");
@@ -61,32 +45,14 @@ int main() {
 
 	HUD* hud = new HUD(window);
 	PLOGI << "Loading HUD (ImGui) successfully";
-	profiler->endBlock();
 
 	while (window->update()) {
 		static bool debugWindow, menuWindow = true, wireframe, showControl = true;
 
 		profiler->startBlock("Update");
-		camera->pollEvents(window, player->rb);
-
-		if (window->isKeyPressed(GLFW_KEY_E)) {
-			//Add force of drop
-			Vector3 position(
-				camera->position.x + std::cos(camera->rotation.y - 1.57f) * 2,
-				camera->position.y,
-				camera->position.z + std::sin(camera->rotation.y - 1.57f) * 2
-			);
-			sniperRifle->rb->setTransform(Transform(position, Quaternion::identity()));
-			sniperRifle->rb->setLinearVelocity(Vector3::zero());
-			sniperRifle->rb->setAngularVelocity(Vector3::zero());
-			sniperRifle->rb->applyWorldForceAtCenterOfMass(
-				Vector3(
-					std::cos(camera->rotation.y - 1.57f) * 200,
-					300,
-					std::sin(camera->rotation.y - 1.57f) * 200)
-			);
+		{
+			camera->pollEvents(window);
 		}
-		world->update(ImGui::GetIO().DeltaTime);
 		profiler->endBlock();
 
 		profiler->startBlock("Shadows");
@@ -124,57 +90,6 @@ int main() {
 		}
 		profiler->endBlock();
 
-		if (world->getIsDebugRenderingEnabled()) {
-			profiler->startBlock("Physics render");
-			{
-				int verticesCount = debugRenderer.getNbTriangles() * 9;
-				if (verticesCount > 0) {
-					float* vertices = new float[verticesCount];
-					for (int i = 0; i < debugRenderer.getNbTriangles(); i++) {
-						DebugRenderer::DebugTriangle t = debugRenderer.getTriangles()[i];
-						vertices[i * 9] = t.point1.x;
-						vertices[i * 9 + 1] = t.point1.y;
-						vertices[i * 9 + 2] = t.point1.z;
-
-						vertices[i * 9 + 3] = t.point2.x;
-						vertices[i * 9 + 4] = t.point2.y;
-						vertices[i * 9 + 5] = t.point2.z;
-
-						vertices[i * 9 + 6] = t.point3.x;
-						vertices[i * 9 + 7] = t.point3.y;
-						vertices[i * 9 + 8] = t.point3.z;
-					}
-
-					static unsigned int VAO = -1, VBO;
-
-					if (VAO == -1) {
-						glGenVertexArrays(1, &VAO);
-						glBindVertexArray(VAO);
-
-						glGenBuffers(1, &VBO);
-						glBindBuffer(GL_ARRAY_BUFFER, VBO);
-						glBufferData(GL_ARRAY_BUFFER, (int)(verticesCount * sizeof(float)), vertices, GL_DYNAMIC_DRAW);
-						glEnableVertexAttribArray(0);
-						glVertexAttribPointer(0, 3, GL_FLOAT, false,
-							3 * sizeof(float), (void*)0);
-					}
-					else {
-						glBindVertexArray(VAO);
-						glBindBuffer(GL_ARRAY_BUFFER, VBO);
-						glBufferData(GL_ARRAY_BUFFER, (int)(verticesCount * sizeof(float)), vertices, GL_DYNAMIC_DRAW);
-					}
-
-					debugShader->bind();
-					debugShader->upload("proj", camera->getPerspective());
-					debugShader->upload("view", camera->getView());
-					glDrawArrays(GL_TRIANGLES, 0, verticesCount);
-					debugShader->unbind();
-					delete[] vertices;
-				}
-			}
-			profiler->endBlock();
-		}
-
 		profiler->startBlock("HUD");
 		{
 			hud->begin();
@@ -188,65 +103,35 @@ int main() {
 					if (ImGui::Checkbox("VSync", &vsync)) {
 						window->setVsync(vsync);
 					}
-					static bool profilerDebugRender;
-					if (ImGui::Checkbox("Debug render", &profilerDebugRender)) {
-						world->setIsDebugRenderingEnabled(profilerDebugRender);
-					}
 					ImGui::Checkbox("Show wireframe", &wireframe);
 					ImGui::Separator();
 				}
 				if (ImGui::CollapsingHeader("Profiling")) {
-					std::vector<std::pair<std::string, ProfilerBlock>> once;
-					std::vector<std::pair<std::string, ProfilerBlock>> others;
-					for (const auto& kv : profiler->blocks) {
-						if (kv.second.iterations == 1) {
-							once.emplace_back(kv);
-						}
-						else {
-							others.emplace_back(kv);
-						}
-					}
-
-					if (ImGui::TreeNode("Memory")) {
-						MemoryInfo* info = profiler->getMemoryInfo();
-
-						ImGui::Text("Virual: %.1f mb / %.1f mb (%.1f%%)", info->virtualMemoryUsed / 1024.f / 1024.f, info->virtualMemoryTotal / 1024.f / 1024.f, 100.f / (info->virtualMemoryTotal / (float)info->virtualMemoryUsed));
-						ImGui::Text("Physical: %.1f mb / %.1f mb (%.1f%%)", info->physicalMemoryUsed / 1024.f / 1024.f, info->physicalMemoryTotal / 1024.f / 1024.f, 100.f / (info->physicalMemoryTotal / (float)info->physicalMemoryUsed));
-
-						ImGui::TreePop();
-						ImGui::Separator();
-					}
-
-					if (ImGui::TreeNode("Called once")) {
-						for (const auto& kv : once) {
-							ImGui::Text("%s: %d ms", kv.first.c_str(), kv.second.allTime);
-						}
-						ImGui::TreePop();
-						ImGui::Separator();
-					}
-
-
-					std::sort(others.begin(), others.end(), [](std::pair<std::string, ProfilerBlock> const& lhs,
-						std::pair<std::string, ProfilerBlock> const& rhs) -> bool {
-							return ((float)lhs.second.allTime / (float)lhs.second.iterations) >
-								((float)rhs.second.allTime / (float)rhs.second.iterations);
-						});
-
 					if (ImGui::TreeNode("Called many times")) {
 						if (ImGui::Button("Reset")) {
-							for (const auto& kv : others) {
-								profiler->blocks.erase(kv.first);
-							}
+							profiler->blocks.clear();
 						}
 						ImGui::Spacing();
-						if (ImGui::BeginTable("Table", 4, ImGuiTableFlags_Borders | ImGuiCol_TableRowBg))
+						if (ImGui::BeginTable("Table", 4, ImGuiTableFlags_Borders))
 						{
 							ImGui::TableSetupColumn("Block");
 							ImGui::TableSetupColumn("Average");
 							ImGui::TableSetupColumn("Time");
 							ImGui::TableSetupColumn("Iterations");
 							ImGui::TableHeadersRow();
-							for (const auto& kv : others)
+							std::vector <std::pair<std::string, ProfilerBlock>> pairs;
+							for (const auto& kv : profiler->blocks)
+							{
+								if (kv.second.iterations > 0) {
+									pairs.emplace_back(kv);
+								}
+							}
+							std::sort(pairs.begin(), pairs.end(), [](std::pair<std::string, ProfilerBlock> const& lhs,
+								std::pair<std::string, ProfilerBlock> const& rhs) -> bool {
+									return ((float)lhs.second.allTime / (float)lhs.second.iterations) >
+										((float)rhs.second.allTime / (float)rhs.second.iterations);
+								});
+							for (const auto& kv : pairs )
 							{
 								ImGui::TableNextRow();
 								ImGui::TableNextColumn();
@@ -254,7 +139,7 @@ int main() {
 								ImGui::TableNextColumn();
 								ImGui::Text("%.2f ms", (float)kv.second.allTime / (float)kv.second.iterations);
 								ImGui::TableNextColumn();
-								ImGui::Text("%d ms", kv.second.allTime);
+								ImGui::Text("%lu ms", kv.second.allTime);
 								ImGui::TableNextColumn();
 								ImGui::Text("%d", kv.second.iterations);
 							}
@@ -369,7 +254,6 @@ int main() {
 		profiler->endBlock();
 	}
 
-	physicsCommon.destroyPhysicsWorld(world);
 	delete hud;
 	delete shader;
 	delete debugShader;

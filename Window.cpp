@@ -68,7 +68,6 @@ GLFWwindow *Window::getId() {
 
 Window::~Window() {
     glfwDestroyWindow(window);
-    glfwTerminate();
 }
 
 bool Window::glfwInitialized = false;

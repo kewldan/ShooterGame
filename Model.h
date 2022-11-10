@@ -1,29 +1,29 @@
 #ifndef OPENGL_MODEL_H
 #define OPENGL_MODEL_H
 
-#include <reactphysics3d/reactphysics3d.h>
 #include "MyMesh.h"
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
 #include <plog/Log.h>
-
-using namespace reactphysics3d;
+#include "assimp/Importer.hpp"
+#include "assimp/scene.h"
+#include "assimp/postprocess.h"
 
 class Model {
-	MyMesh* mesh;
+	std::vector<MyMesh> meshes;
 	glm::mat4 mvp;
+	void processNode(aiNode* node, const aiScene* scene);
+	MyMesh processMesh(aiMesh* mesh, const aiScene* scene);
 public:
-	RigidBody* rb;
-	PhysicsWorld* world;
 	std::vector<int>* indices;
 	std::vector<float>* vertices;
 
-	Model(std::string filename, PhysicsWorld* world, PhysicsCommon* common, bool createConcaveCollider = false);
+	Model(std::string filename);
 	~Model();
 
 	glm::mat4 getMVP();
 
-	MyMesh* getMesh() const;
+	void draw();
 };
 
 

@@ -9,21 +9,24 @@ include_directories(${PROJECT_SOURCE_DIR}/libraries/glad/include)
 include_directories(${PROJECT_SOURCE_DIR}/libraries/stb)
 include_directories(${PROJECT_SOURCE_DIR}/libraries/plog/include)
 include_directories(${PROJECT_SOURCE_DIR}/libraries/glfw/include)
-include_directories(${PROJECT_SOURCE_DIR}/libraries/loader/include)
 include_directories(${PROJECT_SOURCE_DIR}/libraries/glm)
 include_directories(${PROJECT_SOURCE_DIR}/imgui)
 
 link_directories(${PROJECT_SOURCE_DIR}/libraries/glfw/lib-vc2022)
 
-find_package (ReactPhysics3D REQUIRED)
+set(assimp_DIR E:\\dev\\vcpkg\\installed\\x64-windows\\share\\assimp)
+
 find_package(assimp REQUIRED)
+find_package(Bullet REQUIRED)
+
+link_directories(E:\\dev\\vcpkg\\installed\\x64-windows\\lib)
 
 add_executable(ShooterGame
         libraries/glad/src/gl.c
         main.cpp
         Shader.cpp Shader.h
         Window.cpp Window.h
-        "MyMesh.cpp" "MyMesh.h"
+        MyMesh.cpp MyMesh.h
         Model.cpp Model.h
         Camera.cpp Camera.h
         Texture.cpp Texture.h
@@ -39,8 +42,8 @@ add_executable(ShooterGame
         imgui/backends/imgui_impl_opengl3.cpp imgui/backends/imgui_impl_opengl3.h
         imgui/imgui.cpp imgui/imgui.h
         HUD.cpp HUD.h
-        "MyProfiler.cpp" "MyProfiler.h"
+        MyProfiler.cpp MyProfiler.h
         Client.cpp Client.h
 )
 
-target_link_libraries(ShooterGame glfw3 opengl32 gdi32 ReactPhysics3D::ReactPhysics3D Ws2_32 assimp::assimp)
+target_link_libraries(ShooterGame glfw3 opengl32 gdi32 LinearMath Bullet3Common BulletDynamics BulletSoftBody Ws2_32 assimp::assimp)
