@@ -16,8 +16,8 @@ link_directories(${PROJECT_SOURCE_DIR}/libraries/glfw/lib-vc2022)
 
 set(assimp_DIR E:\\dev\\vcpkg\\installed\\x64-windows\\share\\assimp)
 
+find_package(ReactPhysics3D REQUIRED)
 find_package(assimp REQUIRED)
-find_package(Bullet REQUIRED)
 
 link_directories(E:\\dev\\vcpkg\\installed\\x64-windows\\lib)
 

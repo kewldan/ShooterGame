@@ -10,7 +10,7 @@ Shader::Shader(const std::string& filename) {
 	shaderParts = 0;
 	program = glCreateProgram();
 
-	uniforms = new std::map<std::string, int>;
+	uniforms = new std::map<std::string, int>();
 
 	std::string path = "./data/shaders/" + filename + ".vert";
 	if (std::filesystem::exists(path)) {
@@ -150,27 +150,27 @@ Shader::~Shader() {
 	glDeleteProgram(program);
 }
 
-void Shader::upload(const char* name, int value) const {
+void Shader::upload(const  char* name, int value) const {
 	glUniform1i(getUniformLocation(name), value);
 }
 
-void Shader::upload(const char* name, float value) const {
+void Shader::upload(const  char* name, float value) const {
 	glUniform1f(getUniformLocation(name), value);
 }
 
-void Shader::upload(const char* name, glm::vec2 value) const {
+void Shader::upload(const  char* name, glm::vec2 value) const {
 	glUniform2fv(getUniformLocation(name), 1, glm::value_ptr(value));
 }
 
-void Shader::upload(const char* name, glm::vec3 value) const {
+void Shader::upload(const  char* name, glm::vec3 value) const {
 	glUniform3fv(getUniformLocation(name), 1, glm::value_ptr(value));
 }
 
-void Shader::upload(const char* name, glm::vec4 value) const {
+void Shader::upload(const  char* name, glm::vec4 value) const {
 	glUniform4fv(getUniformLocation(name), 1, glm::value_ptr(value));
 }
 
-void Shader::upload(const char* name, glm::mat4 value) const {
+void Shader::upload(const  char* name, glm::mat4 value) const {
 	glUniformMatrix4fv(getUniformLocation(name), 1, false, glm::value_ptr(value));
 }
 
@@ -179,14 +179,14 @@ void Shader::draw(Model* model) const {
 	model->draw();
 }
 
-void Shader::upload(const char* name, float x, float y) const {
+void Shader::upload(const  char* name, float x, float y) const {
 	glUniform2f(getUniformLocation(name), x, y);
 }
 
-void Shader::upload(const char* name, float x, float y, float z) const {
+void Shader::upload(const  char* name, float x, float y, float z) const {
 	glUniform3f(getUniformLocation(name), x, y, z);
 }
 
-void Shader::upload(const char* name, float x, float y, float z, float w) const {
+void Shader::upload(const  char* name, float x, float y, float z, float w) const {
 	glUniform4f(getUniformLocation(name), x, y, z, w);
 }

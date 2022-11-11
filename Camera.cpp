@@ -32,7 +32,7 @@ const glm::mat4 &Camera::getPerspective() {
     return perspective;
 }
 
-void Camera::pollEvents(Window *window) {
+void Camera::pollEvents(Window *window, RigidBody* player) {
     if (window->isKeyPressed(GLFW_KEY_Q)) {
         int x, y;
         window->getCursorPosition(&x, &y);
@@ -48,6 +48,32 @@ void Camera::pollEvents(Window *window) {
     }
 
     float crouch = window->isKeyPressed(GLFW_KEY_LEFT_SHIFT) ? 0.8f : 1.5f;
+
+    Vector3 vel = Vector3::zero();
+    if (window->isKeyPressed(GLFW_KEY_W)) {
+        vel.x -= std::cos(rotation.y + 1.57f) * 5.f * speed * crouch;
+        vel.z -= std::sin(rotation.y + 1.57f) * 5.f * speed * crouch;
+    } else if (window->isKeyPressed(GLFW_KEY_S)) {
+        vel.x += std::cos(rotation.y + 1.57f) * 5.f * speed * crouch;
+        vel.z += std::sin(rotation.y + 1.57f) * 5.f * speed * crouch;
+    }
+
+    if (window->isKeyPressed(GLFW_KEY_A)) {
+        vel.x -= std::cos(rotation.y) * 5.f * speed * crouch;
+        vel.z -= std::sin(rotation.y) * 5.f * speed * crouch;
+    } else if (window->isKeyPressed(GLFW_KEY_D)) {          
+        vel.x += std::cos(rotation.y) * 5.f * speed * crouch;
+        vel.z += std::sin(rotation.y) * 5.f * speed * crouch;
+    }
+    Vector3 current = player->getLinearVelocity();
+    current.x = vel.x;
+    current.z = vel.z;
+    player->setLinearVelocity(current);
+
+    Vector3 pos = player->getTransform().getPosition();
+    position.x = pos.x;
+    position.y = pos.y + 1.5f;
+    position.z = pos.z;
 
     if (window->isKeyPressed(GLFW_KEY_F5)) {
         position.x -= std::cos(rotation.y - 1.57f) * 3.f;

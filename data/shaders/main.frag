@@ -67,7 +67,7 @@ void main()
 {
     vec3 color = vec3(1);
     if (hasTexture == 1){
-        color = texture(aTexture, vec2(vertex.texCoord.x, 1 - vertex.texCoord.y)).xyz;
+        color = texture(aTexture, vertex.texCoord).xyz;
     }
     vec3 normal = normalize(vertex.normal);
     vec3 lightColor = vec3(1.0);
