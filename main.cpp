@@ -24,8 +24,8 @@ void GLAPIENTRY MessageCallback(GLenum source,
 	GLsizei length,
 	const GLchar* message,
 	const void* userParam) {
-	if(severity != GL_DEBUG_SEVERITY_NOTIFICATION){
-		PLOGE << "OGL: "<< (type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : "") << " type = " << type << ", severity = " << severity << ", message = " << message;
+	if (severity != GL_DEBUG_SEVERITY_NOTIFICATION) {
+		PLOGE << "OGL: " << (type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : "") << " type = " << type << ", severity = " << severity << ", message = " << message;
 	}
 }
 
@@ -61,6 +61,10 @@ int main() {
 	player->rb->addCollider(physicsCommon.createCapsuleShape(1.f, 2.5f), Transform(Vector3(0, 1.2f, 0), Quaternion::identity()));
 	player->rb->updateMassFromColliders();
 	player->rb->updateLocalCenterOfMassFromColliders();
+	auto* enemy = new Model("./data/meshes/player.obj", world, &physicsCommon);
+	enemy->rb->addCollider(physicsCommon.createCapsuleShape(1.f, 2.5f), Transform(Vector3(0, 1.2f, 0), Quaternion::identity()));
+	int id = 2;
+	enemy->rb->setUserData(&id);
 	auto* sniperRifle = new Model("./data/meshes/sniper.obj", world, &physicsCommon);
 	BoxShape* sniperShape = physicsCommon.createBoxShape(Vector3(0.12f, 0.587f, 2.7f));
 	Transform colliderOffset = Transform(Vector3(0, -0.08f, -0.36f), Quaternion::identity());
@@ -78,12 +82,28 @@ int main() {
 	HUD* hud = new HUD(window);
 	PLOGI << "Loading HUD (ImGui) successfully";
 	profiler->endBlock();
-	
+
 	while (window->update()) {
 		static bool debugWindow, menuWindow = true, wireframe, showControl = true;
+		bool locked = false;
 
 		profiler->startBlock("Update");
 		camera->pollEvents(window, player->rb);
+
+		if (glfwGetMouseButton(window->getId(), 0) == GLFW_PRESS) {
+			Vector3 startPoint = player->rb->getTransform().getPosition();
+			Vector3 endPoint(
+				startPoint.x + std::cos(camera->rotation.y - 1.57f) * 50.f,
+				startPoint.y + std::sin(camera->rotation.x) * 10.f,
+				startPoint.z + std::sin(camera->rotation.y - 1.57f) * 50.f
+			);
+			Ray ray(startPoint, endPoint);
+			RaycastInfo raycastInfo;
+			locked = enemy->rb->raycast(ray, raycastInfo);
+			if (locked) {
+				enemy->rb->applyWorldForceAtWorldPosition(raycastInfo.worldNormal * -5, raycastInfo.worldPoint);
+			}
+		}
 
 		if (window->isKeyPressed(GLFW_KEY_E)) {
 			//Add force of drop
@@ -136,6 +156,7 @@ int main() {
 			shader->draw(map);
 			shader->upload("hasTexture", 0);
 			shader->draw(player);
+			shader->draw(enemy);
 			shader->unbind();
 		}
 		profiler->endBlock();
@@ -212,8 +233,8 @@ int main() {
 					ImGui::Separator();
 				}
 				if (ImGui::CollapsingHeader("Profiling")) {
-					std::vector<std::pair<std::string, ProfilerBlock>> once;
-					std::vector<std::pair<std::string, ProfilerBlock>> others;
+					std::vector<std::pair<const char*, ProfilerBlock>> once;
+					std::vector<std::pair<const char*, ProfilerBlock>> others;
 					for (const auto& kv : profiler->blocks) {
 						if (kv.second.iterations == 1) {
 							once.emplace_back(kv);
@@ -225,15 +246,15 @@ int main() {
 
 					if (ImGui::TreeNode("Called once")) {
 						for (const auto& kv : once) {
-							ImGui::Text("%s: %d ms", kv.first.c_str(), kv.second.allTime);
+							ImGui::Text("%s: %d ms", kv.first, kv.second.allTime);
 						}
 						ImGui::TreePop();
 						ImGui::Separator();
 					}
 
 
-					std::sort(others.begin(), others.end(), [](std::pair<std::string, ProfilerBlock> const& lhs,
-						std::pair<std::string, ProfilerBlock> const& rhs) -> bool {
+					std::sort(others.begin(), others.end(), [](std::pair<const char*, ProfilerBlock> const& lhs,
+						std::pair<const char*, ProfilerBlock> const& rhs) -> bool {
 							return ((float)lhs.second.allTime / (float)lhs.second.iterations) >
 								((float)rhs.second.allTime / (float)rhs.second.iterations);
 						});
@@ -256,7 +277,7 @@ int main() {
 							{
 								ImGui::TableNextRow();
 								ImGui::TableNextColumn();
-								ImGui::Text(kv.first.c_str());
+								ImGui::Text(kv.first);
 								ImGui::TableNextColumn();
 								ImGui::Text("%.2f ms", (float)kv.second.allTime / (float)kv.second.iterations);
 								ImGui::TableNextColumn();
@@ -316,6 +337,7 @@ int main() {
 					ImGui::Text("Position: X: %.2f, Y: %.2f, Z: %.2f", camera->position.x, camera->position.y,
 						camera->position.z);
 					ImGui::Text("Rotation: X: %.2f, Y: %.2f", camera->rotation.x, camera->rotation.y);
+					ImGui::Text("Hit: %s", locked ? "Yes" : "No");
 				}
 				ImGui::End();
 
@@ -332,7 +354,7 @@ int main() {
 					ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
 					ImGui::SetNextWindowBgAlpha(0.35f);
 
-					if (ImGui::Begin("Ammo overlay", nullptr,
+					if (ImGui::Begin("Ammo overlay", &_,
 						ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
 						ImGuiWindowFlags_NoSavedSettings |
 						ImGuiWindowFlags_NoFocusOnAppearing |
@@ -357,7 +379,7 @@ int main() {
 				ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
 				ImGui::SetNextWindowBgAlpha(0.35f);
 
-				if (ImGui::Begin("Controls", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
+				if (ImGui::Begin("Controls", &_, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
 					ImGuiWindowFlags_NoSavedSettings |
 					ImGuiWindowFlags_NoFocusOnAppearing |
 					ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove)) {

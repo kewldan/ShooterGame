@@ -11,14 +11,14 @@ struct ProfilerBlock {
 };
 
 class MyProfiler {
-    std::string lastBlockName;
+    const char* lastBlockName;
     unsigned long lastBlockStart;
 public:
-    std::map<std::string, ProfilerBlock> blocks;
+    std::map<const char*, ProfilerBlock> blocks;
 
     MyProfiler();
 
-    void startBlock(std::string name);
+    void startBlock(const char* name);
 
     void endBlock();
 };

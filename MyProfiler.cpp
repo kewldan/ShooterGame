@@ -4,7 +4,7 @@ MyProfiler::MyProfiler() {
     lastBlockStart = 0L;
 }
 
-void MyProfiler::startBlock(std::string name) {
+void MyProfiler::startBlock(const char* name) {
     lastBlockName = name;
     lastBlockStart = std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::system_clock::now().time_since_epoch()).count();
