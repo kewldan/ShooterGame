@@ -17,11 +17,28 @@
 #include "HUD.h"
 #include "MyProfiler.h"
 
+void GLAPIENTRY MessageCallback(GLenum source,
+	GLenum type,
+	GLuint id,
+	GLenum severity,
+	GLsizei length,
+	const GLchar* message,
+	const void* userParam) {
+	if(severity != GL_DEBUG_SEVERITY_NOTIFICATION){
+		PLOGE << "OGL: "<< (type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : "") << " type = " << type << ", severity = " << severity << ", message = " << message;
+	}
+}
+
 int main() {
 	std::remove("latest.log");
 	plog::init(plog::debug, "latest.log");
 	plog::get()->addAppender(new plog::ColorConsoleAppender<plog::TxtFormatter>());
 	PLOG_INFO << "Logger initialized";
+
+	auto* window = new Window();
+
+	glEnable(GL_DEBUG_OUTPUT);
+	glDebugMessageCallback(MessageCallback, 0);
 
 	PhysicsCommon physicsCommon;
 	PhysicsWorld* world = physicsCommon.createPhysicsWorld();
@@ -33,7 +50,6 @@ int main() {
 	auto* profiler = new MyProfiler();
 
 	profiler->startBlock("Init");
-	auto* window = new Window();
 	auto* shader = new Shader("main");
 	auto* debugShader = new Shader("debug");
 	auto lightPos = glm::vec3(-7.0f, 10.0f, -3.0f);
@@ -42,8 +58,6 @@ int main() {
 
 	auto* map = new Model("./data/meshes/map.obj", world, &physicsCommon, true);
 	auto* player = new Model("./data/meshes/player.obj", world, &physicsCommon);
-	auto* cube = new Model("./data/meshes/cube.obj", world, &physicsCommon);
-	cube->print();
 	player->rb->addCollider(physicsCommon.createCapsuleShape(1.f, 2.5f), Transform(Vector3(0, 1.2f, 0), Quaternion::identity()));
 	player->rb->updateMassFromColliders();
 	player->rb->updateLocalCenterOfMassFromColliders();
@@ -64,7 +78,7 @@ int main() {
 	HUD* hud = new HUD(window);
 	PLOGI << "Loading HUD (ImGui) successfully";
 	profiler->endBlock();
-
+	
 	while (window->update()) {
 		static bool debugWindow, menuWindow = true, wireframe, showControl = true;
 
@@ -292,7 +306,8 @@ int main() {
 				ImGuiIO& io = ImGui::GetIO();
 				ImGui::SetNextWindowPos(ImVec2(20, 20), ImGuiCond_Once);
 				ImGui::SetNextWindowBgAlpha(0.35f);
-				if (ImGui::Begin("Debug overlay", nullptr, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
+				static bool _;
+				if (ImGui::Begin("Debug overlay", &_, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
 					ImGuiWindowFlags_NoSavedSettings |
 					ImGuiWindowFlags_NoFocusOnAppearing |
 					ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove)) {
@@ -362,16 +377,5 @@ int main() {
 	}
 
 	physicsCommon.destroyPhysicsWorld(world);
-	delete hud;
-	delete shader;
-	delete debugShader;
-	delete player;
-	delete map;
-	delete sniperRifle;
-	delete sniperTexture;
-	delete mapTexture;
-	delete shadows;
-	delete window;
-	system("pause");
 	exit(EXIT_SUCCESS);
 }

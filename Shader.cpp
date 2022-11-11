@@ -10,7 +10,7 @@ Shader::Shader(const std::string& filename) {
 	shaderParts = 0;
 	program = glCreateProgram();
 
-	uniforms = new std::map<std::string, int>();
+	uniforms = new Hashtable();
 
 	std::string path = "./data/shaders/" + filename + ".vert";
 	if (std::filesystem::exists(path)) {
@@ -112,20 +112,20 @@ GLuint Shader::getProgramId() const {
 GLint Shader::getAttribLocation(const char* name) const {
 	GLint value = glGetAttribLocation(program, name);
 	if (value == -1) {
-		PLOG_ERROR << "Attrib location in shader not found > " << name;
+		PLOGE << "Attrib location in shader not found > " << name;
 	}
 	return value;
 }
 
 GLint Shader::getUniformLocation(const char* name) const {
-	if (uniforms->contains(name)) {
-		return uniforms->at(name);
+	if (uniforms->has(name)) {
+		return uniforms->get(name);
 	}
 	GLint value = glGetUniformLocation(program, name);
 	if (value == -1) {
-		PLOG_ERROR << "Uniform location in shader not found > " << name;
+		PLOGE << "Uniform location in shader not found > " << name;
 	}
-	(*uniforms)[name] = value;
+	uniforms->put(name, value);
 	return value;
 }
 

@@ -1,9 +1,9 @@
 #include "MyMesh.h"
 
 MyMesh::MyMesh(std::vector<float>* vertices, std::vector<int>* indices, unsigned int vertexSize) {
-	VAO = 0;
-	VBO = 0;
-	EBO = 0;
+	VAO = -1;
+	VBO = -1;
+	EBO = -1;
 
 	glGenVertexArrays(1, &VAO);
 	glBindVertexArray(VAO);
@@ -26,12 +26,6 @@ void MyMesh::draw() const {
 	glBindVertexArray(VAO);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
 	glDrawElements(GL_TRIANGLES, indicesCount, GL_UNSIGNED_INT, nullptr);
-}
-
-MyMesh::~MyMesh() {
-	glDeleteBuffers(1, &VBO);
-	glDeleteBuffers(1, &EBO);
-	glDeleteVertexArrays(1, &VAO);
 }
 
 void MyMesh::addParameter(int location, int size, bool normalized) {

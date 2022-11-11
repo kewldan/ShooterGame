@@ -77,7 +77,7 @@ bool Window::update() {
     glfwSwapBuffers(window);
     glfwPollEvents();
 
-    //glfwGetFramebufferSize(window, &width, &height);
+    glfwGetFramebufferSize(window, &width, &height);
     ratio = (float) width / (float) height;
 
     return !glfwWindowShouldClose(window);

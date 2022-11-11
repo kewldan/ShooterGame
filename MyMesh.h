@@ -7,11 +7,10 @@
 
 class MyMesh {
     unsigned int VAO, EBO, VBO;
-    int indicesCount, stride;
     unsigned long long vertexOffset;
 public:
+    int indicesCount, stride;
     MyMesh(std::vector<float> *vertices, std::vector<int> *indices, unsigned int vertexSize);
-    ~MyMesh();
 
     void draw() const;
 

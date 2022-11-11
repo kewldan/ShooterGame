@@ -11,10 +11,29 @@
 #include <map>
 #include <sys/stat.h>
 #include <plog/Log.h>
+#include <unordered_map>
+
+class Hashtable {
+    std::unordered_map<const char*, int> htmap;
+
+public:
+    void put(const char* key, int value) {
+        htmap[key] = value;
+    }
+
+    const int get(const char* key) {
+        return htmap[key];
+    }
+
+    bool has(const char* key) {
+        return htmap.contains(key);
+    }
+
+};
 
 class Shader {
     unsigned int vertex, fragment, geometry, program;
-    std::map<std::string, int> *uniforms;
+    Hashtable* uniforms;
     int8_t shaderParts;
     std::string filename;
 

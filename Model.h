@@ -13,19 +13,16 @@
 using namespace reactphysics3d;
 
 class Model {
-	std::vector<MyMesh> meshes;
+	MyMesh* myMesh;
 	glm::mat4 mvp;
 public:
 	RigidBody* rb;
 	PhysicsWorld* world;
-	std::vector<int> indices;
-	std::vector<float> vertices;
+	std::vector<int>* indices;
+	std::vector<float>* vertices;
 
 	Model(std::string filename, PhysicsWorld* world, PhysicsCommon* common, bool createConcaveCollider = false);
 	~Model();
-
-	void processNode(aiNode* node, const aiScene* scene);
-	MyMesh processMesh(aiMesh* mesh, const aiScene* scene);
 
 	void draw();
 
