@@ -46,4 +46,4 @@ add_executable(ShooterGame
         Client.cpp Client.h
 )
 
-target_link_libraries(ShooterGame glfw3 opengl32 gdi32 LinearMath Bullet3Common BulletDynamics BulletSoftBody Ws2_32 assimp::assimp)
+target_link_libraries(ShooterGame glfw3 opengl32 gdi32 ReactPhysics3D::ReactPhysics3D Ws2_32 assimp::assimp)
