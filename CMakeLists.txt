@@ -9,6 +9,7 @@ include_directories(${PROJECT_SOURCE_DIR}/libraries/glad/include)
 include_directories(${PROJECT_SOURCE_DIR}/libraries/stb)
 include_directories(${PROJECT_SOURCE_DIR}/libraries/plog/include)
 include_directories(${PROJECT_SOURCE_DIR}/libraries/glfw/include)
+include_directories(${PROJECT_SOURCE_DIR}/libraries/md5/include)
 include_directories(${PROJECT_SOURCE_DIR}/libraries/glm)
 include_directories(${PROJECT_SOURCE_DIR}/imgui)
 
@@ -41,9 +42,10 @@ add_executable(ShooterGame
         imgui/backends/imgui_impl_glfw.cpp imgui/backends/imgui_impl_glfw.h
         imgui/backends/imgui_impl_opengl3.cpp imgui/backends/imgui_impl_opengl3.h
         imgui/imgui.cpp imgui/imgui.h
+
         HUD.cpp HUD.h
         MyProfiler.cpp MyProfiler.h
         Client.cpp Client.h
-)
+ "libraries/md5/include/md5.cpp")
 
 target_link_libraries(ShooterGame glfw3 opengl32 gdi32 ReactPhysics3D::ReactPhysics3D Ws2_32 assimp::assimp)

@@ -16,6 +16,7 @@
 #include "imgui.h"
 #include "HUD.h"
 #include "MyProfiler.h"
+#include "Client.h"
 
 void GLAPIENTRY MessageCallback(GLenum source,
 	GLenum type,
@@ -82,6 +83,17 @@ int main() {
 	HUD* hud = new HUD(window);
 	PLOGI << "Loading HUD (ImGui) successfully";
 	profiler->endBlock();
+
+	Client* client = new Client();
+
+	char* nickname = new char[64];
+	char* ip = new char[16];
+
+	memset(nickname, 0, 64);
+	memset(ip, 0, 16);
+
+	strcpy(nickname, "Player");
+	strcpy(ip, "127.0.0.1");
 
 	while (window->update()) {
 		static bool debugWindow, menuWindow = true, wireframe, showControl = true;
@@ -256,7 +268,7 @@ int main() {
 					std::sort(others.begin(), others.end(), [](std::pair<const char*, ProfilerBlock> const& lhs,
 						std::pair<const char*, ProfilerBlock> const& rhs) -> bool {
 							return ((float)lhs.second.allTime / (float)lhs.second.iterations) >
-								((float)rhs.second.allTime / (float)rhs.second.iterations);
+							((float)rhs.second.allTime / (float)rhs.second.iterations);
 						});
 
 					if (ImGui::TreeNode("Called many times")) {
@@ -296,30 +308,31 @@ int main() {
 			ImGui::SetNextWindowPos(ImVec2(300, 20), ImGuiCond_Once);
 
 			if (ImGui::Begin("Menu", &menuWindow, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
-				static char* nickname = new char[64];
-				static char* ip = new char[16];
-
-				std::fill(nickname, nickname + 64, '\0');
-				std::fill(ip, ip + 64, '\0');
-
 				ImGui::InputText("Nickname", nickname, 64, ImGuiInputTextFlags_NoHorizontalScroll);
 				ImGui::Separator();
 				ImGui::Spacing();
 
 				ImGui::InputText("IP", ip, 16, ImGuiInputTextFlags_NoHorizontalScroll);
-				if (ImGui::Button("Connect")) {
-
+				if (ImGui::Button(client->isConnected() ? "Disconnect" : "Connect")) {
+					if (!client->isConnected()) {
+						client->connectToHost(ip, 23403);
+					}
+					else {
+						client->disconnectFromHost();
+					}
 				}
 				ImGui::SameLine();
-				ImGui::Text("No message");
-				ImGui::Separator();
-				ImGui::Spacing();
-
-				if (ImGui::Button("Host")) {
-
+				ImGui::Text(client->getMessage());
+				ImGui::Text("Connected: %s", client->isConnected() ? "yes" : "no");
+				if (client->isConnected()) {
+					if (ImGui::Button("Test packet")) {
+						int data_length = strlen(nickname) + 1;
+						char* data = new char[data_length];
+						data[0] = strlen(nickname);
+						memcpy(data + 1, nickname, strlen(nickname));
+						client->sendPacket(PT_UPDATE, data, data_length);
+					}
 				}
-				ImGui::SameLine();
-				ImGui::Text("Offline");
 			}
 			ImGui::End();
 
