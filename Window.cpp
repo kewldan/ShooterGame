@@ -38,6 +38,7 @@ Window::Window(int w, int h, const char* title) {
 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
+	glEnable(GL_MULTISAMPLE);
 
 	glClearColor(52 / 255.f, 168 / 255.f, 235 / 255.f, 1.f);
 }

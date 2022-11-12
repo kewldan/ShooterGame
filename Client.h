@@ -7,8 +7,20 @@
 #include "md5.h"
 #include "plog/Log.h"
 
-#define PT_HANDSHAKE 1
-#define PT_UPDATE 2
+class ClientPacketTypes {
+public:
+	const static uint16_t HANDSHAKE = 2;
+	const static uint16_t UPDATE = 4;
+	const static uint16_t EXIT = 8;
+};
+
+
+class ServerPacketTypes {
+public:
+	const static uint16_t HANDSHAKE = 1;
+	const static uint16_t UPDATE = 3;
+	const static uint16_t KICK = 5;
+};
 
 class Client {
 	SOCKET clientSocket;
@@ -19,7 +31,7 @@ public:
 	void connectToHost(const char* ip, int port);
 	void disconnectFromHost();
 	void sendBytes(char* bytes, int length);
-	void reciveBytes(char* buffer, int length);
+	int reciveBytes(char* buffer, int length);
 	void sendPacket(uint16_t type, char* payload, uint16_t length);
 	bool isConnected();
 	char* getMessage();

@@ -28,7 +28,7 @@ const glm::mat4& Camera::getOrthographic() {
 const glm::mat4& Camera::getPerspective() {
 	float hfovRad = (float)hFov * 3.1415f / 180;
 	float vfovRad = 2.f * std::atan(std::tan(hfovRad / 2) * *ratio);
-	perspective = glm::perspective(vfovRad, *ratio, 0.005f, 100.f);
+	perspective = glm::perspective(vfovRad, *ratio, 0.005f, 200.f);
 	return perspective;
 }
 
@@ -82,12 +82,5 @@ void Camera::pollEvents(Window* window, RigidBody* player) {
 		position.x -= std::cos(rotation.y - 1.57f) * 3.f;
 		position.z -= std::sin(rotation.y - 1.57f) * 3.f;
 		position.y += 2.f;
-	}
-
-	if (window->isKeyPressed(GLFW_KEY_C)) {
-		hFov = 10;
-	}
-	else {
-		hFov = 60;
 	}
 }

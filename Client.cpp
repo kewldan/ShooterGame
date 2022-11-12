@@ -59,9 +59,9 @@ void Client::sendBytes(char* bytes, int length)
 	}
 }
 
-void Client::reciveBytes(char* buffer, int length)
+int Client::reciveBytes(char* buffer, int length)
 {
-	recv(clientSocket, buffer, length, 0);
+	return recv(clientSocket, buffer, length, 0);
 }
 
 void Client::sendPacket(uint16_t type, char* payload, uint16_t length)

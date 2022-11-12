@@ -37,13 +37,122 @@ void GLAPIENTRY MessageCallback(GLenum source,
 }
 #endif
 
+Window* window;
+PhysicsCommon physicsCommon;
+PhysicsWorld* world;
+Shader* shader, * debugShader;
+ShadowsCaster* shadows;
+Model* map, * player, * enemy, * sniperRifle;
+Texture* sniperTexture, * mapTexture;
+Camera* camera;
+HUD* hud;
+Client* client;
+char* nickname, * ip;
+std::thread *cpl_thread;
+
+bool debugWindow, menuWindow = true, wireframe, showControl = true, hasRifle = true, vsync = true, physicsDebugRender;
+float shadowsDistance = 25.f;
+
+void client_packet_listener() {
+	char* buffer = (char*)malloc(65536);
+	while (client->isConnected()) {
+		PLOGD << "Listening for packets";
+		int nb = client->reciveBytes(buffer, 65536);
+		uint16_t length, type;
+		char* given_hash = new char[16];
+		float* floats = new float[5];
+
+		memcpy(&length, buffer, 2);
+		memcpy(given_hash, buffer + 2, 16);
+		memcpy(&type, buffer + 18, 2);
+		memcpy(floats, buffer + 20, 20);
+
+		char* to_hash = new char[21];
+		memcpy(to_hash, floats, 20);
+		to_hash[20] = 0;
+		MD5 md5(to_hash);
+		char* hash = md5.getBytes();
+
+
+		
+		PLOGD << "Packet recv: " << length << " bytes, type: " << type;
+		
+	}
+	free(buffer);
+};
+
+void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+	if (action == GLFW_PRESS) {
+		if (key == GLFW_KEY_E) {
+
+			if (hasRifle) {
+				sniperRifle->rb->setType(BodyType::DYNAMIC);
+				BoxShape* sniperShape = physicsCommon.createBoxShape(Vector3(0.12f, 0.587f, 2.7f));
+				Transform colliderOffset = Transform(Vector3(0, -0.08f, -0.36f), Quaternion::identity());
+				sniperRifle->rb->addCollider(sniperShape, colliderOffset);
+				sniperRifle->rb->setMass(1);
+				Vector3 position(
+					camera->position.x + std::cos(camera->rotation.y - 1.57f) * 2,
+					camera->position.y,
+					camera->position.z + std::sin(camera->rotation.y - 1.57f) * 2
+				);
+				sniperRifle->rb->setTransform(Transform(position, Quaternion::identity()));
+				sniperRifle->rb->setLinearVelocity(Vector3::zero());
+				sniperRifle->rb->setAngularVelocity(Vector3::zero());
+				sniperRifle->rb->applyWorldForceAtCenterOfMass(
+					Vector3(
+						std::cos(camera->rotation.y - 1.57f) * 200,
+						300,
+						std::sin(camera->rotation.y - 1.57f) * 200)
+				);
+			}
+			else {
+				sniperRifle->rb->removeCollider(sniperRifle->rb->getCollider(0));
+				sniperRifle->rb->setType(BodyType::STATIC);
+			}
+
+			hasRifle ^= 1;
+		}
+	}
+};
+
+
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
+{
+	if (button == GLFW_MOUSE_BUTTON_RIGHT) {
+		if (action >= GLFW_PRESS) {
+			camera->hFov = 25;
+		}
+		else {
+			camera->hFov = 60;
+		}
+	}
+	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+		Vector3 startPoint = player->rb->getTransform().getPosition();
+		Vector3 endPoint(
+			startPoint.x + std::cos(camera->rotation.y - 1.57f) * 50.f,
+			startPoint.y + std::sin(camera->rotation.x) * 10.f,
+			startPoint.z + std::sin(camera->rotation.y - 1.57f) * 50.f
+		);
+		Ray ray(startPoint, endPoint);
+		RaycastInfo raycastInfo;
+		bool hit = enemy->rb->raycast(ray, raycastInfo);
+		if (hit) {
+			enemy->rb->applyWorldForceAtWorldPosition(raycastInfo.worldNormal * -200, raycastInfo.worldPoint);
+		}
+	}
+}
+
 int main() {
 	std::remove("latest.log");
 	plog::init(plog::debug, "latest.log");
 	plog::get()->addAppender(new plog::ColorConsoleAppender<plog::TxtFormatter>());
 	PLOGI << "Logger initialized";
 
-	auto* window = new Window();
+	window = new Window();
+
+	glfwSetKeyCallback(window->getId(), key_callback);
+	glfwSetMouseButtonCallback(window->getId(), mouse_button_callback);
 
 #ifndef NDEBUG
 	glEnable(GL_DEBUG_OUTPUT);
@@ -51,8 +160,7 @@ int main() {
 	PLOGI << "[OGL] Message debug callback created";
 #endif
 
-	PhysicsCommon physicsCommon;
-	PhysicsWorld* world = physicsCommon.createPhysicsWorld();
+	world = physicsCommon.createPhysicsWorld();
 
 	DebugRenderer& debugRenderer = world->getDebugRenderer();
 	debugRenderer.setIsDebugItemDisplayed(DebugRenderer::DebugItem::COLLISION_SHAPE, true);
@@ -66,41 +174,40 @@ int main() {
 	rmt_BeginCPUSample(Init, 0);
 	PLOGI << "Profiler initialized";
 #endif
-	auto* shader = new Shader("main");
-	auto* debugShader = new Shader("debug");
+	shader = new Shader("main");
+	debugShader = new Shader("debug");
 	auto lightPos = glm::vec3(-3.5f, 10.f, -1.5f);
-	auto* shadows = new ShadowsCaster(4096, 4096, "depth", lightPos);
+	shadows = new ShadowsCaster(4096, 4096, "depth", lightPos);
 
-	auto* map = new Model("./data/meshes/map.obj", world, &physicsCommon, true);
-	auto* player = new Model("./data/meshes/player.obj", world, &physicsCommon);
+	map = new Model("./data/meshes/map.obj", world, &physicsCommon, true);
+	player = new Model("./data/meshes/player.obj", world, &physicsCommon);
 	player->rb->addCollider(physicsCommon.createCapsuleShape(1.f, 2.5f), Transform(Vector3(0, 1.2f, 0), Quaternion::identity()));
 	player->rb->updateMassFromColliders();
 	player->rb->updateLocalCenterOfMassFromColliders();
-	auto* enemy = new Model("./data/meshes/player.obj", world, &physicsCommon);
+	enemy = new Model("./data/meshes/player.obj", world, &physicsCommon);
 	enemy->rb->addCollider(physicsCommon.createCapsuleShape(1.f, 2.5f), Transform(Vector3(0, 1.2f, 0), Quaternion::identity()));
 	int id = 2;
 	enemy->rb->setUserData(&id);
-	auto* sniperRifle = new Model("./data/meshes/sniper.obj", world, &physicsCommon);
-	BoxShape* sniperShape = physicsCommon.createBoxShape(Vector3(0.12f, 0.587f, 2.7f));
-	Transform colliderOffset = Transform(Vector3(0, -0.08f, -0.36f), Quaternion::identity());
-	sniperRifle->rb->addCollider(sniperShape, colliderOffset);
-	sniperRifle->rb->setMass(1);
+
+	sniperRifle = new Model("./data/meshes/sniper.obj", world, &physicsCommon);
+	sniperRifle->rb->setType(BodyType::STATIC);
+
 	player->rb->setAngularLockAxisFactor(Vector3::zero());
 	PLOGI << "Loading models and physics successfully";
 
-	auto* sniperTexture = new Texture("data/textures/sniper.png");
-	auto* mapTexture = new Texture("data/textures/palette.png");
+	sniperTexture = new Texture("data/textures/sniper.png");
+	mapTexture = new Texture("data/textures/palette.png");
 	PLOGI << "Loading textures successfully";
 
-	auto* camera = new Camera(window->getWidthPtr(), window->getHeightPtr(), window->getRatioPtr());
+	camera = new Camera(window->getWidthPtr(), window->getHeightPtr(), window->getRatioPtr());
 
-	HUD* hud = new HUD(window);
+	hud = new HUD(window);
 	PLOGI << "Loading HUD (ImGui) successfully";
 
-	Client* client = new Client();
+	client = new Client();
 
-	char* nickname = new char[64];
-	char* ip = new char[16];
+	nickname = new char[64];
+	ip = new char[16];
 
 	memset(nickname, 0, 64);
 	memset(ip, 0, 16);
@@ -116,10 +223,6 @@ int main() {
 		rmt_ScopedCPUSample(FrameUpdate, 0);
 		rmt_ScopedOpenGLSample(FrameGPUUpdate);
 #endif
-		static bool debugWindow, menuWindow = true, wireframe, showControl = true;
-		bool locked = false;
-		static float shadowsDistance = 25.f;
-
 		{
 #ifdef RMT_PROFILER
 			rmt_ScopedCPUSample(Update, 0);
@@ -130,37 +233,9 @@ int main() {
 #endif
 				camera->pollEvents(window, player->rb);
 
-				if (glfwGetMouseButton(window->getId(), 0) == GLFW_PRESS) {
-					Vector3 startPoint = player->rb->getTransform().getPosition();
-					Vector3 endPoint(
-						startPoint.x + std::cos(camera->rotation.y - 1.57f) * 50.f,
-						startPoint.y + std::sin(camera->rotation.x) * 10.f,
-						startPoint.z + std::sin(camera->rotation.y - 1.57f) * 50.f
-					);
-					Ray ray(startPoint, endPoint);
-					RaycastInfo raycastInfo;
-					locked = enemy->rb->raycast(ray, raycastInfo);
-					if (locked) {
-						enemy->rb->applyWorldForceAtWorldPosition(raycastInfo.worldNormal * -5, raycastInfo.worldPoint);
-					}
-				}
-
-				if (window->isKeyPressed(GLFW_KEY_E)) {
-					//Add force of drop
-					Vector3 position(
-						camera->position.x + std::cos(camera->rotation.y - 1.57f) * 2,
-						camera->position.y,
-						camera->position.z + std::sin(camera->rotation.y - 1.57f) * 2
-					);
-					sniperRifle->rb->setTransform(Transform(position, Quaternion::identity()));
-					sniperRifle->rb->setLinearVelocity(Vector3::zero());
-					sniperRifle->rb->setAngularVelocity(Vector3::zero());
-					sniperRifle->rb->applyWorldForceAtCenterOfMass(
-						Vector3(
-							std::cos(camera->rotation.y - 1.57f) * 200,
-							300,
-							std::sin(camera->rotation.y - 1.57f) * 200)
-					);
+				if (hasRifle) {
+					Vector3 newPos(camera->position.x + std::cos(camera->rotation.y) * 0.9f, camera->position.y - 0.4f, camera->position.z + std::sin(camera->rotation.y) * 0.9f);
+					sniperRifle->rb->setTransform(Transform(newPos, Quaternion::fromEulerAngles(-camera->rotation.x, -camera->rotation.y, 0)));
 				}
 			}
 			{
@@ -219,7 +294,7 @@ int main() {
 			{
 				int verticesCount = debugRenderer.getNbTriangles() * 9;
 				if (verticesCount > 0) {
-					float* vertices = new float[verticesCount];
+					float* vertices = (float*)calloc(verticesCount, sizeof(float));
 					for (int i = 0; i < debugRenderer.getNbTriangles(); i++) {
 						DebugRenderer::DebugTriangle t = debugRenderer.getTriangles()[i];
 						vertices[i * 9] = t.point1.x;
@@ -259,7 +334,7 @@ int main() {
 					debugShader->upload("view", camera->getView());
 					glDrawArrays(GL_TRIANGLES, 0, verticesCount);
 					debugShader->unbind();
-					delete[] vertices;
+					free(vertices);
 				}
 			}
 		}
@@ -274,18 +349,16 @@ int main() {
 
 			if (ImGui::Begin("Debug", &debugWindow, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
 #ifdef RMT_PROFILER
-				rmt_ScopedCPUSample(HUD_Configuration , 0);
+				rmt_ScopedCPUSample(HUD_Configuration, 0);
 #endif
 				ImGui::SliderFloat("Camera speed", &camera->speed, 0.01f, 10.f);
 				ImGui::SliderFloat("Shadows distance", &shadowsDistance, 1.f, 50.f);
 				ImGui::Separator();
-				static bool vsync = true;
 				if (ImGui::Checkbox("VSync", &vsync)) {
 					window->setVsync(vsync);
 				}
-				static bool RMT_PROFILERDebugRender;
-				if (ImGui::Checkbox("Debug render", &RMT_PROFILERDebugRender)) {
-					world->setIsDebugRenderingEnabled(RMT_PROFILERDebugRender);
+				if (ImGui::Checkbox("Debug render", &physicsDebugRender)) {
+					world->setIsDebugRenderingEnabled(physicsDebugRender);
 				}
 				ImGui::Checkbox("Show wireframe", &wireframe);
 				ImGui::Separator();
@@ -302,11 +375,14 @@ int main() {
 				ImGui::Separator();
 				ImGui::Spacing();
 				const static std::regex ip_regex("(^((25[0-5]|(2[0-4]|1\\d|[1-9]|)\\d)\\.?\\b){4}$)");
-				
+
 				ImGui::InputText("IP", ip, 16, ImGuiInputTextFlags_NoHorizontalScroll);
 				if (ImGui::Button(client->isConnected() ? "Disconnect" : "Connect") && (client->isConnected() || std::regex_match(ip, ip_regex))) {
 					if (!client->isConnected()) {
 						client->connectToHost(ip, 23403);
+						if (client->isConnected()) {
+							cpl_thread = new std::thread(client_packet_listener);
+						}
 					}
 					else {
 						client->disconnectFromHost();
@@ -319,15 +395,27 @@ int main() {
 				else {
 					ImGui::TextColored(ImVec4(1, 0, 0, 1), "Thats not IP");
 				}
-				
+
 				ImGui::Text("Connected: %s", client->isConnected() ? "yes" : "no");
 				if (client->isConnected()) {
-					if (ImGui::Button("Test packet")) {
+					if (ImGui::Button("Send auth packet")) {
 						int data_length = strlen(nickname) + 1;
 						char* data = new char[data_length];
 						data[0] = strlen(nickname);
 						memcpy(data + 1, nickname, strlen(nickname));
-						client->sendPacket(PT_UPDATE, data, data_length);
+						client->sendPacket(ClientPacketTypes::HANDSHAKE, data, data_length);
+					}
+					ImGui::SameLine();
+					if (ImGui::Button("Send update packet")) {
+						int data_length = sizeof(float) * 5;
+						char* data = new char[data_length];
+						Vector3 pos = player->rb->getTransform().getPosition();
+						float* floats = new float[] {
+							pos.x, pos.y, pos.z, camera->rotation.x, camera->rotation.y
+						};
+						memcpy(data, floats, sizeof(float) * 5);
+
+						client->sendPacket(ClientPacketTypes::UPDATE, data, data_length);
 					}
 				}
 			}
@@ -350,7 +438,6 @@ int main() {
 					ImGui::Text("Position: X: %.2f, Y: %.2f, Z: %.2f", camera->position.x, camera->position.y,
 						camera->position.z);
 					ImGui::Text("Rotation: X: %.2f, Y: %.2f", camera->rotation.x, camera->rotation.y);
-					ImGui::Text("Hit: %s", locked ? "Yes" : "No");
 				}
 				ImGui::End();
 

@@ -13,11 +13,12 @@ class Camera {
 	int* width;
 	int* height;
 	float* ratio;
-	int hFov = 70;
+	
 public:
 	glm::vec3 position;
 	glm::vec2 rotation;
 	float speed = 1;
+	int hFov = 70;
 
 	Camera(int* widthPtr, int* heightPtr, float* ratioPtr);
 
