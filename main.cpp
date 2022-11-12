@@ -13,11 +13,17 @@
 #include "Texture.h"
 #include "ShadowsCaster.h"
 
+//#define PROFILER
+
 #include "imgui.h"
 #include "HUD.h"
-#include "MyProfiler.h"
 #include "Client.h"
+#ifdef PROFILER
+#include "Remotery.h"
+#endif
+#include <regex>
 
+#ifndef NDEBUG
 void GLAPIENTRY MessageCallback(GLenum source,
 	GLenum type,
 	GLuint id,
@@ -29,6 +35,7 @@ void GLAPIENTRY MessageCallback(GLenum source,
 		PLOGE << "OGL: " << (type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : "") << " type = " << type << ", severity = " << severity << ", message = " << message;
 	}
 }
+#endif
 
 int main() {
 	std::remove("latest.log");
@@ -38,8 +45,10 @@ int main() {
 
 	auto* window = new Window();
 
+#ifndef NDEBUG
 	glEnable(GL_DEBUG_OUTPUT);
 	glDebugMessageCallback(MessageCallback, 0);
+#endif
 
 	PhysicsCommon physicsCommon;
 	PhysicsWorld* world = physicsCommon.createPhysicsWorld();
@@ -48,9 +57,13 @@ int main() {
 	debugRenderer.setIsDebugItemDisplayed(DebugRenderer::DebugItem::COLLISION_SHAPE, true);
 	world->setIsDebugRenderingEnabled(false);
 
-	auto* profiler = new MyProfiler();
+#ifdef PROFILER
+	Remotery* rmt;
+	rmt_CreateGlobalInstance(&rmt);
+	rmt_BindOpenGL();
 
-	profiler->startBlock("Init");
+	rmt_BeginCPUSample(Init, 0);
+#endif
 	auto* shader = new Shader("main");
 	auto* debugShader = new Shader("debug");
 	auto lightPos = glm::vec3(-7.0f, 10.0f, -3.0f);
@@ -82,7 +95,6 @@ int main() {
 
 	HUD* hud = new HUD(window);
 	PLOGI << "Loading HUD (ImGui) successfully";
-	profiler->endBlock();
 
 	Client* client = new Client();
 
@@ -94,61 +106,86 @@ int main() {
 
 	strcpy(nickname, "Player");
 	strcpy(ip, "127.0.0.1");
+#ifdef PROFILER
+	rmt_EndCPUSample();
+#endif
 
 	while (window->update()) {
+#ifdef PROFILER
+		rmt_ScopedCPUSample(FrameUpdate, 0);
+		rmt_ScopedOpenGLSample(FrameGPUUpdate);
+#endif
 		static bool debugWindow, menuWindow = true, wireframe, showControl = true;
 		bool locked = false;
 
-		profiler->startBlock("Update");
-		camera->pollEvents(window, player->rb);
+		{
+#ifdef PROFILER
+			rmt_ScopedCPUSample(Update, 0);
+#endif
+			{
+#ifdef PROFILER
+				rmt_ScopedCPUSample(IOEvents, 0);
+#endif
+				camera->pollEvents(window, player->rb);
 
-		if (glfwGetMouseButton(window->getId(), 0) == GLFW_PRESS) {
-			Vector3 startPoint = player->rb->getTransform().getPosition();
-			Vector3 endPoint(
-				startPoint.x + std::cos(camera->rotation.y - 1.57f) * 50.f,
-				startPoint.y + std::sin(camera->rotation.x) * 10.f,
-				startPoint.z + std::sin(camera->rotation.y - 1.57f) * 50.f
-			);
-			Ray ray(startPoint, endPoint);
-			RaycastInfo raycastInfo;
-			locked = enemy->rb->raycast(ray, raycastInfo);
-			if (locked) {
-				enemy->rb->applyWorldForceAtWorldPosition(raycastInfo.worldNormal * -5, raycastInfo.worldPoint);
+				if (glfwGetMouseButton(window->getId(), 0) == GLFW_PRESS) {
+					Vector3 startPoint = player->rb->getTransform().getPosition();
+					Vector3 endPoint(
+						startPoint.x + std::cos(camera->rotation.y - 1.57f) * 50.f,
+						startPoint.y + std::sin(camera->rotation.x) * 10.f,
+						startPoint.z + std::sin(camera->rotation.y - 1.57f) * 50.f
+					);
+					Ray ray(startPoint, endPoint);
+					RaycastInfo raycastInfo;
+					locked = enemy->rb->raycast(ray, raycastInfo);
+					if (locked) {
+						enemy->rb->applyWorldForceAtWorldPosition(raycastInfo.worldNormal * -5, raycastInfo.worldPoint);
+					}
+				}
+
+				if (window->isKeyPressed(GLFW_KEY_E)) {
+					//Add force of drop
+					Vector3 position(
+						camera->position.x + std::cos(camera->rotation.y - 1.57f) * 2,
+						camera->position.y,
+						camera->position.z + std::sin(camera->rotation.y - 1.57f) * 2
+					);
+					sniperRifle->rb->setTransform(Transform(position, Quaternion::identity()));
+					sniperRifle->rb->setLinearVelocity(Vector3::zero());
+					sniperRifle->rb->setAngularVelocity(Vector3::zero());
+					sniperRifle->rb->applyWorldForceAtCenterOfMass(
+						Vector3(
+							std::cos(camera->rotation.y - 1.57f) * 200,
+							300,
+							std::sin(camera->rotation.y - 1.57f) * 200)
+					);
+				}
+			}
+			{
+#ifdef PROFILER
+				rmt_ScopedCPUSample(Physics, 0);
+#endif
+				world->update(ImGui::GetIO().DeltaTime);
 			}
 		}
 
-		if (window->isKeyPressed(GLFW_KEY_E)) {
-			//Add force of drop
-			Vector3 position(
-				camera->position.x + std::cos(camera->rotation.y - 1.57f) * 2,
-				camera->position.y,
-				camera->position.z + std::sin(camera->rotation.y - 1.57f) * 2
-			);
-			sniperRifle->rb->setTransform(Transform(position, Quaternion::identity()));
-			sniperRifle->rb->setLinearVelocity(Vector3::zero());
-			sniperRifle->rb->setAngularVelocity(Vector3::zero());
-			sniperRifle->rb->applyWorldForceAtCenterOfMass(
-				Vector3(
-					std::cos(camera->rotation.y - 1.57f) * 200,
-					300,
-					std::sin(camera->rotation.y - 1.57f) * 200)
-			);
-		}
-		world->update(ImGui::GetIO().DeltaTime);
-		profiler->endBlock();
-
-		profiler->startBlock("Shadows");
 		{
+#ifdef PROFILER
+			rmt_ScopedCPUSample(Shadows, 0);
+			rmt_ScopedOpenGLSample(ShadowsGPU);
+#endif
 			Shader* depth = shadows->begin();
 			depth->draw(sniperRifle);
 			depth->draw(map);
 			depth->draw(player);
 			shadows->end();
 		}
-		profiler->endBlock();
 
-		profiler->startBlock("Render");
 		{
+#ifdef PROFILER
+			rmt_ScopedCPUSample(Render, 0);
+			rmt_ScopedOpenGLSample(RenderGPU);
+#endif
 			window->reset();
 			shader->bind();
 			shader->upload("proj", camera->getPerspective());
@@ -171,10 +208,12 @@ int main() {
 			shader->draw(enemy);
 			shader->unbind();
 		}
-		profiler->endBlock();
 
 		if (world->getIsDebugRenderingEnabled()) {
-			profiler->startBlock("Physics render");
+#ifdef PROFILER
+			rmt_ScopedCPUSample(PhysicsRender, 0);
+			rmt_ScopedOpenGLSample(PhysicsRenderGPU);
+#endif
 			{
 				int verticesCount = debugRenderer.getNbTriangles() * 9;
 				if (verticesCount > 0) {
@@ -221,99 +260,48 @@ int main() {
 					delete[] vertices;
 				}
 			}
-			profiler->endBlock();
 		}
 
-		profiler->startBlock("HUD");
 		{
+#ifdef PROFILER
+			rmt_ScopedCPUSample(HUDRender, 0);
+			rmt_ScopedOpenGLSample(HUDRenderGPU);
+#endif
 			hud->begin();
 			ImGui::SetNextWindowPos(ImVec2(20, 170), ImGuiCond_Once);
 
 			if (ImGui::Begin("Debug", &debugWindow, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
-				if (ImGui::CollapsingHeader("Configuration")) {
-					ImGui::SliderFloat("Camera speed", &camera->speed, 0.01f, 10.f);
-					ImGui::Separator();
-					static bool vsync = true;
-					if (ImGui::Checkbox("VSync", &vsync)) {
-						window->setVsync(vsync);
-					}
-					static bool profilerDebugRender;
-					if (ImGui::Checkbox("Debug render", &profilerDebugRender)) {
-						world->setIsDebugRenderingEnabled(profilerDebugRender);
-					}
-					ImGui::Checkbox("Show wireframe", &wireframe);
-					ImGui::Separator();
+#ifdef PROFILER
+				rmt_ScopedCPUSample(HUD_Configuration , 0);
+#endif
+				ImGui::SliderFloat("Camera speed", &camera->speed, 0.01f, 10.f);
+				ImGui::Separator();
+				static bool vsync = true;
+				if (ImGui::Checkbox("VSync", &vsync)) {
+					window->setVsync(vsync);
 				}
-				if (ImGui::CollapsingHeader("Profiling")) {
-					std::vector<std::pair<const char*, ProfilerBlock>> once;
-					std::vector<std::pair<const char*, ProfilerBlock>> others;
-					for (const auto& kv : profiler->blocks) {
-						if (kv.second.iterations == 1) {
-							once.emplace_back(kv);
-						}
-						else {
-							others.emplace_back(kv);
-						}
-					}
-
-					if (ImGui::TreeNode("Called once")) {
-						for (const auto& kv : once) {
-							ImGui::Text("%s: %d ms", kv.first, kv.second.allTime);
-						}
-						ImGui::TreePop();
-						ImGui::Separator();
-					}
-
-
-					std::sort(others.begin(), others.end(), [](std::pair<const char*, ProfilerBlock> const& lhs,
-						std::pair<const char*, ProfilerBlock> const& rhs) -> bool {
-							return ((float)lhs.second.allTime / (float)lhs.second.iterations) >
-							((float)rhs.second.allTime / (float)rhs.second.iterations);
-						});
-
-					if (ImGui::TreeNode("Called many times")) {
-						if (ImGui::Button("Reset")) {
-							for (const auto& kv : others) {
-								profiler->blocks.erase(kv.first);
-							}
-						}
-						ImGui::Spacing();
-						if (ImGui::BeginTable("Table", 4, ImGuiTableFlags_Borders | ImGuiCol_TableRowBg))
-						{
-							ImGui::TableSetupColumn("Block");
-							ImGui::TableSetupColumn("Average");
-							ImGui::TableSetupColumn("Time");
-							ImGui::TableSetupColumn("Iterations");
-							ImGui::TableHeadersRow();
-							for (const auto& kv : others)
-							{
-								ImGui::TableNextRow();
-								ImGui::TableNextColumn();
-								ImGui::Text(kv.first);
-								ImGui::TableNextColumn();
-								ImGui::Text("%.2f ms", (float)kv.second.allTime / (float)kv.second.iterations);
-								ImGui::TableNextColumn();
-								ImGui::Text("%d ms", kv.second.allTime);
-								ImGui::TableNextColumn();
-								ImGui::Text("%d", kv.second.iterations);
-							}
-							ImGui::EndTable();
-						}
-						ImGui::TreePop();
-					}
+				static bool profilerDebugRender;
+				if (ImGui::Checkbox("Debug render", &profilerDebugRender)) {
+					world->setIsDebugRenderingEnabled(profilerDebugRender);
 				}
+				ImGui::Checkbox("Show wireframe", &wireframe);
+				ImGui::Separator();
 			}
 			ImGui::End();
 
 			ImGui::SetNextWindowPos(ImVec2(300, 20), ImGuiCond_Once);
 
 			if (ImGui::Begin("Menu", &menuWindow, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
+#ifdef PROFILER
+				rmt_ScopedCPUSample(HUD_Menu, 0);
+#endif
 				ImGui::InputText("Nickname", nickname, 64, ImGuiInputTextFlags_NoHorizontalScroll);
 				ImGui::Separator();
 				ImGui::Spacing();
-
+				const static std::regex ip_regex("(^((25[0-5]|(2[0-4]|1\\d|[1-9]|)\\d)\\.?\\b){4}$)");
+				
 				ImGui::InputText("IP", ip, 16, ImGuiInputTextFlags_NoHorizontalScroll);
-				if (ImGui::Button(client->isConnected() ? "Disconnect" : "Connect")) {
+				if (ImGui::Button(client->isConnected() ? "Disconnect" : "Connect") && (client->isConnected() || std::regex_match(ip, ip_regex))) {
 					if (!client->isConnected()) {
 						client->connectToHost(ip, 23403);
 					}
@@ -322,7 +310,13 @@ int main() {
 					}
 				}
 				ImGui::SameLine();
-				ImGui::Text(client->getMessage());
+				if (std::regex_match(ip, ip_regex)) {
+					ImGui::Text(client->getMessage());
+				}
+				else {
+					ImGui::TextColored(ImVec4(1, 0, 0, 1), "Thats not IP");
+				}
+				
 				ImGui::Text("Connected: %s", client->isConnected() ? "yes" : "no");
 				if (client->isConnected()) {
 					if (ImGui::Button("Test packet")) {
@@ -345,6 +339,9 @@ int main() {
 					ImGuiWindowFlags_NoSavedSettings |
 					ImGuiWindowFlags_NoFocusOnAppearing |
 					ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove)) {
+#ifdef PROFILER
+					rmt_ScopedCPUSample(HUD_DebugOverlay, 0);
+#endif
 					ImGui::Text("Screen: %dx%d", window->getWidth(), window->getHeight());
 					ImGui::Text("FPS: %.2f", ImGui::GetIO().Framerate);
 					ImGui::Text("Position: X: %.2f, Y: %.2f, Z: %.2f", camera->position.x, camera->position.y,
@@ -357,6 +354,9 @@ int main() {
 				const float PAD = 20.0f;
 				const ImGuiViewport* viewport = ImGui::GetMainViewport();
 				{
+#ifdef PROFILER
+					rmt_ScopedCPUSample(HUD_Overlay, 0);
+#endif
 					ImVec2 work_pos = viewport->WorkPos; // Use work area to avoid menu-bar/task-bar, if any!
 					ImVec2 work_size = viewport->WorkSize;
 					ImVec2 window_pos, window_pos_pivot;
@@ -396,6 +396,9 @@ int main() {
 					ImGuiWindowFlags_NoSavedSettings |
 					ImGuiWindowFlags_NoFocusOnAppearing |
 					ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove)) {
+#ifdef PROFILER
+					rmt_ScopedCPUSample(HUD_Controls, 0);
+#endif
 					ImGui::Text("Controls | To toggle press: Tab");
 					ImGui::Text("WASD - walking");
 					ImGui::Text("Shift - crouch");
@@ -408,9 +411,12 @@ int main() {
 			}
 			hud->end();
 		}
-		profiler->endBlock();
 	}
 
 	physicsCommon.destroyPhysicsWorld(world);
+#ifdef PROFILER
+	rmt_UnbindOpenGL();
+	rmt_DestroyGlobalInstance(rmt);
+#endif
 	exit(EXIT_SUCCESS);
 }

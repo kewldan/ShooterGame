@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 3.23)
 project(ShooterGame)
 
 set(CMAKE_CXX_STANDARD 20)
-set(CMAKE_EXE_LINKER_FLAGS "-static")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
 include_directories(${PROJECT_SOURCE_DIR}/libraries/glad/include)
@@ -10,6 +9,7 @@ include_directories(${PROJECT_SOURCE_DIR}/libraries/stb)
 include_directories(${PROJECT_SOURCE_DIR}/libraries/plog/include)
 include_directories(${PROJECT_SOURCE_DIR}/libraries/glfw/include)
 include_directories(${PROJECT_SOURCE_DIR}/libraries/md5/include)
+include_directories(${PROJECT_SOURCE_DIR}/libraries/profiler/)
 include_directories(${PROJECT_SOURCE_DIR}/libraries/glm)
 include_directories(${PROJECT_SOURCE_DIR}/imgui)
 
@@ -32,6 +32,7 @@ add_executable(ShooterGame
         Camera.cpp Camera.h
         Texture.cpp Texture.h
         ShadowsCaster.cpp ShadowsCaster.h
+        "libraries/profiler/Remotery.c" "libraries/profiler/Remotery.h"
 
         imgui/imconfig.h
         imgui/imgui_draw.cpp
@@ -44,7 +45,7 @@ add_executable(ShooterGame
         imgui/imgui.cpp imgui/imgui.h
 
         HUD.cpp HUD.h
-        MyProfiler.cpp MyProfiler.h
+         
         Client.cpp Client.h
  "libraries/md5/include/md5.cpp")
 
