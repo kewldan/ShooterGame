@@ -9,12 +9,12 @@ class ShadowsCaster {
 	int w, h;
 	Shader* shader;
 	glm::mat4 lightSpaceMatrix;
+	glm::vec3 position;
 public:
-	ShadowsCaster(int width, int height, const char* shaderName, float z_near, float z_far, glm::vec3* position,
-		glm::vec3* lookAt);
+	ShadowsCaster(int width, int height, const char* shaderName, glm::vec3 position);
 	~ShadowsCaster();
 
-	Shader* begin();
+	Shader* begin(glm::vec3 cam, float distance);
 
 	void end();
 

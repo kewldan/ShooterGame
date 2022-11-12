@@ -9,7 +9,7 @@ out vec4 fragColor;
 
 void main()
 {
-    float dt = dot(vec3(0.2, 1, 0.2),vertex.normal);
+    float dt = dot(vec3(-3.5, 10, -1.5),vertex.normal);
     float diffuse = max((dt + 1) * 0.5, 0.2);
     vec3 color = diffuse * vec3(1, 0.1, 0.2);
 

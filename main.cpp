@@ -13,12 +13,12 @@
 #include "Texture.h"
 #include "ShadowsCaster.h"
 
-//#define PROFILER
+//#define RMT_PROFILER
 
 #include "imgui.h"
 #include "HUD.h"
 #include "Client.h"
-#ifdef PROFILER
+#ifdef RMT_PROFILER
 #include "Remotery.h"
 #endif
 #include <regex>
@@ -41,13 +41,14 @@ int main() {
 	std::remove("latest.log");
 	plog::init(plog::debug, "latest.log");
 	plog::get()->addAppender(new plog::ColorConsoleAppender<plog::TxtFormatter>());
-	PLOG_INFO << "Logger initialized";
+	PLOGI << "Logger initialized";
 
 	auto* window = new Window();
 
 #ifndef NDEBUG
 	glEnable(GL_DEBUG_OUTPUT);
 	glDebugMessageCallback(MessageCallback, 0);
+	PLOGI << "[OGL] Message debug callback created";
 #endif
 
 	PhysicsCommon physicsCommon;
@@ -57,18 +58,18 @@ int main() {
 	debugRenderer.setIsDebugItemDisplayed(DebugRenderer::DebugItem::COLLISION_SHAPE, true);
 	world->setIsDebugRenderingEnabled(false);
 
-#ifdef PROFILER
+#ifdef RMT_PROFILER
 	Remotery* rmt;
 	rmt_CreateGlobalInstance(&rmt);
 	rmt_BindOpenGL();
 
 	rmt_BeginCPUSample(Init, 0);
+	PLOGI << "Profiler initialized";
 #endif
 	auto* shader = new Shader("main");
 	auto* debugShader = new Shader("debug");
-	auto lightPos = glm::vec3(-7.0f, 10.0f, -3.0f);
-	auto lightLook = glm::vec3(0);
-	auto* shadows = new ShadowsCaster(4096, 4096, "depth", 2.f, 30.f, &lightPos, &lightLook);
+	auto lightPos = glm::vec3(-3.5f, 10.f, -1.5f);
+	auto* shadows = new ShadowsCaster(4096, 4096, "depth", lightPos);
 
 	auto* map = new Model("./data/meshes/map.obj", world, &physicsCommon, true);
 	auto* player = new Model("./data/meshes/player.obj", world, &physicsCommon);
@@ -106,24 +107,25 @@ int main() {
 
 	strcpy(nickname, "Player");
 	strcpy(ip, "127.0.0.1");
-#ifdef PROFILER
+#ifdef RMT_PROFILER
 	rmt_EndCPUSample();
 #endif
 
 	while (window->update()) {
-#ifdef PROFILER
+#ifdef RMT_PROFILER
 		rmt_ScopedCPUSample(FrameUpdate, 0);
 		rmt_ScopedOpenGLSample(FrameGPUUpdate);
 #endif
 		static bool debugWindow, menuWindow = true, wireframe, showControl = true;
 		bool locked = false;
+		static float shadowsDistance = 25.f;
 
 		{
-#ifdef PROFILER
+#ifdef RMT_PROFILER
 			rmt_ScopedCPUSample(Update, 0);
 #endif
 			{
-#ifdef PROFILER
+#ifdef RMT_PROFILER
 				rmt_ScopedCPUSample(IOEvents, 0);
 #endif
 				camera->pollEvents(window, player->rb);
@@ -162,7 +164,7 @@ int main() {
 				}
 			}
 			{
-#ifdef PROFILER
+#ifdef RMT_PROFILER
 				rmt_ScopedCPUSample(Physics, 0);
 #endif
 				world->update(ImGui::GetIO().DeltaTime);
@@ -170,11 +172,11 @@ int main() {
 		}
 
 		{
-#ifdef PROFILER
+#ifdef RMT_PROFILER
 			rmt_ScopedCPUSample(Shadows, 0);
 			rmt_ScopedOpenGLSample(ShadowsGPU);
 #endif
-			Shader* depth = shadows->begin();
+			Shader* depth = shadows->begin(camera->position, shadowsDistance);
 			depth->draw(sniperRifle);
 			depth->draw(map);
 			depth->draw(player);
@@ -182,7 +184,7 @@ int main() {
 		}
 
 		{
-#ifdef PROFILER
+#ifdef RMT_PROFILER
 			rmt_ScopedCPUSample(Render, 0);
 			rmt_ScopedOpenGLSample(RenderGPU);
 #endif
@@ -210,7 +212,7 @@ int main() {
 		}
 
 		if (world->getIsDebugRenderingEnabled()) {
-#ifdef PROFILER
+#ifdef RMT_PROFILER
 			rmt_ScopedCPUSample(PhysicsRender, 0);
 			rmt_ScopedOpenGLSample(PhysicsRenderGPU);
 #endif
@@ -263,7 +265,7 @@ int main() {
 		}
 
 		{
-#ifdef PROFILER
+#ifdef RMT_PROFILER
 			rmt_ScopedCPUSample(HUDRender, 0);
 			rmt_ScopedOpenGLSample(HUDRenderGPU);
 #endif
@@ -271,18 +273,19 @@ int main() {
 			ImGui::SetNextWindowPos(ImVec2(20, 170), ImGuiCond_Once);
 
 			if (ImGui::Begin("Debug", &debugWindow, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
-#ifdef PROFILER
+#ifdef RMT_PROFILER
 				rmt_ScopedCPUSample(HUD_Configuration , 0);
 #endif
 				ImGui::SliderFloat("Camera speed", &camera->speed, 0.01f, 10.f);
+				ImGui::SliderFloat("Shadows distance", &shadowsDistance, 1.f, 50.f);
 				ImGui::Separator();
 				static bool vsync = true;
 				if (ImGui::Checkbox("VSync", &vsync)) {
 					window->setVsync(vsync);
 				}
-				static bool profilerDebugRender;
-				if (ImGui::Checkbox("Debug render", &profilerDebugRender)) {
-					world->setIsDebugRenderingEnabled(profilerDebugRender);
+				static bool RMT_PROFILERDebugRender;
+				if (ImGui::Checkbox("Debug render", &RMT_PROFILERDebugRender)) {
+					world->setIsDebugRenderingEnabled(RMT_PROFILERDebugRender);
 				}
 				ImGui::Checkbox("Show wireframe", &wireframe);
 				ImGui::Separator();
@@ -292,7 +295,7 @@ int main() {
 			ImGui::SetNextWindowPos(ImVec2(300, 20), ImGuiCond_Once);
 
 			if (ImGui::Begin("Menu", &menuWindow, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
-#ifdef PROFILER
+#ifdef RMT_PROFILER
 				rmt_ScopedCPUSample(HUD_Menu, 0);
 #endif
 				ImGui::InputText("Nickname", nickname, 64, ImGuiInputTextFlags_NoHorizontalScroll);
@@ -339,7 +342,7 @@ int main() {
 					ImGuiWindowFlags_NoSavedSettings |
 					ImGuiWindowFlags_NoFocusOnAppearing |
 					ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove)) {
-#ifdef PROFILER
+#ifdef RMT_PROFILER
 					rmt_ScopedCPUSample(HUD_DebugOverlay, 0);
 #endif
 					ImGui::Text("Screen: %dx%d", window->getWidth(), window->getHeight());
@@ -354,7 +357,7 @@ int main() {
 				const float PAD = 20.0f;
 				const ImGuiViewport* viewport = ImGui::GetMainViewport();
 				{
-#ifdef PROFILER
+#ifdef RMT_PROFILER
 					rmt_ScopedCPUSample(HUD_Overlay, 0);
 #endif
 					ImVec2 work_pos = viewport->WorkPos; // Use work area to avoid menu-bar/task-bar, if any!
@@ -396,7 +399,7 @@ int main() {
 					ImGuiWindowFlags_NoSavedSettings |
 					ImGuiWindowFlags_NoFocusOnAppearing |
 					ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove)) {
-#ifdef PROFILER
+#ifdef RMT_PROFILER
 					rmt_ScopedCPUSample(HUD_Controls, 0);
 #endif
 					ImGui::Text("Controls | To toggle press: Tab");
@@ -414,7 +417,7 @@ int main() {
 	}
 
 	physicsCommon.destroyPhysicsWorld(world);
-#ifdef PROFILER
+#ifdef RMT_PROFILER
 	rmt_UnbindOpenGL();
 	rmt_DestroyGlobalInstance(rmt);
 #endif
