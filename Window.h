@@ -14,57 +14,57 @@
 #include <chrono>
 
 class Window {
-    static bool glfwInitialized;
+	static bool glfwInitialized;
 
-    static void initializeGlfw();
+	static void initializeGlfw();
 
-    GLFWwindow *window;
-    bool vsync;
-    int width, height;
-    float ratio;
+	GLFWwindow* window;
+	bool vsync;
+	int width, height;
+	float ratio;
 
 public:
-    Window();
+	Window();
 
-    Window(int w, int h);
+	Window(int w, int h);
 
-    Window(int w, int h, const char *title);
+	Window(int w, int h, const char* title);
 
-    ~Window();
+	~Window();
 
-    void setVsync(bool value);
+	void setVsync(bool value);
 
-    [[nodiscard]] bool getVsync() const;
+	[[nodiscard]] bool getVsync() const;
 
-    void reset() const;
+	void reset() const;
 
-    GLFWwindow *getId();
+	GLFWwindow* getId();
 
-    bool update();
+	bool update();
 
-    void hideCursor();
+	void hideCursor();
 
-    void showCursor();
+	void showCursor();
 
-    void setCursorPosition(int x, int y);
+	void setCursorPosition(int x, int y);
 
-    void getCursorPosition(int *x, int *y);
+	void getCursorPosition(int* x, int* y);
 
-    bool isKeyPressed(int key);
+	bool isKeyPressed(int key);
 
-    static void debugDraw(bool value);
+	static void debugDraw(bool value);
 
-    float getRatio() const;
+	float getRatio() const;
 
-    int getWidth() const;
+	int getWidth() const;
 
-    int getHeight() const;
+	int getHeight() const;
 
-    int *getWidthPtr();
+	int* getWidthPtr();
 
-    int *getHeightPtr();
+	int* getHeightPtr();
 
-    float *getRatioPtr();
+	float* getRatioPtr();
 };
 
 

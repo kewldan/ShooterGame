@@ -78,7 +78,7 @@ void Client::sendPacket(uint16_t type, char* payload, uint16_t length)
 	memcpy(data + 2, hash, 16);
 	memcpy(data + 18, &type, 2);
 	memcpy(data + 20, payload, length);
-	
+
 	sendBytes(data, data_length);
 }
 

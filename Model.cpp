@@ -82,7 +82,7 @@ Model::Model(std::string filename, PhysicsWorld* world, PhysicsCommon* common, b
 		TriangleMesh* triangleMesh = common->createTriangleMesh();
 		triangleMesh->addSubpart(triangleArray);
 		rb->addCollider(common->createConcaveMeshShape(triangleMesh), Transform::identity());
-	} 
+	}
 }
 
 Model::~Model()

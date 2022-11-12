@@ -14,62 +14,62 @@
 #include <unordered_map>
 
 class Hashtable {
-    std::unordered_map<const char*, int> htmap;
+	std::unordered_map<const char*, int> htmap;
 
 public:
-    void put(const char* key, int value) {
-        htmap[key] = value;
-    }
+	void put(const char* key, int value) {
+		htmap[key] = value;
+	}
 
-    const int get(const char* key) {
-        return htmap[key];
-    }
+	const int get(const char* key) {
+		return htmap[key];
+	}
 
-    bool has(const char* key) {
-        return htmap.contains(key);
-    }
+	bool has(const char* key) {
+		return htmap.contains(key);
+	}
 
 };
 
 class Shader {
-    unsigned int vertex, fragment, geometry, program;
-    Hashtable* uniforms;
-    int8_t shaderParts;
-    std::string filename;
+	unsigned int vertex, fragment, geometry, program;
+	Hashtable* uniforms;
+	int8_t shaderParts;
+	std::string filename;
 
-    int getUniformLocation(const char *name) const;
+	int getUniformLocation(const char* name) const;
 
-    int getAttribLocation(const char *name) const;
+	int getAttribLocation(const char* name) const;
 
 public:
-    Shader(const std::string &filename);
-    ~Shader();
+	Shader(const std::string& filename);
+	~Shader();
 
-    unsigned int getProgramId() const;
+	unsigned int getProgramId() const;
 
-    void bind();
+	void bind();
 
-    void unbind();
+	void unbind();
 
-    void upload(const char *name, int value) const;
+	void upload(const char* name, int value) const;
 
-    void upload(const char *name, float value) const;
+	void upload(const char* name, float value) const;
 
-    void upload(const char *name, glm::vec2 value) const;
+	void upload(const char* name, glm::vec2 value) const;
 
-    void upload(const char *name, float x, float y) const;
+	void upload(const char* name, float x, float y) const;
 
-    void upload(const char *name, glm::vec3 value) const;
+	void upload(const char* name, glm::vec3 value) const;
 
-    void upload(const char *name, float x, float y, float z) const;
+	void upload(const char* name, float x, float y, float z) const;
 
-    void upload(const char *name, glm::vec4 value) const;
+	void upload(const char* name, glm::vec4 value) const;
 
-    void upload(const char *name, float x, float y, float z, float w) const;
+	void upload(const char* name, float x, float y, float z, float w) const;
 
-    void upload(const char *name, glm::mat4 value) const;
+	void upload(const char* name, glm::mat4 value) const;
 
-    void draw(Model *model) const;
+	void draw(Model* model) const;
 };
 
 

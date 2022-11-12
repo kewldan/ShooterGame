@@ -8,12 +8,12 @@
 
 class HUD {
 public:
-    HUD(Window *window);
-    ~HUD();
+	HUD(Window* window);
+	~HUD();
 
-    void begin();
+	void begin();
 
-    void end();
+	void end();
 };
 
 

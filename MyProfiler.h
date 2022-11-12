@@ -6,21 +6,21 @@
 #include <chrono>
 
 struct ProfilerBlock {
-    unsigned long allTime;
-    unsigned int iterations;
+	unsigned long allTime;
+	unsigned int iterations;
 };
 
 class MyProfiler {
-    const char* lastBlockName;
-    unsigned long lastBlockStart;
+	const char* lastBlockName;
+	unsigned long lastBlockStart;
 public:
-    std::map<const char*, ProfilerBlock> blocks;
+	std::map<const char*, ProfilerBlock> blocks;
 
-    MyProfiler();
+	MyProfiler();
 
-    void startBlock(const char* name);
+	void startBlock(const char* name);
 
-    void endBlock();
+	void endBlock();
 };
 
 

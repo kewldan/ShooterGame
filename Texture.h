@@ -6,13 +6,13 @@
 #include "plog/Log.h"
 
 class Texture {
-    int width, height, nrChannels;
-    unsigned int texture;
+	int width, height, nrChannels;
+	unsigned int texture;
 public:
-    Texture(const char *filename);
-    ~Texture();
+	Texture(const char* filename);
+	~Texture();
 
-    void bind() const;
+	void bind() const;
 };
 
 

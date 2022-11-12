@@ -5,22 +5,22 @@
 #include "Shader.h"
 
 class ShadowsCaster {
-    unsigned int map, FBO;
-    int w, h;
-    Shader *shader;
-    glm::mat4 lightSpaceMatrix;
+	unsigned int map, FBO;
+	int w, h;
+	Shader* shader;
+	glm::mat4 lightSpaceMatrix;
 public:
-    ShadowsCaster(int width, int height, const char *shaderName, float z_near, float z_far, glm::vec3 *position,
-                  glm::vec3 *lookAt);
-    ~ShadowsCaster();
+	ShadowsCaster(int width, int height, const char* shaderName, float z_near, float z_far, glm::vec3* position,
+		glm::vec3* lookAt);
+	~ShadowsCaster();
 
-    Shader *begin();
+	Shader* begin();
 
-    void end();
+	void end();
 
-    glm::mat4 *getLightSpaceMatrix();
+	glm::mat4* getLightSpaceMatrix();
 
-    unsigned int getMap() const;
+	unsigned int getMap() const;
 };
 
 
