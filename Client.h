@@ -11,7 +11,6 @@ class ClientPacketTypes {
 public:
 	const static uint16_t HANDSHAKE = 2;
 	const static uint16_t UPDATE = 4;
-	const static uint16_t EXIT = 8;
 };
 
 
@@ -19,14 +18,13 @@ class ServerPacketTypes {
 public:
 	const static uint16_t HANDSHAKE = 1;
 	const static uint16_t UPDATE = 3;
-	const static uint16_t KICK = 5;
 };
 
 class Client {
-	SOCKET clientSocket;
 	bool connected;
 	char* lastMessage;
 public:
+	SOCKET clientSocket;
 	unsigned int my_id;
 	Client();
 	void connectToHost(const char* ip, int port);

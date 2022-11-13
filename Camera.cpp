@@ -77,10 +77,4 @@ void Camera::pollEvents(Window* window, RigidBody* player) {
 	position.x = pos.x;
 	position.y = pos.y + 1.5f;
 	position.z = pos.z;
-
-	if (window->isKeyPressed(GLFW_KEY_F5)) {
-		position.x -= std::cos(rotation.y - 1.57f) * 3.f;
-		position.z -= std::sin(rotation.y - 1.57f) * 3.f;
-		position.y += 2.f;
-	}
 }
