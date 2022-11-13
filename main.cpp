@@ -22,7 +22,6 @@
 #include "Remotery.h"
 #endif
 #include <regex>
-#include "Ememy.h"
 
 #ifndef NDEBUG
 void GLAPIENTRY MessageCallback(GLenum source,
@@ -33,7 +32,7 @@ void GLAPIENTRY MessageCallback(GLenum source,
 	const GLchar* message,
 	const void* userParam) {
 	if (severity != GL_DEBUG_SEVERITY_NOTIFICATION) {
-		PLOGE << "OGL: " << (type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : "") << " type = " << type << ", severity = " << severity << ", message = " << message;
+		PLOGE << "OGL: " << " type = " << type << ", severity = " << severity << ", message = " << message;
 	}
 }
 #endif
@@ -43,41 +42,52 @@ PhysicsCommon physicsCommon;
 PhysicsWorld* world;
 Shader* shader, * debugShader;
 ShadowsCaster* shadows;
-Model* map, * player, * enemy, * sniperRifle;
+Model* map, * player, * sniperRifle;
 Texture* sniperTexture, * mapTexture;
 Camera* camera;
 HUD* hud;
 Client* client;
 char* nickname, * ip;
-std::thread *cpl_thread;
-Enemy* enemies;
+std::thread* cpl_thread;
+std::vector<Model*> enemies;
+char enemies_count;
+double lastUpdate;
 
 bool debugWindow, menuWindow = true, wireframe, showControl = true, hasRifle = true, vsync = true, physicsDebugRender;
 float shadowsDistance = 25.f;
 
+struct Enemy {
+	float x, y, z, rx, ry;
+};
+
 void client_packet_listener() {
 	char* buffer = new char[65536];
 	while (client->isConnected()) {
-		PLOGD << "Listening for packets";
 		int nb = client->reciveBytes(buffer, 65536);
 		if (nb != -1) {
 			uint16_t length, type;
 			char* given_hash = new char[16];
-			float* floats = new float[5];
 
 			memcpy(&length, buffer, 2);
 			memcpy(given_hash, buffer + 2, 16);
 			memcpy(&type, buffer + 18, 2);
+
+			char* to_hash = new char[length - 17];
+			memcpy(to_hash, buffer + 20, length - 18);
+			to_hash[length - 16] = 0;
+			MD5 md5(to_hash);
+			char* hash = md5.getBytes();
+
 			if (type == ServerPacketTypes::UPDATE) {
-				memcpy(floats, buffer + 20, 20);
+				enemies_count = buffer[20];
 
-				char* to_hash = new char[21];
-				memcpy(to_hash, floats, 20);
-				to_hash[20] = 0;
-				MD5 md5(to_hash);
-				char* hash = md5.getBytes();
+				for (int i = 0; i < min(enemies_count, enemies.size()); i++) {
+					Enemy* e = new Enemy();
+					memcpy(e, buffer + 21 + i * sizeof(Enemy), sizeof(Enemy));
 
-				PLOGD << "Enemies updated";
+					Model* model = enemies[i];
+					model->rb->setTransform(Transform(Vector3(e->x, e->y, e->z), Quaternion::identity()));
+				}
 			}
 		}
 		else {
@@ -134,7 +144,7 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 			camera->hFov = 60;
 		}
 	}
-	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+	/*if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
 		Vector3 startPoint = player->rb->getTransform().getPosition();
 		Vector3 endPoint(
 			startPoint.x + std::cos(camera->rotation.y - 1.57f) * 50.f,
@@ -147,8 +157,8 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 		if (hit) {
 			enemy->rb->applyWorldForceAtWorldPosition(raycastInfo.worldNormal * -200, raycastInfo.worldPoint);
 		}
-	}
-}
+	}*/
+};
 
 int main() {
 	std::remove("latest.log");
@@ -191,10 +201,6 @@ int main() {
 	player->rb->addCollider(physicsCommon.createCapsuleShape(1.f, 2.5f), Transform(Vector3(0, 1.2f, 0), Quaternion::identity()));
 	player->rb->updateMassFromColliders();
 	player->rb->updateLocalCenterOfMassFromColliders();
-	enemy = new Model("./data/meshes/player.obj", world, &physicsCommon);
-	enemy->rb->addCollider(physicsCommon.createCapsuleShape(1.f, 2.5f), Transform(Vector3(0, 1.2f, 0), Quaternion::identity()));
-	int id = 2;
-	enemy->rb->setUserData(&id);
 
 	sniperRifle = new Model("./data/meshes/sniper.obj", world, &physicsCommon);
 	sniperRifle->rb->setType(BodyType::STATIC);
@@ -210,6 +216,20 @@ int main() {
 
 	hud = new HUD(window);
 	PLOGI << "Loading HUD (ImGui) successfully";
+
+	enemies = std::vector<Model*>();
+
+	std::vector<float> output = std::vector<float>(), vertices = std::vector<float>();
+	std::vector<int> indices = std::vector<int>();
+
+	Model::loadMesh("./data/meshes/player.obj", &indices, &vertices, &output);
+
+	for (int i = 0; i < 8; i++) {
+		Model* newEnemy = new Model(&indices, &vertices, &output, world, &physicsCommon);
+		newEnemy->rb->addCollider(physicsCommon.createCapsuleShape(1.f, 2.5f), Transform(Vector3(0, 1.2f, 0), Quaternion::identity()));
+		newEnemy->rb->setType(BodyType::STATIC);
+		enemies.push_back(newEnemy);
+	}
 
 	client = new Client();
 
@@ -240,14 +260,24 @@ int main() {
 					Vector3 newPos(camera->position.x + std::cos(camera->rotation.y) * 0.9f, camera->position.y - 0.4f, camera->position.z + std::sin(camera->rotation.y) * 0.9f);
 					sniperRifle->rb->setTransform(Transform(newPos, Quaternion::fromEulerAngles(-camera->rotation.x, -camera->rotation.y, 0)));
 				}
-			}
+		}
+			{
+#ifdef RMT_PROFILER
+				rmt_ScopedCPUSample(Networking, 0)
+#endif
+					if (glfwGetTime() - lastUpdate > 0.05f) {
+						Vector3 pos = player->rb->getTransform().getPosition();
+						client->sendUpdate(pos.x, pos.y, pos.z, camera->rotation.x, camera->rotation.y);
+						lastUpdate = glfwGetTime();
+					}
+					}
 			{
 #ifdef RMT_PROFILER
 				rmt_ScopedCPUSample(Physics, 0);
 #endif
 				world->update(ImGui::GetIO().DeltaTime);
 			}
-		}
+			}
 
 		{
 #ifdef RMT_PROFILER
@@ -259,7 +289,7 @@ int main() {
 			depth->draw(map);
 			depth->draw(player);
 			shadows->end();
-		}
+	}
 
 		{
 #ifdef RMT_PROFILER
@@ -285,7 +315,9 @@ int main() {
 			shader->draw(map);
 			shader->upload("hasTexture", 0);
 			shader->draw(player);
-			shader->draw(enemy);
+			for (int i = 0; i < enemies.size() && i < enemies_count; i++) {
+				shader->draw(enemies[i]);
+			}
 			shader->unbind();
 		}
 
@@ -297,7 +329,7 @@ int main() {
 			{
 				int verticesCount = debugRenderer.getNbTriangles() * 9;
 				if (verticesCount > 0) {
-				    float* vertices = new float[verticesCount];
+					float* vertices = new float[verticesCount];
 					for (int i = 0; i < debugRenderer.getNbTriangles(); i++) {
 						DebugRenderer::DebugTriangle t = debugRenderer.getTriangles()[i];
 						vertices[i * 9] = t.point1.x;
@@ -311,7 +343,7 @@ int main() {
 						vertices[i * 9 + 6] = t.point3.x;
 						vertices[i * 9 + 7] = t.point3.y;
 						vertices[i * 9 + 8] = t.point3.z;
-					}
+			}
 
 					static unsigned int VAO = -1, VBO;
 
@@ -321,7 +353,7 @@ int main() {
 
 						glGenBuffers(1, &VBO);
 						glBindBuffer(GL_ARRAY_BUFFER, VBO);
-						glBufferData(GL_ARRAY_BUFFER, (int)(verticesCount * sizeof(float)), vertices, GL_DYNAMIC_DRAW);
+						glBufferData(GL_ARRAY_BUFFER, verticesCount * sizeof(float), vertices, GL_DYNAMIC_DRAW);
 						glEnableVertexAttribArray(0);
 						glVertexAttribPointer(0, 3, GL_FLOAT, false,
 							3 * sizeof(float), (void*)0);
@@ -329,7 +361,7 @@ int main() {
 					else {
 						glBindVertexArray(VAO);
 						glBindBuffer(GL_ARRAY_BUFFER, VBO);
-						glBufferData(GL_ARRAY_BUFFER, (int)(verticesCount * sizeof(float)), vertices, GL_DYNAMIC_DRAW);
+						glBufferData(GL_ARRAY_BUFFER, verticesCount * sizeof(float), vertices, GL_DYNAMIC_DRAW);
 					}
 
 					debugShader->bind();
@@ -337,9 +369,9 @@ int main() {
 					debugShader->upload("view", camera->getView());
 					glDrawArrays(GL_TRIANGLES, 0, verticesCount);
 					debugShader->unbind();
-					delete vertices;
-				}
-			}
+					delete[] vertices;
+		}
+}
 		}
 
 		{
@@ -359,13 +391,13 @@ int main() {
 				ImGui::Separator();
 				if (ImGui::Checkbox("VSync", &vsync)) {
 					window->setVsync(vsync);
-				}
+		}
 				if (ImGui::Checkbox("Debug render", &physicsDebugRender)) {
 					world->setIsDebugRenderingEnabled(physicsDebugRender);
 				}
 				ImGui::Checkbox("Show wireframe", &wireframe);
 				ImGui::Separator();
-			}
+				}
 			ImGui::End();
 
 			ImGui::SetNextWindowPos(ImVec2(300, 20), ImGuiCond_Once);
@@ -385,6 +417,7 @@ int main() {
 						client->connectToHost(ip, 23403);
 						if (client->isConnected()) {
 							cpl_thread = new std::thread(client_packet_listener);
+							client->sendHandshake(nickname);
 						}
 					}
 					else {
@@ -400,27 +433,6 @@ int main() {
 				}
 
 				ImGui::Text("Connected: %s", client->isConnected() ? "yes" : "no");
-				if (client->isConnected()) {
-					if (ImGui::Button("Send auth packet")) {
-						int data_length = strlen(nickname) + 1;
-						char* data = new char[data_length];
-						data[0] = strlen(nickname);
-						memcpy(data + 1, nickname, strlen(nickname));
-						client->sendPacket(ClientPacketTypes::HANDSHAKE, data, data_length);
-					}
-					ImGui::SameLine();
-					if (ImGui::Button("Send update packet")) {
-						int data_length = sizeof(float) * 5;
-						char* data = new char[data_length];
-						Vector3 pos = player->rb->getTransform().getPosition();
-						float* floats = new float[] {
-							pos.x, pos.y, pos.z, camera->rotation.x, camera->rotation.y
-						};
-						memcpy(data, floats, sizeof(float) * 5);
-
-						client->sendPacket(ClientPacketTypes::UPDATE, data, data_length);
-					}
-				}
 			}
 			ImGui::End();
 
@@ -441,6 +453,8 @@ int main() {
 					ImGui::Text("Position: X: %.2f, Y: %.2f, Z: %.2f", camera->position.x, camera->position.y,
 						camera->position.z);
 					ImGui::Text("Rotation: X: %.2f, Y: %.2f", camera->rotation.x, camera->rotation.y);
+					ImGui::Text("Enemies buffer: %d", enemies.size());
+					ImGui::Text("Active enemies: %d", enemies_count);
 				}
 				ImGui::End();
 
@@ -503,8 +517,8 @@ int main() {
 				ImGui::End();
 			}
 			hud->end();
+			}
 		}
-	}
 
 	physicsCommon.destroyPhysicsWorld(world);
 #ifdef RMT_PROFILER

@@ -47,6 +47,6 @@ add_executable(ShooterGame
         HUD.cpp HUD.h
          
         Client.cpp Client.h
- "libraries/md5/include/md5.cpp" "Ememy.h")
+ "libraries/md5/include/md5.cpp" )
 
 target_link_libraries(ShooterGame glfw3 opengl32 gdi32 ReactPhysics3D::ReactPhysics3D Ws2_32 assimp::assimp)

@@ -91,3 +91,24 @@ char* Client::getMessage()
 {
 	return lastMessage;
 }
+
+void Client::sendHandshake(char* nickname)
+{
+	int data_length = strlen(nickname) + 1;
+	char* data = new char[data_length];
+	data[0] = strlen(nickname);
+	memcpy(data + 1, nickname, strlen(nickname));
+	sendPacket(ClientPacketTypes::HANDSHAKE, data, data_length);
+}
+
+void Client::sendUpdate(float x, float y, float z, float rx, float ry)
+{
+	int data_length = sizeof(float) * 5;
+	char* data = new char[data_length];
+	float* floats = new float[] {
+		x, y, z, rx, ry
+	};
+	memcpy(data, floats, sizeof(float) * 5);
+
+	sendPacket(ClientPacketTypes::UPDATE, data, data_length);
+}

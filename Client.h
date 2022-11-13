@@ -35,6 +35,9 @@ public:
 	void sendPacket(uint16_t type, char* payload, uint16_t length);
 	bool isConnected();
 	char* getMessage();
+
+	void sendHandshake(char* nickname);
+	void sendUpdate(float x, float y, float z, float rx, float ry);
 };
 
 #endif

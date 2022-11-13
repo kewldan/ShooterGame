@@ -11,6 +11,9 @@ Shader::Shader(const char* filename) {
 
 	uniforms = new Hashtable();
 
+	vertex = -1;
+	geometry = -1;
+	fragment = -1;
 	
 	char* path = new char[128];
 	strcpy(path, filename);
