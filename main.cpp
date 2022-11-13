@@ -37,6 +37,12 @@ void GLAPIENTRY MessageCallback(GLenum source,
 }
 #endif
 
+class EnemyModel : public Model {
+	using Model::Model;
+public:
+	int id;
+};
+
 Window* window;
 PhysicsCommon physicsCommon;
 PhysicsWorld* world;
@@ -49,7 +55,7 @@ HUD* hud;
 Client* client;
 char* nickname, * ip;
 std::thread* cpl_thread;
-std::vector<Model*> enemies;
+std::vector<EnemyModel*> enemies;
 char enemies_count;
 double lastUpdate;
 
@@ -57,6 +63,7 @@ bool debugWindow, menuWindow = true, wireframe, showControl = true, hasRifle = t
 float shadowsDistance = 25.f;
 
 struct Enemy {
+	int id;
 	float x, y, z, rx, ry;
 };
 
@@ -79,15 +86,20 @@ void client_packet_listener() {
 			char* hash = md5.getBytes();
 
 			if (type == ServerPacketTypes::UPDATE) {
-				enemies_count = buffer[20];
+				enemies_count = min(buffer[20], enemies.size());
 
-				for (int i = 0; i < min(enemies_count, enemies.size()); i++) {
+				for (int i = 0; i < enemies_count; i++) {
 					Enemy* e = new Enemy();
 					memcpy(e, buffer + 21 + i * sizeof(Enemy), sizeof(Enemy));
 
-					Model* model = enemies[i];
+					EnemyModel* model = enemies[i];
+					model->id = e->id;
 					model->rb->setTransform(Transform(Vector3(e->x, e->y, e->z), Quaternion::identity()));
 				}
+			}
+			else if (type == ServerPacketTypes::HANDSHAKE) {
+				memcpy(&client->my_id, buffer + 20, 4);
+				PLOGD << "Handshake accepted, id = " << client->my_id;
 			}
 		}
 		else {
@@ -201,6 +213,7 @@ int main() {
 	player->rb->addCollider(physicsCommon.createCapsuleShape(1.f, 2.5f), Transform(Vector3(0, 1.2f, 0), Quaternion::identity()));
 	player->rb->updateMassFromColliders();
 	player->rb->updateLocalCenterOfMassFromColliders();
+	player->rb->setIsAllowedToSleep(false);
 
 	sniperRifle = new Model("./data/meshes/sniper.obj", world, &physicsCommon);
 	sniperRifle->rb->setType(BodyType::STATIC);
@@ -217,15 +230,15 @@ int main() {
 	hud = new HUD(window);
 	PLOGI << "Loading HUD (ImGui) successfully";
 
-	enemies = std::vector<Model*>();
+	enemies = std::vector<EnemyModel*>();
 
 	std::vector<float> output = std::vector<float>(), vertices = std::vector<float>();
 	std::vector<int> indices = std::vector<int>();
 
 	Model::loadMesh("./data/meshes/player.obj", &indices, &vertices, &output);
 
-	for (int i = 0; i < 8; i++) {
-		Model* newEnemy = new Model(&indices, &vertices, &output, world, &physicsCommon);
+	for (int i = 0; i < 16; i++) {
+		EnemyModel* newEnemy = new EnemyModel(&indices, &vertices, &output, world, &physicsCommon);
 		newEnemy->rb->addCollider(physicsCommon.createCapsuleShape(1.f, 2.5f), Transform(Vector3(0, 1.2f, 0), Quaternion::identity()));
 		newEnemy->rb->setType(BodyType::STATIC);
 		enemies.push_back(newEnemy);
@@ -455,6 +468,9 @@ int main() {
 					ImGui::Text("Rotation: X: %.2f, Y: %.2f", camera->rotation.x, camera->rotation.y);
 					ImGui::Text("Enemies buffer: %d", enemies.size());
 					ImGui::Text("Active enemies: %d", enemies_count);
+					for (int i = 0; i < enemies_count; i++) {
+						ImGui::Text("%d. %d 0/0/0", i+1, enemies[i]->id);
+					}
 				}
 				ImGui::End();
 

@@ -27,6 +27,7 @@ class Client {
 	bool connected;
 	char* lastMessage;
 public:
+	unsigned int my_id;
 	Client();
 	void connectToHost(const char* ip, int port);
 	void disconnectFromHost();
