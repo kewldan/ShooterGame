@@ -4,15 +4,17 @@
 #define SHADER_PART_GEOMETRY 2
 #define SHADER_PART_FRAGMENT 4
 
-
-Shader::Shader(const std::string& filename) {
+Shader::Shader(const char* filename) {
 	this->filename = filename;
 	shaderParts = 0;
 	program = glCreateProgram();
 
 	uniforms = new Hashtable();
 
-	std::string path = "./data/shaders/" + filename + ".vert";
+	
+	char* path = new char[128];
+	strcpy(path, filename);
+	strcat(path, ".vert");
 	if (std::filesystem::exists(path)) {
 		std::ifstream in(path);
 		std::string contents((std::istreambuf_iterator<char>(in)),
@@ -27,7 +29,7 @@ Shader::Shader(const std::string& filename) {
 		if (length > 0) {
 			char* log = new char[length];
 			glGetShaderInfoLog(vertex, length, nullptr, log);
-			PLOG_WARNING << "Vertex shader log:\n" << std::string(log);
+			PLOG_WARNING << "Vertex shader log:\n" << log;
 		}
 
 		int success = 0;
@@ -40,7 +42,8 @@ Shader::Shader(const std::string& filename) {
 			PLOG_WARNING << "Vertex shader found, but not attached";
 		}
 	}
-	path = "./data/shaders/" + filename + ".frag";
+	path[strlen(path) - 5] = 0;
+	strcat(path, ".frag");
 	if (std::filesystem::exists(path)) {
 		std::ifstream in(path);
 		std::string contents((std::istreambuf_iterator<char>(in)),
@@ -55,7 +58,7 @@ Shader::Shader(const std::string& filename) {
 		if (length > 0) {
 			char* log = new char[length];
 			glGetShaderInfoLog(fragment, length, nullptr, log);
-			PLOG_WARNING << "Fragment shader log:\n" << std::string(log);
+			PLOG_WARNING << "Fragment shader log:\n" << log;
 		}
 
 		int success = 0;
@@ -68,7 +71,8 @@ Shader::Shader(const std::string& filename) {
 			PLOG_WARNING << "Fragment shader found, but not attached";
 		}
 	}
-	path = "./data/shaders/" + filename + ".geom";
+	path[strlen(path) - 5] = 0;
+	strcat(path, ".geom");
 	if (std::filesystem::exists(path)) {
 		std::ifstream in(path);
 		std::string contents((std::istreambuf_iterator<char>(in)),
@@ -83,7 +87,7 @@ Shader::Shader(const std::string& filename) {
 		if (length > 0) {
 			char* log = new char[length];
 			glGetShaderInfoLog(geometry, length, nullptr, log);
-			PLOG_WARNING << "Geometry shader log:\n" << std::string(log);
+			PLOG_WARNING << "Geometry shader log:\n" << log;
 		}
 
 		int success = 0;

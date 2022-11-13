@@ -20,7 +20,7 @@ out VertexData {
         {
              gl_Position = gl_in[i].gl_Position;
 
-             vVertexOut.normal = n;
+             vVertexOut.normal = normalize(n);
              vVertexOut.position = vertex[i].position;
 
              EmitVertex();

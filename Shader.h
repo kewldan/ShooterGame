@@ -35,14 +35,14 @@ class Shader {
 	unsigned int vertex, fragment, geometry, program;
 	Hashtable* uniforms;
 	int8_t shaderParts;
-	std::string filename;
+	const char* filename;
 
 	int getUniformLocation(const char* name) const;
 
 	int getAttribLocation(const char* name) const;
 
 public:
-	Shader(const std::string& filename);
+	Shader(const char* filename);
 	~Shader();
 
 	unsigned int getProgramId() const;

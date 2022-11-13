@@ -22,6 +22,7 @@
 #include "Remotery.h"
 #endif
 #include <regex>
+#include "Ememy.h"
 
 #ifndef NDEBUG
 void GLAPIENTRY MessageCallback(GLenum source,
@@ -49,36 +50,42 @@ HUD* hud;
 Client* client;
 char* nickname, * ip;
 std::thread *cpl_thread;
+Enemy* enemies;
 
 bool debugWindow, menuWindow = true, wireframe, showControl = true, hasRifle = true, vsync = true, physicsDebugRender;
 float shadowsDistance = 25.f;
 
 void client_packet_listener() {
-	char* buffer = (char*)malloc(65536);
+	char* buffer = new char[65536];
 	while (client->isConnected()) {
 		PLOGD << "Listening for packets";
 		int nb = client->reciveBytes(buffer, 65536);
-		uint16_t length, type;
-		char* given_hash = new char[16];
-		float* floats = new float[5];
+		if (nb != -1) {
+			uint16_t length, type;
+			char* given_hash = new char[16];
+			float* floats = new float[5];
 
-		memcpy(&length, buffer, 2);
-		memcpy(given_hash, buffer + 2, 16);
-		memcpy(&type, buffer + 18, 2);
-		memcpy(floats, buffer + 20, 20);
+			memcpy(&length, buffer, 2);
+			memcpy(given_hash, buffer + 2, 16);
+			memcpy(&type, buffer + 18, 2);
+			if (type == ServerPacketTypes::UPDATE) {
+				memcpy(floats, buffer + 20, 20);
 
-		char* to_hash = new char[21];
-		memcpy(to_hash, floats, 20);
-		to_hash[20] = 0;
-		MD5 md5(to_hash);
-		char* hash = md5.getBytes();
+				char* to_hash = new char[21];
+				memcpy(to_hash, floats, 20);
+				to_hash[20] = 0;
+				MD5 md5(to_hash);
+				char* hash = md5.getBytes();
 
-
-		
-		PLOGD << "Packet recv: " << length << " bytes, type: " << type;
-		
+				PLOGD << "Enemies updated";
+			}
+		}
+		else {
+			client->disconnectFromHost();
+			break;
+		}
 	}
-	free(buffer);
+	delete[] buffer;
 };
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
@@ -174,10 +181,10 @@ int main() {
 	rmt_BeginCPUSample(Init, 0);
 	PLOGI << "Profiler initialized";
 #endif
-	shader = new Shader("main");
-	debugShader = new Shader("debug");
+	shader = new Shader("./data/shaders/main");
+	debugShader = new Shader("./data/shaders/debug");
 	auto lightPos = glm::vec3(-3.5f, 10.f, -1.5f);
-	shadows = new ShadowsCaster(4096, 4096, "depth", lightPos);
+	shadows = new ShadowsCaster(4096, 4096, "./data/shaders/depth", lightPos);
 
 	map = new Model("./data/meshes/map.obj", world, &physicsCommon, true);
 	player = new Model("./data/meshes/player.obj", world, &physicsCommon);
@@ -208,10 +215,6 @@ int main() {
 
 	nickname = new char[64];
 	ip = new char[16];
-
-	memset(nickname, 0, 64);
-	memset(ip, 0, 16);
-
 	strcpy(nickname, "Player");
 	strcpy(ip, "127.0.0.1");
 #ifdef RMT_PROFILER
@@ -294,7 +297,7 @@ int main() {
 			{
 				int verticesCount = debugRenderer.getNbTriangles() * 9;
 				if (verticesCount > 0) {
-					float* vertices = (float*)calloc(verticesCount, sizeof(float));
+				    float* vertices = new float[verticesCount];
 					for (int i = 0; i < debugRenderer.getNbTriangles(); i++) {
 						DebugRenderer::DebugTriangle t = debugRenderer.getTriangles()[i];
 						vertices[i * 9] = t.point1.x;
@@ -334,7 +337,7 @@ int main() {
 					debugShader->upload("view", camera->getView());
 					glDrawArrays(GL_TRIANGLES, 0, verticesCount);
 					debugShader->unbind();
-					free(vertices);
+					delete vertices;
 				}
 			}
 		}

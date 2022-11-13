@@ -17,16 +17,14 @@ class Model {
 	glm::mat4 mvp;
 public:
 	RigidBody* rb;
-	PhysicsWorld* world;
-	std::vector<int>* indices;
-	std::vector<float>* vertices;
 
-	Model(std::string filename, PhysicsWorld* world, PhysicsCommon* common, bool createConcaveCollider = false);
+	Model(const char* filename, PhysicsWorld* world, PhysicsCommon* common, bool createConcaveCollider = false);
+	Model(std::vector<int>* indices, std::vector<float>* vertices, std::vector<float>* output, PhysicsWorld* world, PhysicsCommon* common, bool createConcaveCollider = false);
 	~Model();
 
-	void draw();
+	static void loadMesh(const char* filename, std::vector<int>* indices, std::vector<float>* vertices, std::vector<float>* output);
 
-	void print();
+	void draw();
 
 	glm::mat4 getMVP();
 };
