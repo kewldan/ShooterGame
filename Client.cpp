@@ -2,17 +2,17 @@
 
 Client::Client()
 {
-	WSADATA wsData;
+	lastMessage = new char[32];
+	strcpy(lastMessage, "No message");
+	connected = false;
+	my_id = 0;
+	clientSocket = 0;
+
 	int err = WSAStartup(MAKEWORD(2, 2), &wsData);
 
 	if (err != 0) {
 		return;
 	}
-
-	lastMessage = new char[32];
-	strcpy(lastMessage, "No message");
-
-	connected = false;
 }
 
 void Client::connectToHost(const char* ip, int port)
@@ -40,7 +40,7 @@ void Client::connectToHost(const char* ip, int port)
 		strcpy(lastMessage, "Connected");
 	}
 	else {
-		strcpy(lastMessage, "Failed to connect");
+		strcpy(lastMessage, "Unable to connect");
 	}
 }
 
@@ -55,7 +55,7 @@ void Client::sendBytes(char* bytes, int length)
 {
 	if (send(clientSocket, bytes, length, 0) == -1) {
 		connected = false;
-		strcpy(lastMessage, "Force disconnected");
+		strcpy(lastMessage, "Connection lost");
 	}
 }
 
@@ -64,22 +64,43 @@ int Client::reciveBytes(char* buffer, int length)
 	return recv(clientSocket, buffer, length, 0);
 }
 
-void Client::sendPacket(uint16_t type, char* payload, uint16_t length)
+BasicPacket* Client::recivePacket()
 {
-	uint16_t packet_length = length + 18;
-	uint16_t data_length = packet_length + 2;
-	char* data = new char[data_length];
-	memcpy(data, &packet_length, 2);
-	char* to_hash = new char[length + 1];
-	memcpy(to_hash, payload, length);
-	to_hash[length] = 0;
-	MD5 md5(to_hash);
-	char* hash = md5.getBytes();
-	memcpy(data + 2, hash, 16);
-	memcpy(data + 18, &type, 2);
-	memcpy(data + 20, payload, length);
+	char* packet_header_buffer = new char[4];
+	int n = recv(clientSocket, packet_header_buffer, 4, 0);
+	if (n == 4) {
+		BasicPacket *packet = new BasicPacket();
+		memcpy(&packet->length, packet_header_buffer, n);
+		memcpy(&packet->type, packet_header_buffer + 2, n);
 
-	sendBytes(data, data_length);
+		packet->payload = new char[packet->length];
+
+		int p = recv(clientSocket, packet->payload, packet->length, 0);
+		if (p == packet->length) {
+			return packet;
+		}
+		else {
+			connected = false;
+			strcpy(lastMessage, "Connection lost");
+		}
+	}
+	else {
+		connected = false;
+		strcpy(lastMessage, "Connection lost");
+	}
+	return nullptr;
+}
+
+void Client::sendPacket(BasicPacket* packet)
+{
+	uint16_t packet_length = packet->length + 2;
+	char* data = new char[packet_length + 2];
+
+	memcpy(data, &packet_length, 2); //Service information
+	memcpy(data + 2, &packet->type, 2);
+	memcpy(data + 4, packet->payload, packet->length);
+
+	sendBytes(data, packet_length + 2);
 }
 
 bool Client::isConnected()
@@ -94,21 +115,25 @@ char* Client::getMessage()
 
 void Client::sendHandshake(char* nickname)
 {
-	int data_length = strlen(nickname) + 1;
-	char* data = new char[data_length];
-	data[0] = strlen(nickname);
-	memcpy(data + 1, nickname, strlen(nickname));
-	sendPacket(ClientPacketTypes::HANDSHAKE, data, data_length);
+	BasicPacket* packet = new BasicPacket();
+	packet->type = ClientPacketTypes::HANDSHAKE;
+	packet->length = strlen(nickname) + 1;
+	packet->payload = new char[packet->length];
+	packet->payload[0] = strlen(nickname);
+	memcpy(packet->payload + 1, nickname, strlen(nickname));
+	sendPacket(packet);
 }
 
 void Client::sendUpdate(float x, float y, float z, float rx, float ry)
 {
-	int data_length = sizeof(float) * 5;
-	char* data = new char[data_length];
+	BasicPacket* packet = new BasicPacket();
+	packet->type = ClientPacketTypes::UPDATE;
+	packet->length = sizeof(float) * 5;
+	packet->payload = new char[packet->length];
 	float* floats = new float[] {
 		x, y, z, rx, ry
 	};
-	memcpy(data, floats, sizeof(float) * 5);
+	memcpy(packet->payload, floats, sizeof(float) * 5);
 
-	sendPacket(ClientPacketTypes::UPDATE, data, data_length);
+	sendPacket(packet);
 }

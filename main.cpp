@@ -70,27 +70,13 @@ struct Enemy {
 };
 
 void client_packet_listener() {
-	char* buffer = new char[65536];
 	while (client->isConnected()) {
-		int nb = client->reciveBytes(buffer, 65536);
+		BasicPacket* packet = client->recivePacket();
 		{
 			std::lock_guard<std::mutex> lockGuard(coutMutex);
-			if (nb != -1) {
-				uint16_t length, type;
-				char* given_hash = new char[16];
-
-				memcpy(&length, buffer, 2);
-				memcpy(given_hash, buffer + 2, 16);
-				memcpy(&type, buffer + 18, 2);
-
-				char* to_hash = new char[length - 17];
-				memcpy(to_hash, buffer + 20, length - 18);
-				to_hash[length - 16] = 0;
-				MD5 md5(to_hash);
-				char* hash = md5.getBytes();
-
-				if (type == ServerPacketTypes::UPDATE) {
-					enemies_count = min(buffer[20], enemies.size());
+			if (packet != nullptr) {
+				if (packet->type == ServerPacketTypes::UPDATE) {
+					enemies_count = min(packet->payload[0], enemies.size());
 
 					for (int i = enemies_count; i < enemies.size(); i++) {
 						enemies[i]->rb->setTransform(Transform(Vector3(-9999, -9999, -9999), Quaternion::identity()));
@@ -98,25 +84,33 @@ void client_packet_listener() {
 
 					for (int i = 0; i < enemies_count; i++) {
 						Enemy* e = new Enemy();
-						memcpy(e, buffer + 21 + i * sizeof(Enemy), sizeof(Enemy));
+						memcpy(e, packet->payload + 1 + i * sizeof(Enemy), sizeof(Enemy));
 
 						EnemyModel* model = enemies[i];
 						model->id = e->id;
 						model->rb->setTransform(Transform(Vector3(e->x, e->y, e->z), Quaternion::identity()));
 					}
 				}
-				else if (type == ServerPacketTypes::HANDSHAKE) {
-					memcpy(&client->my_id, buffer + 20, 4);
+				else if (packet->type == ServerPacketTypes::HANDSHAKE) {
+					memcpy(&client->my_id, packet->payload, 4);
 					PLOGD << "Handshake accepted, id = " << client->my_id;
+				}
+				else if (packet->type == ServerPacketTypes::MESSAGE) {
+					char message_length;
+					memcpy(&message_length, packet->payload, 1);
+
+					char* message = new char[message_length + 1];
+					memcpy(message, packet->payload + 1, message_length);
+					message[message_length] = '\0';
+
+					PLOGI << "Message: " << message;
 				}
 			}
 			else {
-				client->disconnectFromHost();
 				break;
 			}
 		}
 	}
-	delete[] buffer;
 };
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
