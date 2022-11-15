@@ -43,8 +43,10 @@ add_executable(ShooterGame
         imgui/backends/imgui_impl_opengl3.cpp imgui/backends/imgui_impl_opengl3.h
         imgui/imgui.cpp imgui/imgui.h
 
+        Console.h
+
         HUD.cpp HUD.h
          
-        Client.cpp Client.h)
+        Client.cpp Client.h "Console.h")
 
 target_link_libraries(ShooterGame glfw3 opengl32 gdi32 ReactPhysics3D::ReactPhysics3D Ws2_32 assimp::assimp)

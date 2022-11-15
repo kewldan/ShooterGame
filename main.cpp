@@ -20,6 +20,7 @@
 #include "Remotery.h"
 #include <regex>
 #include <windows.h>
+#include "Console.h"
 
 #ifndef NDEBUG
 void GLAPIENTRY MessageCallback(GLenum source,
@@ -58,11 +59,13 @@ std::vector<EnemyModel*> enemies;
 char enemies_count;
 double lastUpdate;
 Remotery* rmt;
+AppConsole* console;
+
+AppConsole* AppConsole::i = nullptr;
 
 std::mutex coutMutex;
 
-bool debugWindow, menuWindow = true, wireframe, showControl = true, hasRifle = true, vsync = true, physicsDebugRender;
-float shadowsDistance = 25.f;
+bool debugWindow, menuWindow = true, wireframe, showControl = true, hasRifle = true, vsync = true, physicsDebugRender, console_open;
 
 struct Enemy {
 	int id;
@@ -93,17 +96,28 @@ void client_packet_listener() {
 				}
 				else if (packet->type == ServerPacketTypes::HANDSHAKE) {
 					memcpy(&client->my_id, packet->payload, 4);
-					PLOGD << "Handshake accepted, id = " << client->my_id;
 				}
 				else if (packet->type == ServerPacketTypes::MESSAGE) {
-					char message_length;
-					memcpy(&message_length, packet->payload, 1);
+					char sender_length, message_length;
 
+					memcpy(&sender_length, packet->payload, 1);
+					char* sender = new char[sender_length + 1];
+					memcpy(sender, packet->payload + 1, sender_length);
+					sender[sender_length] = 0;
+
+					memcpy(&message_length, packet->payload + 1 + sender_length, 1);
 					char* message = new char[message_length + 1];
-					memcpy(message, packet->payload + 1, message_length);
-					message[message_length] = '\0';
+					memcpy(message, packet->payload + 2 + sender_length, message_length);
+					message[message_length] = 0;
 
-					PLOGI << "Message: " << message;
+					console->AddLog("[chat] [%s] %s", sender, message);
+				}
+				else if (packet->type == ServerPacketTypes::KICK) {
+					char* reason = new char[packet->length + 1];
+					memcpy(reason, packet->payload, packet->length);
+					reason[packet->length] = 0;
+
+					console->AddLog("[error] You kicked from server. Reason: %s\n", reason);
 				}
 			}
 			else {
@@ -151,6 +165,9 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 		if (key == GLFW_KEY_ESCAPE) {
 			exit(0);
 		}
+		if (key == GLFW_KEY_GRAVE_ACCENT) {
+			console_open ^= 1;
+		}
 	}
 };
 
@@ -188,13 +205,19 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 int main() {
 	std::remove("latest.log");
 	plog::init(plog::debug, "latest.log");
-	plog::get()->addAppender(new plog::ColorConsoleAppender<plog::TxtFormatter>());
-	PLOGI << "Logger initialized";
 
 	window = new Window();
 
 	glfwSetKeyCallback(window->getId(), key_callback);
 	glfwSetMouseButtonCallback(window->getId(), mouse_button_callback);
+
+	hud = new HUD(window);
+	console = new AppConsole();
+	AppConsole::i = console;
+
+	plog::get()->addAppender(new plog::ColorConsoleAppender<plog::TxtFormatter>());
+
+	PLOGI << "Logger initialized";
 
 #ifndef NDEBUG
 	glEnable(GL_DEBUG_OUTPUT);
@@ -240,9 +263,6 @@ int main() {
 	PLOGI << "Loading textures successfully";
 
 	camera = new Camera(window->getWidthPtr(), window->getHeightPtr(), window->getRatioPtr());
-
-	hud = new HUD(window);
-	PLOGI << "Loading HUD (ImGui) successfully";
 
 	enemies = std::vector<EnemyModel*>();
 
@@ -290,14 +310,11 @@ int main() {
 					sniperRifle->rb->setTransform(Transform(newPos, Quaternion::fromEulerAngles(-camera->rotation.x, -camera->rotation.y, 0)));
 				}
 			}
-			{
-
+			if (client->isConnected() && glfwGetTime() - lastUpdate > 0.05f) {
 				rmt_ScopedCPUSample(Networking, 0)
-					if (glfwGetTime() - lastUpdate > 0.05f) {
-						Vector3 pos = player->rb->getTransform().getPosition();
-						client->sendUpdate(pos.x, pos.y, pos.z, camera->rotation.x, camera->rotation.y);
-						lastUpdate = glfwGetTime();
-					}
+					Vector3 pos = player->rb->getTransform().getPosition();
+				client->sendUpdate(pos.x, pos.y, pos.z, camera->rotation.x, camera->rotation.y);
+				lastUpdate = glfwGetTime();
 			}
 			{
 				rmt_ScopedCPUSample(Physics, 0);
@@ -309,7 +326,7 @@ int main() {
 		{
 			rmt_ScopedCPUSample(Shadows, 0);
 			rmt_ScopedOpenGLSample(ShadowsGPU);
-			Shader* depth = shadows->begin(camera->position, shadowsDistance);
+			Shader* depth = shadows->begin(camera->position, 25);
 			depth->draw(sniperRifle);
 			depth->draw(map);
 			depth->draw(player);
@@ -413,7 +430,6 @@ int main() {
 				rmt_ScopedCPUSample(HUD_Configuration, 0);
 
 				ImGui::SliderFloat("Camera speed", &camera->speed, 0.01f, 10.f);
-				ImGui::SliderFloat("Shadows distance", &shadowsDistance, 1.f, 50.f);
 				ImGui::Separator();
 				if (ImGui::Checkbox("VSync", &vsync)) {
 					window->setVsync(vsync);
@@ -437,8 +453,11 @@ int main() {
 				ImGui::Spacing();
 				const static std::regex ip_regex("(^((25[0-5]|(2[0-4]|1\\d|[1-9]|)\\d)\\.?\\b){4}$)");
 
-				ImGui::InputText("IP", ip, 16, ImGuiInputTextFlags_NoHorizontalScroll);
-				if (ImGui::Button(client->isConnected() ? "Disconnect" : "Connect") && (client->isConnected() || std::regex_match(ip, ip_regex))) {
+				ImGui::InputText("IP", ip, 16, ImGuiInputTextFlags_NoHorizontalScroll | ImGuiInputTextFlags_CharsScientific);
+				if (!std::regex_match(ip, ip_regex) && !client->isConnected()) {
+					ImGui::BeginDisabled();
+				}
+				if (ImGui::Button(client->isConnected() ? "Disconnect" : "Connect")) {
 					if (!client->isConnected()) {
 						client->connectToHost(ip, 23403);
 						if (client->isConnected()) {
@@ -450,15 +469,14 @@ int main() {
 						client->disconnectFromHost();
 					}
 				}
+				if (!std::regex_match(ip, ip_regex) && !client->isConnected()) {
+					ImGui::EndDisabled();
+				}
 				ImGui::SameLine();
-				if (std::regex_match(ip, ip_regex)) {
-					ImGui::Text(client->getMessage());
-				}
-				else {
-					ImGui::TextColored(ImVec4(1, 0, 0, 1), "Thats not IP");
-				}
-
 				ImGui::Text("Connected: %s", client->isConnected() ? "yes" : "no");
+				if (client->isConnected()) {
+					//TODO: 1
+				}
 			}
 			ImGui::End();
 
@@ -479,13 +497,11 @@ int main() {
 					ImGui::Text("Position: X: %.2f, Y: %.2f, Z: %.2f", camera->position.x, camera->position.y,
 						camera->position.z);
 					ImGui::Text("Rotation: X: %.2f, Y: %.2f", camera->rotation.x, camera->rotation.y);
-					unsigned long v = 0;
-					ImGui::Text("S: %d", ioctlsocket(client->clientSocket, FIONREAD, &v));
-					ImGui::Text("Smth: %d", v);
-					ImGui::Text("Enemies buffer: %d", enemies.size());
-					ImGui::Text("Active enemies: %d", enemies_count);
-					for (int i = 0; i < enemies_count; i++) {
-						ImGui::Text("%d. %d 0/0", i + 1, enemies[i]->id);
+					if (enemies_count > 0) {
+						ImGui::Text("Player list (K/D):");
+						for (int i = 0; i < enemies_count; i++) {
+							ImGui::Text("%d. %d 0/0", i + 1, enemies[i]->id);
+						}
 					}
 				}
 				ImGui::End();
@@ -521,30 +537,13 @@ int main() {
 					ImGui::End();
 				}
 
-				ImVec2 work_pos = viewport->WorkPos; // Use work area to avoid menu-bar/task-bar, if any!
-				ImVec2 work_size = viewport->WorkSize;
-				ImVec2 window_pos, window_pos_pivot;
-				window_pos.x = work_pos.x + PAD;
-				window_pos.y = work_pos.y + work_size.y - PAD;
-				window_pos_pivot.x = 0;
-				window_pos_pivot.y = 1;
-				ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
-				ImGui::SetNextWindowBgAlpha(0.35f);
-
-				if (ImGui::Begin("Controls", &_, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
-					ImGuiWindowFlags_NoSavedSettings |
-					ImGuiWindowFlags_NoFocusOnAppearing |
-					ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove)) {
-
-					rmt_ScopedCPUSample(HUD_Controls, 0);
-					ImGui::Text("WASD - walking");
-					ImGui::Text("Shift - crouch");
-					ImGui::Text("C - zoom");
-					ImGui::Text("Q - lock mouse");
-					ImGui::Text("R - reload");
-					ImGui::Text("RMB - ADS");
+				if (console_open) {
+					console->Draw("Console", &_);
 				}
-				ImGui::End();
+				if (strlen(console->buffer) > 0) {
+					client->sendMessage(console->buffer);
+					memset(console->buffer, 0, 256);
+				}
 			}
 			hud->end();
 		}

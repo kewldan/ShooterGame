@@ -6553,7 +6553,7 @@ static void ShowExampleMenuFile()
 
 // Demonstrate creating a simple console window, with scrolling, filtering, completion and history.
 // For the console example, we are using a more C++ like approach of declaring a class to hold both data and functions.
-struct ExampleAppConsole
+struct AppConsole
 {
     char                  InputBuf[256];
     ImVector<char*>       Items;
@@ -6564,7 +6564,7 @@ struct ExampleAppConsole
     bool                  AutoScroll;
     bool                  ScrollToBottom;
 
-    ExampleAppConsole()
+    AppConsole()
     {
         IMGUI_DEMO_MARKER("Examples/Console");
         ClearLog();
@@ -6580,7 +6580,7 @@ struct ExampleAppConsole
         ScrollToBottom = false;
         AddLog("Welcome to Dear ImGui!");
     }
-    ~ExampleAppConsole()
+    ~AppConsole()
     {
         ClearLog();
         for (int i = 0; i < History.Size; i++)
@@ -6796,7 +6796,7 @@ struct ExampleAppConsole
     // In C++11 you'd be better off using lambdas for this sort of forwarding callbacks
     static int TextEditCallbackStub(ImGuiInputTextCallbackData* data)
     {
-        ExampleAppConsole* console = (ExampleAppConsole*)data->UserData;
+        AppConsole* console = (AppConsole*)data->UserData;
         return console->TextEditCallback(data);
     }
 
@@ -6904,7 +6904,7 @@ struct ExampleAppConsole
 
 static void ShowExampleAppConsole(bool* p_open)
 {
-    static ExampleAppConsole console;
+    static AppConsole console;
     console.Draw("Example: Console", p_open);
 }
 

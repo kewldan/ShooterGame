@@ -2,8 +2,6 @@
 
 Client::Client()
 {
-	lastMessage = new char[32];
-	strcpy(lastMessage, "No message");
 	connected = false;
 	my_id = 0;
 	clientSocket = 0;
@@ -22,7 +20,7 @@ void Client::connectToHost(const char* ip, int port)
 	if (clientSocket == INVALID_SOCKET) {
 		closesocket(clientSocket);
 		WSACleanup();
-		strcpy(lastMessage, "Failed to open socket");
+		PLOGE << "Failed to open socket";
 	}
 
 	in_addr ip_to_num;
@@ -37,10 +35,10 @@ void Client::connectToHost(const char* ip, int port)
 	int err = connect(clientSocket, (sockaddr*)&servInfo, sizeof(servInfo));
 	if (err == 0) {
 		connected = true;
-		strcpy(lastMessage, "Connected");
+		AppConsole::i->AddLog("[success] Connected to %s\n", ip);
 	}
 	else {
-		strcpy(lastMessage, "Unable to connect");
+		AppConsole::i->AddLog("[error] Unable to connect to %s\n", ip);
 	}
 }
 
@@ -48,14 +46,14 @@ void Client::disconnectFromHost()
 {
 	shutdown(clientSocket, SD_SEND);
 	connected = false;
-	strcpy(lastMessage, "Disconnected");
+	AppConsole::i->AddLog("[success] Disconnected");
 }
 
 void Client::sendBytes(char* bytes, int length)
 {
 	if (send(clientSocket, bytes, length, 0) == -1) {
 		connected = false;
-		strcpy(lastMessage, "Connection lost");
+		AppConsole::i->AddLog("[error] Connection lost");
 	}
 }
 
@@ -81,12 +79,12 @@ BasicPacket* Client::recivePacket()
 		}
 		else {
 			connected = false;
-			strcpy(lastMessage, "Connection lost");
+			AppConsole::i->AddLog("[error] Connection lost");
 		}
 	}
 	else {
 		connected = false;
-		strcpy(lastMessage, "Connection lost");
+		AppConsole::i->AddLog("[error] Connection lost");
 	}
 	return nullptr;
 }
@@ -106,11 +104,6 @@ void Client::sendPacket(BasicPacket* packet)
 bool Client::isConnected()
 {
 	return connected;
-}
-
-char* Client::getMessage()
-{
-	return lastMessage;
 }
 
 void Client::sendHandshake(char* nickname)
@@ -134,6 +127,18 @@ void Client::sendUpdate(float x, float y, float z, float rx, float ry)
 		x, y, z, rx, ry
 	};
 	memcpy(packet->payload, floats, sizeof(float) * 5);
+
+	sendPacket(packet);
+}
+
+void Client::sendMessage(char* message)
+{
+	BasicPacket* packet = new BasicPacket();
+	packet->type = ClientPacketTypes::MESSAGE;
+	packet->length = strlen(message);
+	packet->payload = new char[packet->length];
+
+	memcpy(packet->payload, message, strlen(message));
 
 	sendPacket(packet);
 }

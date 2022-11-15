@@ -1,6 +1,6 @@
 #include "Window.h"
 
-Window::Window() : Window(800, 600) {
+Window::Window() : Window(1280, 720) {
 
 }
 

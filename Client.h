@@ -5,11 +5,13 @@
 #include <WinSock2.h>
 #include <WS2tcpip.h>
 #include "plog/Log.h"
+#include "Console.h"
 
 class ClientPacketTypes {
 public:
 	const static uint16_t HANDSHAKE = 2;
 	const static uint16_t UPDATE = 4;
+	const static uint16_t MESSAGE = 8;
 };
 
 
@@ -18,6 +20,7 @@ public:
 	const static uint16_t HANDSHAKE = 1;
 	const static uint16_t UPDATE = 3;
 	const static uint16_t MESSAGE = 5;
+	const static uint16_t KICK = 7;
 };
 
 struct BasicPacket {
@@ -27,7 +30,6 @@ struct BasicPacket {
 
 class Client {
 	bool connected;
-	char* lastMessage;
 	WSADATA wsData;
 	void sendBytes(char* bytes, int length);
 	int reciveBytes(char* buffer, int length);
@@ -40,12 +42,11 @@ public:
 	void disconnectFromHost();
 	bool isConnected();
 
-	char* getMessage();
-
 	BasicPacket* recivePacket();
 	void sendPacket(BasicPacket* packet);
 	void sendHandshake(char* nickname);
 	void sendUpdate(float x, float y, float z, float rx, float ry);
+	void sendMessage(char* message);
 };
 
 #endif
