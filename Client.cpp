@@ -106,6 +106,15 @@ bool Client::isConnected()
 	return connected;
 }
 
+unsigned long Client::getAvailbale()
+{
+	unsigned long d = 0;
+	if (isConnected()) {
+		ioctlsocket(clientSocket, FIONREAD, &d);
+	}
+	return d;
+}
+
 void Client::sendHandshake(char* nickname)
 {
 	BasicPacket* packet = new BasicPacket();

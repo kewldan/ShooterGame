@@ -41,6 +41,7 @@ public:
 	void connectToHost(const char* ip, int port);
 	void disconnectFromHost();
 	bool isConnected();
+	unsigned long getAvailbale();
 
 	BasicPacket* recivePacket();
 	void sendPacket(BasicPacket* packet);
