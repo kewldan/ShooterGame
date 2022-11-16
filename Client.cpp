@@ -151,3 +151,14 @@ void Client::sendMessage(char* message)
 
 	sendPacket(packet);
 }
+
+void Client::sendPlayerRequest(int id)
+{
+	BasicPacket* packet = new BasicPacket();
+	packet->type = ClientPacketTypes::GET_PLAYER;
+	packet->length = 4;
+	packet->payload = new char[packet->length];
+
+	memcpy(packet->payload, &id, 4);
+	sendPacket(packet);
+}

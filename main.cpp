@@ -62,7 +62,7 @@ double lastUpdate;
 Remotery* rmt;
 AppConsole* console;
 Counter* incomingPackets, * outcomingPackets;
-
+std::map<int, char*> nicknames = std::map<int, char*>();
 
 const glm::vec3 lightPos(-3.5f, 10.f, -1.5f);
 const std::regex ip_regex("(^((25[0-5]|(2[0-4]|1\\d|[1-9]|)\\d)\\.?\\b){4}$)");
@@ -79,7 +79,6 @@ struct Enemy {
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
 	if (action == GLFW_PRESS) {
 		if (key == GLFW_KEY_E) {
-
 			if (hasRifle) {
 				sniperRifle->rb->setType(BodyType::DYNAMIC);
 				BoxShape* sniperShape = physicsCommon.createBoxShape(Vector3(0.12f, 0.587f, 2.7f));
@@ -197,6 +196,8 @@ int main() {
 
 	CapsuleShape* playerShape = physicsCommon.createCapsuleShape(1.f, 2.5f);
 
+	enemies = std::vector<EnemyModel*>();
+
 	for (int i = 0; i < 16; i++) {
 		EnemyModel* newEnemy = new EnemyModel(&indices, &vertices, &output, world, &physicsCommon);
 		newEnemy->rb->addCollider(playerShape, Transform(Vector3(0, 1.2f, 0), Quaternion::identity()));
@@ -228,7 +229,6 @@ int main() {
 	AppConsole::i = console;
 
 	camera = new Camera(&window->width, &window->height, &window->ratio);
-	enemies = std::vector<EnemyModel*>();
 	incomingPackets = new Counter(1);
 	outcomingPackets = new Counter(1);
 
@@ -268,14 +268,14 @@ int main() {
 					if (packet != nullptr) {
 						incomingPackets->add();
 						if (packet->type == ServerPacketTypes::UPDATE) {
-							enemies_count = min(packet->payload[0], enemies.size());
+							enemies_count = packet->payload[0];
 
 							for (int i = enemies_count; i < enemies.size(); i++) {
 								enemies[i]->rb->setTransform(Transform(Vector3(-9999, -9999, -9999), Quaternion::identity()));
 							}
 
 							Enemy* e = new Enemy();
-							for (int i = 0; i < enemies_count; i++) {
+							for (int i = 0; i < enemies_count && i < enemies.size(); i++) {
 								memcpy(e, packet->payload + 1 + i * sizeof(Enemy), sizeof(Enemy));
 
 								EnemyModel* model = enemies[i];
@@ -309,6 +309,16 @@ int main() {
 
 							console->AddLog("[error] You kicked from server. Reason: %s\n", reason);
 						}
+						else if (packet->type == ServerPacketTypes::PLAYER_INFO) {
+							char* nickname = new char[packet->length - 4 + 1];
+							memcpy(nickname, packet->payload + 4, packet->length);
+							nickname[packet->length - 4] = 0;
+
+							int id = 0;
+							memcpy(&id, packet->payload, 4);
+
+							nicknames[id] = nickname;
+						}
 					}
 				}
 			}
@@ -318,7 +328,6 @@ int main() {
 				world->update(ImGui::GetIO().DeltaTime);
 			}
 		}
-
 		{
 			rmt_ScopedCPUSample(Shadows, 0);
 			rmt_ScopedOpenGLSample(ShadowsGPU);
@@ -326,7 +335,7 @@ int main() {
 			depth->draw(sniperRifle);
 			depth->draw(map);
 			depth->draw(player);
-			for (int i = 0; i < enemies_count; i++) {
+			for (int i = 0; i < enemies_count && i < enemies.size(); i++) {
 				depth->draw(enemies[i]);
 			}
 			shadows->end();
@@ -354,7 +363,7 @@ int main() {
 			mapTexture->bind();
 			shader->draw(map);
 			shader->upload("hasTexture", 0);
-			for (int i = 0; i < enemies_count; i++) {
+			for (int i = 0; i < enemies_count && i < enemies.size(); i++) {
 				shader->draw(enemies[i]);
 			}
 			shader->unbind();
@@ -487,15 +496,29 @@ int main() {
 
 					ImGui::Text("Screen: %dx%d", window->width, window->height);
 					ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
-					ImGui::Text("Position: X: %.2f, Y: %.2f, Z: %.2f", camera->position.x, camera->position.y,
+					ImGui::Text("Position: X: %.1f, Y: %.1f, Z: %.1f", camera->position.x, camera->position.y,
 						camera->position.z);
-					ImGui::Text("Rotation: X: %.2f, Y: %.2f", camera->rotation.x, camera->rotation.y);
+					ImGui::Text("Rotation: X: %.1f, Y: %.1f", camera->rotation.x, camera->rotation.y);
 					if (client->isConnected()) {
+						ImGui::Text("ID: %d", client->my_id);
 						ImGui::Text("Packets: %d/s in, %d/s out", incomingPackets->getPerSecond(), outcomingPackets->getPerSecond());
 						if (enemies_count > 0) {
 							ImGui::Text("Player list (K/D):");
 							for (int i = 0; i < enemies_count; i++) {
-								ImGui::Text("%d. %d 0/0", i + 1, enemies[i]->id);
+								if (nicknames.contains(enemies[i]->id)) {
+									if (strlen(nicknames[enemies[i]->id]) > 0) {
+										ImGui::Text("%d. %s (0/0)", i + 1, nicknames[enemies[i]->id]);
+									}
+									else {
+										ImGui::Text("%d. Unknown (0/0)", i + 1);
+									}
+								}
+								else {
+									client->sendPlayerRequest(enemies[i]->id);
+									nicknames[enemies[i]->id] = new char[1];
+									nicknames[enemies[i]->id][0] = 0;
+									ImGui::Text("%d. Unknown (0/0)", i + 1);
+								}
 							}
 						}
 					}
