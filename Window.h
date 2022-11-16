@@ -20,10 +20,9 @@ class Window {
 
 	GLFWwindow* window;
 	bool vsync;
+public:
 	int width, height;
 	float ratio;
-
-public:
 	Window();
 
 	Window(int w, int h);
@@ -53,18 +52,6 @@ public:
 	bool isKeyPressed(int key);
 
 	static void debugDraw(bool value);
-
-	float getRatio() const;
-
-	int getWidth() const;
-
-	int getHeight() const;
-
-	int* getWidthPtr();
-
-	int* getHeightPtr();
-
-	float* getRatioPtr();
 };
 
 

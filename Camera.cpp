@@ -36,9 +36,9 @@ void Camera::pollEvents(Window* window, RigidBody* player) {
 	if (window->isKeyPressed(GLFW_KEY_Q)) {
 		int x, y;
 		window->getCursorPosition(&x, &y);
-		window->setCursorPosition(window->getWidth() / 2, window->getHeight() / 2);
-		int px = window->getWidth() / 2 - x;
-		int py = window->getHeight() / 2 - y;
+		window->setCursorPosition(window->width / 2, window->height / 2);
+		int px = window->width / 2 - x;
+		int py = window->height / 2 - y;
 		rotation.x -= (float)py * 0.001f;
 		rotation.x = std::max(-1.5f, std::min(rotation.x, 1.5f));
 		rotation.y -= (float)px * 0.001f;

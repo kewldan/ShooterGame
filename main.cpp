@@ -1,9 +1,10 @@
 #include <reactphysics3d/reactphysics3d.h>
 
+//#define RMT_PROFILER
+
 #include "Shader.h"
 #include <cstdlib>
 #include "Window.h"
-#include <mutex>
 
 #include <plog/Log.h>
 #include "plog/Initializers/RollingFileInitializer.h"
@@ -21,6 +22,7 @@
 #include <regex>
 #include <windows.h>
 #include "Console.h"
+#include "Counter.h"
 
 #ifndef NDEBUG
 void GLAPIENTRY MessageCallback(GLenum source,
@@ -54,77 +56,24 @@ Camera* camera;
 HUD* hud;
 Client* client;
 char* nickname, * ip;
-std::thread* cpl_thread;
 std::vector<EnemyModel*> enemies;
 char enemies_count;
 double lastUpdate;
 Remotery* rmt;
 AppConsole* console;
+Counter* incomingPackets, * outcomingPackets;
+
+
+const glm::vec3 lightPos(-3.5f, 10.f, -1.5f);
+const std::regex ip_regex("(^((25[0-5]|(2[0-4]|1\\d|[1-9]|)\\d)\\.?\\b){4}$)");
 
 AppConsole* AppConsole::i = nullptr;
 
-std::mutex coutMutex;
-
-bool debugWindow, menuWindow = true, wireframe, showControl = true, hasRifle = true, vsync = true, physicsDebugRender, console_open;
+bool wireframe, hasRifle = true, vsync = true, physicsDebugRender, console_open;
 
 struct Enemy {
 	int id;
 	float x, y, z, rx, ry;
-};
-
-void client_packet_listener() {
-	while (client->isConnected()) {
-		BasicPacket* packet = client->recivePacket();
-		{
-			std::lock_guard<std::mutex> lockGuard(coutMutex);
-			if (packet != nullptr) {
-				if (packet->type == ServerPacketTypes::UPDATE) {
-					enemies_count = min(packet->payload[0], enemies.size());
-
-					for (int i = enemies_count; i < enemies.size(); i++) {
-						enemies[i]->rb->setTransform(Transform(Vector3(-9999, -9999, -9999), Quaternion::identity()));
-					}
-
-					for (int i = 0; i < enemies_count; i++) {
-						Enemy* e = new Enemy();
-						memcpy(e, packet->payload + 1 + i * sizeof(Enemy), sizeof(Enemy));
-
-						EnemyModel* model = enemies[i];
-						model->id = e->id;
-						model->rb->setTransform(Transform(Vector3(e->x, e->y, e->z), Quaternion::identity()));
-					}
-				}
-				else if (packet->type == ServerPacketTypes::HANDSHAKE) {
-					memcpy(&client->my_id, packet->payload, 4);
-				}
-				else if (packet->type == ServerPacketTypes::MESSAGE) {
-					char sender_length, message_length;
-
-					memcpy(&sender_length, packet->payload, 1);
-					char* sender = new char[sender_length + 1];
-					memcpy(sender, packet->payload + 1, sender_length);
-					sender[sender_length] = 0;
-
-					memcpy(&message_length, packet->payload + 1 + sender_length, 1);
-					char* message = new char[message_length + 1];
-					memcpy(message, packet->payload + 2 + sender_length, message_length);
-					message[message_length] = 0;
-
-					console->AddLog("[chat] [%s] %s", sender, message);
-				}
-				else if (packet->type == ServerPacketTypes::KICK) {
-					char* reason = new char[packet->length + 1];
-					memcpy(reason, packet->payload, packet->length);
-					reason[packet->length] = 0;
-
-					console->AddLog("[error] You kicked from server. Reason: %s\n", reason);
-				}
-			}
-			else {
-				break;
-			}
-		}
-	}
 };
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
@@ -211,10 +160,6 @@ int main() {
 	glfwSetKeyCallback(window->getId(), key_callback);
 	glfwSetMouseButtonCallback(window->getId(), mouse_button_callback);
 
-	hud = new HUD(window);
-	console = new AppConsole();
-	AppConsole::i = console;
-
 	plog::get()->addAppender(new plog::ColorConsoleAppender<plog::TxtFormatter>());
 
 	PLOGI << "Logger initialized";
@@ -238,50 +183,54 @@ int main() {
 	PLOGI << "Profiler initialized";
 #endif
 
-	rmt_BeginCPUSample(Init, 0);
-
 	shader = new Shader("./data/shaders/main");
 	debugShader = new Shader("./data/shaders/debug");
-	auto lightPos = glm::vec3(-3.5f, 10.f, -1.5f);
 	shadows = new ShadowsCaster(4096, 4096, "./data/shaders/depth", lightPos);
 
 	map = new Model("./data/meshes/map.obj", world, &physicsCommon, true);
-	player = new Model("./data/meshes/player.obj", world, &physicsCommon);
-	player->rb->addCollider(physicsCommon.createCapsuleShape(1.f, 2.5f), Transform(Vector3(0, 1.2f, 0), Quaternion::identity()));
-	player->rb->updateMassFromColliders();
-	player->rb->updateLocalCenterOfMassFromColliders();
-	player->rb->setIsAllowedToSleep(false);
-
 	sniperRifle = new Model("./data/meshes/sniper.obj", world, &physicsCommon);
 	sniperRifle->rb->setType(BodyType::STATIC);
-
-	player->rb->setAngularLockAxisFactor(Vector3::zero());
-	PLOGI << "Loading models and physics successfully";
-
-	sniperTexture = new Texture("data/textures/sniper.png");
-	mapTexture = new Texture("data/textures/palette.png");
-	PLOGI << "Loading textures successfully";
-
-	camera = new Camera(window->getWidthPtr(), window->getHeightPtr(), window->getRatioPtr());
-
-	enemies = std::vector<EnemyModel*>();
 
 	std::vector<float> output = std::vector<float>(), vertices = std::vector<float>();
 	std::vector<int> indices = std::vector<int>();
 	Model::loadMesh("./data/meshes/player.obj", &indices, &vertices, &output);
 
+	CapsuleShape* playerShape = physicsCommon.createCapsuleShape(1.f, 2.5f);
+
 	for (int i = 0; i < 16; i++) {
 		EnemyModel* newEnemy = new EnemyModel(&indices, &vertices, &output, world, &physicsCommon);
-		newEnemy->rb->addCollider(physicsCommon.createCapsuleShape(1.f, 2.5f), Transform(Vector3(0, 1.2f, 0), Quaternion::identity()));
+		newEnemy->rb->addCollider(playerShape, Transform(Vector3(0, 1.2f, 0), Quaternion::identity()));
 		newEnemy->rb->setType(BodyType::STATIC);
 		enemies.push_back(newEnemy);
 	}
+
+	player = new Model(&indices, &vertices, &output, world, &physicsCommon);
+	player->rb->addCollider(playerShape, Transform(Vector3(0, 1.2f, 0), Quaternion::identity()));
+	player->rb->updateMassFromColliders();
+	player->rb->updateLocalCenterOfMassFromColliders();
+	player->rb->setIsAllowedToSleep(false);
+	player->rb->setAngularLockAxisFactor(Vector3::zero());
+
 	output.clear();
 	output.shrink_to_fit();
 	vertices.clear();
 	vertices.shrink_to_fit();
 	indices.clear();
 	indices.shrink_to_fit();
+	PLOGI << "Loading models and physics successfully";
+
+	sniperTexture = new Texture("data/textures/sniper.png");
+	mapTexture = new Texture("data/textures/palette.png");
+	PLOGI << "Loading textures successfully";
+
+	hud = new HUD(window);
+	console = new AppConsole();
+	AppConsole::i = console;
+
+	camera = new Camera(&window->width, &window->height, &window->ratio);
+	enemies = std::vector<EnemyModel*>();
+	incomingPackets = new Counter(1);
+	outcomingPackets = new Counter(1);
 
 	client = new Client();
 	nickname = new char[64];
@@ -290,12 +239,7 @@ int main() {
 	GetUserName(nickname, &username_len);
 
 	strcpy(ip, "127.0.0.1");
-
-	rmt_EndCPUSample();
-
-
 	while (window->update()) {
-		std::lock_guard<std::mutex> lockGuard(coutMutex);
 		rmt_ScopedCPUSample(FrameUpdate, 0);
 		rmt_ScopedOpenGLSample(FrameGPUUpdate);
 		{
@@ -310,11 +254,63 @@ int main() {
 					sniperRifle->rb->setTransform(Transform(newPos, Quaternion::fromEulerAngles(-camera->rotation.x, -camera->rotation.y, 0)));
 				}
 			}
-			if (client->isConnected() && glfwGetTime() - lastUpdate > 0.05f) {
-				rmt_ScopedCPUSample(Networking, 0)
+			if (client->isConnected()) {
+				rmt_ScopedCPUSample(Networking, 0);
+				if (glfwGetTime() - lastUpdate > 0.02f) {
 					Vector3 pos = player->rb->getTransform().getPosition();
-				client->sendUpdate(pos.x, pos.y, pos.z, camera->rotation.x, camera->rotation.y);
-				lastUpdate = glfwGetTime();
+					client->sendUpdate(pos.x, pos.y, pos.z, camera->rotation.x, camera->rotation.y);
+					lastUpdate = glfwGetTime();
+					outcomingPackets->add();
+				}
+
+				while (client->getAvailbale() > 4) {
+					BasicPacket* packet = client->recivePacket();
+					if (packet != nullptr) {
+						incomingPackets->add();
+						if (packet->type == ServerPacketTypes::UPDATE) {
+							enemies_count = min(packet->payload[0], enemies.size());
+
+							for (int i = enemies_count; i < enemies.size(); i++) {
+								enemies[i]->rb->setTransform(Transform(Vector3(-9999, -9999, -9999), Quaternion::identity()));
+							}
+
+							Enemy* e = new Enemy();
+							for (int i = 0; i < enemies_count; i++) {
+								memcpy(e, packet->payload + 1 + i * sizeof(Enemy), sizeof(Enemy));
+
+								EnemyModel* model = enemies[i];
+								model->id = e->id;
+								model->rb->setTransform(Transform(Vector3(e->x, e->y, e->z), Quaternion::identity()));
+							}
+							delete e;
+						}
+						else if (packet->type == ServerPacketTypes::HANDSHAKE) {
+							memcpy(&client->my_id, packet->payload, 4);
+						}
+						else if (packet->type == ServerPacketTypes::MESSAGE) {
+							char sender_length, message_length;
+
+							memcpy(&sender_length, packet->payload, 1);
+							char* sender = new char[sender_length + 1];
+							memcpy(sender, packet->payload + 1, sender_length);
+							sender[sender_length] = 0;
+
+							memcpy(&message_length, packet->payload + 1 + sender_length, 1);
+							char* message = new char[message_length + 1];
+							memcpy(message, packet->payload + 2 + sender_length, message_length);
+							message[message_length] = 0;
+
+							console->AddLog("[chat] [%s] %s", sender, message);
+						}
+						else if (packet->type == ServerPacketTypes::KICK) {
+							char* reason = new char[packet->length + 1];
+							memcpy(reason, packet->payload, packet->length);
+							reason[packet->length] = 0;
+
+							console->AddLog("[error] You kicked from server. Reason: %s\n", reason);
+						}
+					}
+				}
 			}
 			{
 				rmt_ScopedCPUSample(Physics, 0);
@@ -418,15 +414,13 @@ int main() {
 		}
 
 		{
-
 			rmt_ScopedCPUSample(HUDRender, 0);
 			rmt_ScopedOpenGLSample(HUDRenderGPU);
 
 			hud->begin();
 			ImGui::SetNextWindowPos(ImVec2(20, 170), ImGuiCond_Once);
 
-			if (ImGui::Begin("Debug", &debugWindow, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
-
+			if (ImGui::Begin("Debug", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
 				rmt_ScopedCPUSample(HUD_Configuration, 0);
 
 				ImGui::SliderFloat("Camera speed", &camera->speed, 0.01f, 10.f);
@@ -444,105 +438,104 @@ int main() {
 
 			ImGui::SetNextWindowPos(ImVec2(300, 20), ImGuiCond_Once);
 
-			if (ImGui::Begin("Menu", &menuWindow, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
+			if (ImGui::Begin("Menu", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
 
 				rmt_ScopedCPUSample(HUD_Menu, 0);
 
-				ImGui::InputText("Nickname", nickname, 32, ImGuiInputTextFlags_NoHorizontalScroll);
-				ImGui::Separator();
-				ImGui::Spacing();
-				const static std::regex ip_regex("(^((25[0-5]|(2[0-4]|1\\d|[1-9]|)\\d)\\.?\\b){4}$)");
-
+				if (client->isConnected()) {
+					ImGui::BeginDisabled();
+				}
 				ImGui::InputText("IP", ip, 16, ImGuiInputTextFlags_NoHorizontalScroll | ImGuiInputTextFlags_CharsScientific);
+				ImGui::InputText("Nickname", nickname, 32, ImGuiInputTextFlags_NoHorizontalScroll);
+				if (client->isConnected()) {
+					ImGui::EndDisabled();
+				}
+
 				if (!std::regex_match(ip, ip_regex) && !client->isConnected()) {
 					ImGui::BeginDisabled();
 				}
-				if (ImGui::Button(client->isConnected() ? "Disconnect" : "Connect")) {
+
+				if (ImGui::Button(client->isConnected() ? "Disconnect" : "Connect", ImVec2(270, 20))) {
 					if (!client->isConnected()) {
 						client->connectToHost(ip, 23403);
 						if (client->isConnected()) {
-							cpl_thread = new std::thread(client_packet_listener);
 							client->sendHandshake(nickname);
+							outcomingPackets->add();
 						}
 					}
 					else {
 						client->disconnectFromHost();
 					}
 				}
+
 				if (!std::regex_match(ip, ip_regex) && !client->isConnected()) {
 					ImGui::EndDisabled();
-				}
-				ImGui::SameLine();
-				ImGui::Text("Connected: %s", client->isConnected() ? "yes" : "no");
-				if (client->isConnected()) {
-					//TODO: 1
 				}
 			}
 			ImGui::End();
 
 			{
 				ImGuiIO& io = ImGui::GetIO();
-				ImGui::SetNextWindowPos(ImVec2(20, 20), ImGuiCond_Once);
+				ImGui::SetNextWindowPos(ImVec2(15, 15), ImGuiCond_Once);
 				ImGui::SetNextWindowBgAlpha(0.35f);
-				static bool _;
-				if (ImGui::Begin("Debug overlay", &_, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
+				if (ImGui::Begin("##Debug overlay", NULL, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
 					ImGuiWindowFlags_NoSavedSettings |
 					ImGuiWindowFlags_NoFocusOnAppearing |
 					ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove)) {
 
 					rmt_ScopedCPUSample(HUD_DebugOverlay, 0);
 
-					ImGui::Text("Screen: %dx%d", window->getWidth(), window->getHeight());
-					ImGui::Text("FPS: %.2f", ImGui::GetIO().Framerate);
+					ImGui::Text("Screen: %dx%d", window->width, window->height);
+					ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
 					ImGui::Text("Position: X: %.2f, Y: %.2f, Z: %.2f", camera->position.x, camera->position.y,
 						camera->position.z);
 					ImGui::Text("Rotation: X: %.2f, Y: %.2f", camera->rotation.x, camera->rotation.y);
-					if (enemies_count > 0) {
-						ImGui::Text("Player list (K/D):");
-						for (int i = 0; i < enemies_count; i++) {
-							ImGui::Text("%d. %d 0/0", i + 1, enemies[i]->id);
+					if (client->isConnected()) {
+						ImGui::Text("Packets: %d/s in, %d/s out", incomingPackets->getPerSecond(), outcomingPackets->getPerSecond());
+						if (enemies_count > 0) {
+							ImGui::Text("Player list (K/D):");
+							for (int i = 0; i < enemies_count; i++) {
+								ImGui::Text("%d. %d 0/0", i + 1, enemies[i]->id);
+							}
 						}
 					}
 				}
 				ImGui::End();
 
-				const float PAD = 20.0f;
 				const ImGuiViewport* viewport = ImGui::GetMainViewport();
 				{
-
 					rmt_ScopedCPUSample(HUD_Overlay, 0);
+					ImGui::SetNextWindowPos({
+						viewport->WorkPos.x + viewport->WorkSize.x - 15.f,
+						viewport->WorkPos.y + viewport->WorkSize.y - 15.f
+						}, ImGuiCond_Always, { 1, 1 });
+					ImGui::SetNextWindowBgAlpha(0.f);
+					ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.f);
 
-					ImVec2 work_pos = viewport->WorkPos; // Use work area to avoid menu-bar/task-bar, if any!
-					ImVec2 work_size = viewport->WorkSize;
-					ImVec2 window_pos, window_pos_pivot;
-					window_pos.x = work_pos.x + work_size.x - PAD;
-					window_pos.y = work_pos.y + work_size.y - PAD;
-					window_pos_pivot.x = 1;
-					window_pos_pivot.y = 1;
-					ImGui::SetNextWindowPos(window_pos, ImGuiCond_Always, window_pos_pivot);
-					ImGui::SetNextWindowBgAlpha(0.35f);
-
-					if (ImGui::Begin("Ammo overlay", &_,
+					if (ImGui::Begin("##Ammo overlay", NULL,
 						ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
 						ImGuiWindowFlags_NoSavedSettings |
 						ImGuiWindowFlags_NoFocusOnAppearing |
-						ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove)) {
+						ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove |
+						ImGuiWindowFlags_NoInputs)) {
 						ImGui::Text("Health: %d / %d", 80, 100);
-						ImGui::Text("Have weapon:");
-						ImGui::SameLine();
-						ImGui::TextColored(ImVec4(1, 0, 0, 1), "no");
+						ImGui::Text("");
 						ImGui::Text("Name: %s", "AK-47");
 						ImGui::Text("Ammo: %d / %d", 17, 30);
 					}
 					ImGui::End();
+					ImGui::PopStyleVar();
 				}
 
 				if (console_open) {
-					console->Draw("Console", &_);
+					console->Draw();
 				}
 				if (strlen(console->buffer) > 0) {
-					client->sendMessage(console->buffer);
+					if (client->isConnected()) {
+						client->sendMessage(console->buffer);
+					}
 					memset(console->buffer, 0, 256);
+					outcomingPackets->add();
 				}
 			}
 			hud->end();

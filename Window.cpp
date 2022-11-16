@@ -84,30 +84,6 @@ bool Window::update() {
 	return !glfwWindowShouldClose(window);
 }
 
-float Window::getRatio() const {
-	return ratio;
-}
-
-int Window::getWidth() const {
-	return width;
-}
-
-int Window::getHeight() const {
-	return height;
-}
-
-int* Window::getWidthPtr() {
-	return &width;
-}
-
-int* Window::getHeightPtr() {
-	return &height;
-}
-
-float* Window::getRatioPtr() {
-	return &ratio;
-}
-
 void Window::hideCursor() {
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 }

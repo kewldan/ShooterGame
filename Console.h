@@ -51,11 +51,11 @@ struct AppConsole
 		Items.push_back(Strdup(buf));
 	}
 
-	void    Draw(const char* title, bool* p_open)
+	void    Draw()
 	{
 		ImGui::SetNextWindowPos(ImVec2(600, 20), ImGuiCond_Once);
 		ImGui::SetNextWindowSize(ImVec2(300, 200), ImGuiCond_Once);
-		if (!ImGui::Begin(title, p_open, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings))
+		if (!ImGui::Begin("Console", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings))
 		{
 			ImGui::End();
 			return;
