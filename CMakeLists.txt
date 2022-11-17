@@ -15,16 +15,17 @@ include_directories(${PROJECT_SOURCE_DIR}/imgui)
 link_directories(${PROJECT_SOURCE_DIR}/libraries/glfw/lib-vc2022)
 
 set(assimp_DIR E:\\dev\\vcpkg\\installed\\x64-windows\\share\\assimp)
+set(Bullet_DIR E:\\dev\\vcpkg\\installed\\x64-windows\\share\\Bullet)
 
-find_package(ReactPhysics3D REQUIRED)
 find_package(assimp REQUIRED)
+find_package(Bullet REQUIRED)
 
-link_directories(E:\\dev\\vcpkg\\installed\\x64-windows\\lib)
+link_directories(E:\\vcpkg\\installed\\x64-windows\\lib)
 
 add_executable(ShooterGame
         libraries/glad/src/gl.c
         main.cpp
-        Shader.cpp Shader.h
+        Shader.cpp Shader.h 
         Window.cpp Window.h
         MyMesh.cpp MyMesh.h
         Model.cpp Model.h
@@ -47,6 +48,6 @@ add_executable(ShooterGame
 
         HUD.cpp HUD.h
          
-        Client.cpp Client.h "Console.h" "Counter.h")
+        Client.cpp Client.h "Console.h" )
 
-target_link_libraries(ShooterGame glfw3 opengl32 gdi32 ReactPhysics3D::ReactPhysics3D Ws2_32 assimp::assimp)
+target_link_libraries(ShooterGame glfw3 opengl32 gdi32 Ws2_32 assimp::assimp BulletSoftBody BulletDynamics BulletCollision Bullet3Common LinearMath)

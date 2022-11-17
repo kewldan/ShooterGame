@@ -75,6 +75,7 @@ BasicPacket* Client::recivePacket()
 
 		int p = recv(clientSocket, packet->payload, packet->length, 0);
 		if (p == packet->length) {
+			incoming.sent++;
 			return packet;
 		}
 		else {
@@ -99,6 +100,8 @@ void Client::sendPacket(BasicPacket* packet)
 	memcpy(data + 4, packet->payload, packet->length);
 
 	sendBytes(data, packet_length + 2);
+
+	outcoming.sent++;
 }
 
 bool Client::isConnected()
@@ -113,6 +116,26 @@ unsigned long Client::getAvailbale()
 		ioctlsocket(clientSocket, FIONREAD, &d);
 	}
 	return d;
+}
+
+PacketsInfo* Client::getIncoming()
+{
+	if (glfwGetTime() - incoming.lastUpdate > 0.5f) {
+		incoming.previousSecond = incoming.sent * 2;
+		incoming.sent = 0;
+		incoming.lastUpdate = glfwGetTime();
+	}
+	return &incoming;
+}
+
+PacketsInfo* Client::getOutcoming()
+{
+	if (glfwGetTime() - outcoming.lastUpdate > 0.5f) {
+		outcoming.previousSecond = outcoming.sent * 2;
+		outcoming.sent = 0;
+		outcoming.lastUpdate = glfwGetTime();
+	}
+	return &outcoming;
 }
 
 void Client::sendHandshake(char* nickname)

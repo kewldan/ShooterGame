@@ -1,12 +1,9 @@
 #ifndef SHOOTERGAME_CAMERA_H
 #define SHOOTERGAME_CAMERA_H
 
-#include <reactphysics3d/reactphysics3d.h>
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
 #include "Window.h"
-
-using namespace reactphysics3d;
 
 class Camera {
 	glm::mat4 orthographic, perspective, view;
@@ -22,7 +19,7 @@ public:
 
 	Camera(int* widthPtr, int* heightPtr, float* ratioPtr);
 
-	void pollEvents(Window* window, RigidBody* player);
+	void pollEvents(Window* window);
 
 	glm::mat4& getView();
 
