@@ -5,6 +5,8 @@
 #include <string>
 #include "plog/Log.h"
 
+#include "stb_image.h"
+
 class Texture {
 	int width, height, nrChannels;
 	unsigned int texture;

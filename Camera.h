@@ -25,6 +25,7 @@ public:
 	void pollEvents(Window* window, RigidBody* player);
 
 	glm::mat4& getView();
+	glm::mat4& getViewRotationOnly();
 
 	const glm::mat4& getOrthographic();
 

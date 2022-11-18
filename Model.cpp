@@ -24,8 +24,10 @@ Model::Model(MeshData* data, PhysicsWorld* world, PhysicsCommon* common, bool cr
 		TriangleVertexArray* triangleArray =
 			new TriangleVertexArray(
 				data->vertices->size() / 3, data->vertices->data(), 3 * sizeof(float),
+				//data->normals->data(), 3 * sizeof(float),
 				data->indices->size() / 3, data->indices->data(), 3 * sizeof(int),
 				TriangleVertexArray::VertexDataType::VERTEX_FLOAT_TYPE,
+				//TriangleVertexArray::NormalDataType::NORMAL_FLOAT_TYPE,
 				TriangleVertexArray::IndexDataType::INDEX_INTEGER_TYPE);
 		TriangleMesh* triangleMesh = common->createTriangleMesh();
 		triangleMesh->addSubpart(triangleArray);
@@ -41,7 +43,12 @@ Model::~Model()
 void Model::loadMesh(const char* filename, MeshData* out)
 {
 	Assimp::Importer importer;
-	const aiScene* scene = importer.ReadFile(filename, aiProcess_Triangulate | aiProcess_FlipUVs);
+	const aiScene* scene = importer.ReadFile(filename, aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices);
+
+	const char* error = aiGetErrorString();
+	if (strlen(error) > 0) {
+		PLOGE << error;
+	}
 
 	if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) // if is Not Zero
 	{
@@ -73,17 +80,13 @@ void Model::loadMesh(const char* filename, MeshData* out)
 			out->output->push_back(0);
 		}
 
-		if (mesh->HasNormals()) {
-			out->output->push_back(mesh->mNormals[i].x);
-			out->output->push_back(mesh->mNormals[i].y);
-			out->output->push_back(mesh->mNormals[i].z);
-		}
-		else {
-			out->output->push_back(0);
-			out->output->push_back(0);
-			out->output->push_back(0);
-		}
+		out->output->push_back(mesh->mNormals[i].x);
+		out->output->push_back(mesh->mNormals[i].y);
+		out->output->push_back(mesh->mNormals[i].z);
 
+		out->normals->push_back(mesh->mNormals[i].x);
+		out->normals->push_back(mesh->mNormals[i].y);
+		out->normals->push_back(mesh->mNormals[i].z);
 	}
 
 	for (unsigned int i = 0; i < mesh->mNumFaces; i++)
@@ -95,7 +98,7 @@ void Model::loadMesh(const char* filename, MeshData* out)
 		out->indices->push_back(face.mIndices[2]);
 	}
 
-	PLOGI << "Loaded mesh from " << filename << "";
+	PLOGI << "Mesh [" << filename << "] loaded [" << (mesh->HasPositions() ? 'V' : '\0') << (mesh->mTextureCoords[0] ? 'T' : '\0') << (mesh->HasNormals() ? 'N' : '\0') << "], (V " << mesh->mNumVertices << " | F " << mesh->mNumFaces << ")";
 }
 
 float* Model::getMVP() {
@@ -110,6 +113,7 @@ void Model::draw() {
 MeshData::MeshData() {
 	vertices = new std::vector<float>();
 	output = new std::vector<float>();
+	normals = new std::vector<float>();
 	indices = new std::vector<int>();
 }
 
@@ -120,4 +124,6 @@ MeshData::~MeshData() {
 	indices->shrink_to_fit();
 	output->clear();
 	output->shrink_to_fit();
+	normals->clear();
+	normals->shrink_to_fit();
 }

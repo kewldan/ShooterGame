@@ -39,11 +39,11 @@ add_executable(${PROJECT_NAME}
         HUD.cpp HUD.h
         Client.cpp Client.h
         Chat.cpp Chat.h
-)
+ "Skybox.h" "Skybox.cpp")
 
 set(GAME_LIBRARIES glfw3 opengl32 gdi32 Ws2_32 assimp::assimp)
 
-set(BUILD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/Release)
+set(BUILD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/Release/)
 
 if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
     add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD

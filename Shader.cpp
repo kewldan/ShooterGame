@@ -105,7 +105,7 @@ Shader::Shader(const char* filename) {
 	}
 
 	glLinkProgram(program);
-	PLOG_INFO << filename << " linked ["
+	PLOG_INFO << "Shader [" << filename << "] linked ["
 		<< ((shaderParts & SHADER_PART_VERTEX) != 0 ? 'V' : '\0')
 		<< ((shaderParts & SHADER_PART_GEOMETRY) != 0 ? 'G' : '\0')
 		<< ((shaderParts & SHADER_PART_FRAGMENT) != 0 ? 'F' : '\0')

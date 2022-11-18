@@ -9,9 +9,7 @@
 #include <fstream>
 #include <iostream>
 #include <map>
-#include <sys/stat.h>
 #include <plog/Log.h>
-#include <unordered_map>
 
 class Hashtable {
 	std::unordered_map<const char*, int> htmap;

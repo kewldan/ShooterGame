@@ -9,11 +9,12 @@
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
+#include <assimp/cimport.h>
 
 using namespace reactphysics3d;
 
 struct MeshData {
-	std::vector<float>* vertices, * output;
+	std::vector<float>* vertices, * output, *normals;
 	std::vector<int>* indices;
 
 	MeshData();

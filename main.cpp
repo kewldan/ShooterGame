@@ -1,5 +1,7 @@
 #include <reactphysics3d/reactphysics3d.h>
 
+#define STB_IMAGE_IMPLEMENTATION
+
 //#define RMT_PROFILER
 
 #include "Shader.h"
@@ -22,6 +24,7 @@
 #include "Remotery.h"
 #include <regex>
 #include <windows.h>
+#include "Skybox.h"
 
 
 #ifndef NDEBUG
@@ -48,7 +51,7 @@ public:
 Window* window;
 PhysicsCommon physicsCommon;
 PhysicsWorld* world;
-Shader* shader, * debugShader;
+Shader* shader, * debugShader, * skyShader;
 ShadowsCaster* shadows;
 Model* map, * player, * sniperRifle;
 Texture* sniperTexture, * mapTexture;
@@ -60,6 +63,7 @@ std::vector<EnemyModel*> enemies;
 char enemies_count;
 double lastUpdate;
 Remotery* rmt;
+Skybox* skybox;
 std::map<int, char*> nicknames = std::map<int, char*>();
 
 const glm::vec3 lightPos(-3.5f, 10.f, -1.5f);
@@ -181,6 +185,7 @@ int main() {
 
 	shader = new Shader("./data/shaders/main");
 	debugShader = new Shader("./data/shaders/debug");
+	skyShader = new Shader("./data/shaders/sky");
 	shadows = new ShadowsCaster(4096, 4096, "./data/shaders/depth", lightPos);
 
 	map = new Model("./data/meshes/map.obj", world, &physicsCommon, true);
@@ -212,6 +217,8 @@ int main() {
 
 	sniperTexture = new Texture("data/textures/sniper.png");
 	mapTexture = new Texture("data/textures/palette.png");
+
+	skybox = new Skybox("data/textures/sky");
 
 	hud = new HUD(window);
 	Chat::i = new Chat();
@@ -308,7 +315,6 @@ int main() {
 			}
 			{
 				rmt_ScopedCPUSample(Physics, 0);
-
 				world->update(ImGui::GetIO().DeltaTime);
 			}
 		}
@@ -323,13 +329,20 @@ int main() {
 				depth->draw(enemies[i]);
 			}
 			shadows->end();
+			window->reset();
 		}
+
+		{
+			rmt_ScopedCPUSample(SkyboxUpdate, 0);
+			rmt_ScopedOpenGLSample(SkyboxGPU);
+			skybox->draw(skyShader, camera);
+		}
+
 		{
 
 			rmt_ScopedCPUSample(Render, 0);
 			rmt_ScopedOpenGLSample(RenderGPU);
 
-			window->reset();
 			shader->bind();
 			shader->upload("proj", camera->getPerspective());
 			shader->upload("camera.transform", camera->getView());
@@ -477,6 +490,9 @@ int main() {
 
 					rmt_ScopedCPUSample(HUD_DebugOverlay, 0);
 
+					ImGui::Text("https://github.com/kewldan/");
+					ImGui::Text("Version: 50");
+					ImGui::Text("");
 					ImGui::Text("Screen: %dx%d", window->width, window->height);
 					ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
 					ImGui::Text("Position: X: %.1f, Y: %.1f, Z: %.1f", camera->position.x, camera->position.y,
