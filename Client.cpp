@@ -35,10 +35,10 @@ void Client::connectToHost(const char* ip, int port)
 	int err = connect(clientSocket, (sockaddr*)&servInfo, sizeof(servInfo));
 	if (err == 0) {
 		connected = true;
-		AppConsole::i->AddLog("[success] Connected to %s\n", ip);
+		Chat::i->AddLog("[success] Connected to %s\n", ip);
 	}
 	else {
-		AppConsole::i->AddLog("[error] Unable to connect to %s\n", ip);
+		Chat::i->AddLog("[error] Unable to connect to %s\n", ip);
 	}
 }
 
@@ -46,14 +46,14 @@ void Client::disconnectFromHost()
 {
 	shutdown(clientSocket, SD_SEND);
 	connected = false;
-	AppConsole::i->AddLog("[success] Disconnected");
+	Chat::i->AddLog("[success] Disconnected");
 }
 
 void Client::sendBytes(char* bytes, int length)
 {
 	if (send(clientSocket, bytes, length, 0) == -1) {
 		connected = false;
-		AppConsole::i->AddLog("[error] Connection lost");
+		Chat::i->AddLog("[error] Connection lost");
 	}
 }
 
@@ -75,17 +75,16 @@ BasicPacket* Client::recivePacket()
 
 		int p = recv(clientSocket, packet->payload, packet->length, 0);
 		if (p == packet->length) {
-			incoming.sent++;
 			return packet;
 		}
 		else {
 			connected = false;
-			AppConsole::i->AddLog("[error] Connection lost");
+			Chat::i->AddLog("[error] Connection lost");
 		}
 	}
 	else {
 		connected = false;
-		AppConsole::i->AddLog("[error] Connection lost");
+		Chat::i->AddLog("[error] Connection lost");
 	}
 	return nullptr;
 }
@@ -100,8 +99,6 @@ void Client::sendPacket(BasicPacket* packet)
 	memcpy(data + 4, packet->payload, packet->length);
 
 	sendBytes(data, packet_length + 2);
-
-	outcoming.sent++;
 }
 
 bool Client::isConnected()
@@ -116,26 +113,6 @@ unsigned long Client::getAvailbale()
 		ioctlsocket(clientSocket, FIONREAD, &d);
 	}
 	return d;
-}
-
-PacketsInfo* Client::getIncoming()
-{
-	if (glfwGetTime() - incoming.lastUpdate > 0.5f) {
-		incoming.previousSecond = incoming.sent * 2;
-		incoming.sent = 0;
-		incoming.lastUpdate = glfwGetTime();
-	}
-	return &incoming;
-}
-
-PacketsInfo* Client::getOutcoming()
-{
-	if (glfwGetTime() - outcoming.lastUpdate > 0.5f) {
-		outcoming.previousSecond = outcoming.sent * 2;
-		outcoming.sent = 0;
-		outcoming.lastUpdate = glfwGetTime();
-	}
-	return &outcoming;
 }
 
 void Client::sendHandshake(char* nickname)

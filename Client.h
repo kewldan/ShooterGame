@@ -5,8 +5,7 @@
 #include <WinSock2.h>
 #include <WS2tcpip.h>
 #include "plog/Log.h"
-#include "Console.h"
-#include <GLFW/glfw3.h>
+#include "Chat.h"
 
 class ClientPacketTypes {
 public:
@@ -31,17 +30,11 @@ struct BasicPacket {
 	char* payload;
 };
 
-struct PacketsInfo {
-	unsigned int sent, previousSecond;
-	double lastUpdate;
-};
-
 class Client {
 	bool connected;
 	WSADATA wsData;
 	void sendBytes(char* bytes, int length);
 	int reciveBytes(char* buffer, int length);
-	PacketsInfo outcoming, incoming;
 public:
 	SOCKET clientSocket;
 	unsigned int my_id;
@@ -51,8 +44,6 @@ public:
 	void disconnectFromHost();
 	bool isConnected();
 	unsigned long getAvailbale();
-	PacketsInfo* getIncoming();
-	PacketsInfo* getOutcoming();
 
 	BasicPacket* recivePacket();
 	void sendPacket(BasicPacket* packet);

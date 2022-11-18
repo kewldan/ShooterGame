@@ -1,21 +1,36 @@
 #include "Model.h"
 
-Model::Model(const char* filename) {
-	auto* indices = new std::vector<int>();
-	auto* vertices = new std::vector<float>();
-	auto* output = new std::vector<float>();
+Model::Model(const char* filename, PhysicsWorld* world, PhysicsCommon* common, bool createConcaveCollider) {
+	auto* data = new MeshData();
 
-	loadMesh(filename, indices, vertices, output);
+	loadMesh(filename, data);
 
-	new (this) Model(indices, vertices, output);
+	new (this) Model(data, world, common, createConcaveCollider);
 }
 
-Model::Model(std::vector<int>* indices, std::vector<float>* vertices, std::vector<float>* output)
+Model::Model(MeshData* data, PhysicsWorld* world, PhysicsCommon* common, bool createConcaveCollider)
 {
-	myMesh = new MyMesh(output, indices, 8);
+	myMesh = new MyMesh(data->output, data->indices, 8);
 	myMesh->addParameter(0, 3);
 	myMesh->addParameter(1, 2);
 	myMesh->addParameter(2, 3);
+
+	rb = world->createRigidBody(Transform::identity());
+
+	mvp = new float[16];
+
+	if (createConcaveCollider) {
+		rb->setType(BodyType::STATIC);
+		TriangleVertexArray* triangleArray =
+			new TriangleVertexArray(
+				data->vertices->size() / 3, data->vertices->data(), 3 * sizeof(float),
+				data->indices->size() / 3, data->indices->data(), 3 * sizeof(int),
+				TriangleVertexArray::VertexDataType::VERTEX_FLOAT_TYPE,
+				TriangleVertexArray::IndexDataType::INDEX_INTEGER_TYPE);
+		TriangleMesh* triangleMesh = common->createTriangleMesh();
+		triangleMesh->addSubpart(triangleArray);
+		rb->addCollider(common->createConcaveMeshShape(triangleMesh), Transform::identity());
+	}
 }
 
 Model::~Model()
@@ -23,7 +38,7 @@ Model::~Model()
 	delete myMesh;
 }
 
-void Model::loadMesh(const char* filename, std::vector<int>* indices, std::vector<float>* vertices, std::vector<float>* output)
+void Model::loadMesh(const char* filename, MeshData* out)
 {
 	Assimp::Importer importer;
 	const aiScene* scene = importer.ReadFile(filename, aiProcess_Triangulate | aiProcess_FlipUVs);
@@ -40,33 +55,33 @@ void Model::loadMesh(const char* filename, std::vector<int>* indices, std::vecto
 
 	for (unsigned int i = 0; i < mesh->mNumVertices; i++)
 	{
-		vertices->push_back(mesh->mVertices[i].x);
-		vertices->push_back(mesh->mVertices[i].y);
-		vertices->push_back(mesh->mVertices[i].z);
+		out->vertices->push_back(mesh->mVertices[i].x);
+		out->vertices->push_back(mesh->mVertices[i].y);
+		out->vertices->push_back(mesh->mVertices[i].z);
 
-		output->push_back(mesh->mVertices[i].x);
-		output->push_back(mesh->mVertices[i].y);
-		output->push_back(mesh->mVertices[i].z);
+		out->output->push_back(mesh->mVertices[i].x);
+		out->output->push_back(mesh->mVertices[i].y);
+		out->output->push_back(mesh->mVertices[i].z);
 
 		if (mesh->mTextureCoords[0])
 		{
-			output->push_back(mesh->mTextureCoords[0][i].x);
-			output->push_back(mesh->mTextureCoords[0][i].y);
+			out->output->push_back(mesh->mTextureCoords[0][i].x);
+			out->output->push_back(mesh->mTextureCoords[0][i].y);
 		}
 		else {
-			output->push_back(0);
-			output->push_back(0);
+			out->output->push_back(0);
+			out->output->push_back(0);
 		}
 
 		if (mesh->HasNormals()) {
-			output->push_back(mesh->mNormals[i].x);
-			output->push_back(mesh->mNormals[i].y);
-			output->push_back(mesh->mNormals[i].z);
+			out->output->push_back(mesh->mNormals[i].x);
+			out->output->push_back(mesh->mNormals[i].y);
+			out->output->push_back(mesh->mNormals[i].z);
 		}
 		else {
-			output->push_back(0);
-			output->push_back(0);
-			output->push_back(0);
+			out->output->push_back(0);
+			out->output->push_back(0);
+			out->output->push_back(0);
 		}
 
 	}
@@ -75,17 +90,34 @@ void Model::loadMesh(const char* filename, std::vector<int>* indices, std::vecto
 	{
 		aiFace face = mesh->mFaces[i];
 
-		indices->push_back(face.mIndices[0]);
-		indices->push_back(face.mIndices[1]);
-		indices->push_back(face.mIndices[2]);
+		out->indices->push_back(face.mIndices[0]);
+		out->indices->push_back(face.mIndices[1]);
+		out->indices->push_back(face.mIndices[2]);
 	}
+
+	PLOGI << "Loaded mesh from " << filename << "";
 }
 
-glm::mat4 Model::getMVP() {
-	mvp = glm::mat4(1.0f);
+float* Model::getMVP() {
+	rb->getTransform().getOpenGLMatrix(mvp);
 	return mvp;
 }
 
 void Model::draw() {
 	myMesh->draw();
+}
+
+MeshData::MeshData() {
+	vertices = new std::vector<float>();
+	output = new std::vector<float>();
+	indices = new std::vector<int>();
+}
+
+MeshData::~MeshData() {
+	vertices->clear();
+	vertices->shrink_to_fit();
+	indices->clear();
+	indices->shrink_to_fit();
+	output->clear();
+	output->shrink_to_fit();
 }

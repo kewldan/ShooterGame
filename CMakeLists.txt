@@ -4,50 +4,62 @@ project(ShooterGame)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
-include_directories(${PROJECT_SOURCE_DIR}/libraries/glad/include)
-include_directories(${PROJECT_SOURCE_DIR}/libraries/stb)
-include_directories(${PROJECT_SOURCE_DIR}/libraries/plog/include)
-include_directories(${PROJECT_SOURCE_DIR}/libraries/glfw/include)
-include_directories(${PROJECT_SOURCE_DIR}/libraries/profiler/)
-include_directories(${PROJECT_SOURCE_DIR}/libraries/glm)
-include_directories(${PROJECT_SOURCE_DIR}/imgui)
+set(LIBRARIES_PATH ${CMAKE_CURRENT_SOURCE_DIR}/libraries)
 
-link_directories(${PROJECT_SOURCE_DIR}/libraries/glfw/lib-vc2022)
+include(${LIBRARIES_PATH}/imgui/import.cmake)
 
-set(assimp_DIR E:\\dev\\vcpkg\\installed\\x64-windows\\share\\assimp)
-set(Bullet_DIR E:\\dev\\vcpkg\\installed\\x64-windows\\share\\Bullet)
+include_directories(${LIBRARIES_PATH}/glad/include)
+include_directories(${LIBRARIES_PATH}/stb/include)
+include_directories(${LIBRARIES_PATH}/plog/include)
+include_directories(${LIBRARIES_PATH}/glfw/include)
+include_directories(${LIBRARIES_PATH}/profiler/include)
+include_directories(${LIBRARIES_PATH}/glm/include)
+include_directories(${LIBRARIES_PATH}/ReactPhysics3D/include)
+include_directories(${LIBRARIES_PATH}/imgui)
 
 find_package(assimp REQUIRED)
-find_package(Bullet REQUIRED)
 
-link_directories(E:\\vcpkg\\installed\\x64-windows\\lib)
+link_directories("E:\\dev\\vcpkg\\installed\\x64-windows\\lib")
+link_directories(${CMAKE_CURRENT_SOURCE_DIR}/libraries/ReactPhysics3D/lib)
+link_directories(${CMAKE_CURRENT_SOURCE_DIR}/libraries/glfw/lib-vc2022)
 
-add_executable(ShooterGame
+add_executable(${PROJECT_NAME}
         libraries/glad/src/gl.c
+        libraries/profiler/include/Remotery.c libraries/profiler/include/Remotery.h
+        ${IMGUI_SOURCES}
+
         main.cpp
-        Shader.cpp Shader.h 
+        Shader.cpp Shader.h
         Window.cpp Window.h
         MyMesh.cpp MyMesh.h
         Model.cpp Model.h
         Camera.cpp Camera.h
         Texture.cpp Texture.h
         ShadowsCaster.cpp ShadowsCaster.h
-        "libraries/profiler/Remotery.c" "libraries/profiler/Remotery.h"
-
-        imgui/imconfig.h
-        imgui/imgui_draw.cpp
-        imgui/imgui_demo.cpp
-        imgui/imgui_internal.h
-        imgui/imgui_tables.cpp
-        imgui/imgui_widgets.cpp
-        imgui/backends/imgui_impl_glfw.cpp imgui/backends/imgui_impl_glfw.h
-        imgui/backends/imgui_impl_opengl3.cpp imgui/backends/imgui_impl_opengl3.h
-        imgui/imgui.cpp imgui/imgui.h
-
-        Console.h
-
         HUD.cpp HUD.h
-         
-        Client.cpp Client.h "Console.h" )
+        Client.cpp Client.h
+        Chat.cpp Chat.h
+)
 
-target_link_libraries(ShooterGame glfw3 opengl32 gdi32 Ws2_32 assimp::assimp BulletSoftBody BulletDynamics BulletCollision Bullet3Common LinearMath)
+set(GAME_LIBRARIES glfw3 opengl32 gdi32 Ws2_32 assimp::assimp)
+
+set(BUILD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/Release)
+
+if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E echo "Debug build is ready to test"
+    )
+    target_link_libraries(${PROJECT_NAME} ${GAME_LIBRARIES} reactphysics3dd)
+else()
+    file(MAKE_DIRECTORY ${BUILD_DIR})
+    file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/data DESTINATION ${BUILD_DIR})
+    file(REMOVE ${BUILD_DIR}/latest.log)
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}.exe ${BUILD_DIR}
+        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/zlib1.dll ${BUILD_DIR}
+        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/assimp-vc143-mt.dll ${BUILD_DIR}
+        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/pugixml.dll ${BUILD_DIR}
+        COMMAND ${CMAKE_COMMAND} -E echo "Release build is ready to shipment"
+    )
+    target_link_libraries(${PROJECT_NAME} ${GAME_LIBRARIES} reactphysics3d)
+endif()

@@ -181,8 +181,13 @@ void Shader::upload(const  char* name, glm::mat4 value) const {
 	glUniformMatrix4fv(getUniformLocation(name), 1, false, glm::value_ptr(value));
 }
 
+void Shader::uploadMat4(const char* name, float* value) const
+{
+	glUniformMatrix4fv(getUniformLocation(name), 1, false, value);
+}
+
 void Shader::draw(Model* model) const {
-	upload("mvp", model->getMVP());
+	uploadMat4("mvp", model->getMVP());
 	model->draw();
 }
 

@@ -69,6 +69,8 @@ public:
 
 	void upload(const char* name, glm::mat4 value) const;
 
+	void uploadMat4(const char* name, float* value) const;
+
 	void draw(Model* model) const;
 };
 

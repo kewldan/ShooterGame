@@ -1,3 +1,5 @@
+#include <reactphysics3d/reactphysics3d.h>
+
 //#define RMT_PROFILER
 
 #include "Shader.h"
@@ -12,8 +14,7 @@
 #include "Camera.h"
 #include "Texture.h"
 #include "ShadowsCaster.h"
-
-#include "bullet/btBulletDynamicsCommon.h"
+#include "Chat.h"
 
 #include "imgui.h"
 #include "HUD.h"
@@ -21,7 +22,7 @@
 #include "Remotery.h"
 #include <regex>
 #include <windows.h>
-#include "Console.h"
+
 
 #ifndef NDEBUG
 void GLAPIENTRY MessageCallback(GLenum source,
@@ -37,7 +38,16 @@ void GLAPIENTRY MessageCallback(GLenum source,
 }
 #endif
 
+
+class EnemyModel : public Model {
+	using Model::Model;
+public:
+	int id;
+};
+
 Window* window;
+PhysicsCommon physicsCommon;
+PhysicsWorld* world;
 Shader* shader, * debugShader;
 ShadowsCaster* shadows;
 Model* map, * player, * sniperRifle;
@@ -45,29 +55,59 @@ Texture* sniperTexture, * mapTexture;
 Camera* camera;
 HUD* hud;
 Client* client;
-
-btDefaultCollisionConfiguration* collisionConfiguration;
-btCollisionDispatcher* dispatcher;
-btBroadphaseInterface* overlappingPairCache;
-btSequentialImpulseConstraintSolver* solver;
-btDiscreteDynamicsWorld* dynamicsWorld;
-
 char* nickname, * ip;
+std::vector<EnemyModel*> enemies;
 char enemies_count;
 double lastUpdate;
 Remotery* rmt;
-AppConsole* console;
 std::map<int, char*> nicknames = std::map<int, char*>();
 
 const glm::vec3 lightPos(-3.5f, 10.f, -1.5f);
 const std::regex ip_regex("(^((25[0-5]|(2[0-4]|1\\d|[1-9]|)\\d)\\.?\\b){4}$)");
 
-AppConsole* AppConsole::i = nullptr;
+Chat* Chat::i = nullptr;
 
-bool wireframe, hasRifle = true, vsync = true, console_open;
+bool wireframe, hasRifle = true, vsync = true, physicsDebugRender, console_open;
+
+struct Enemy {
+	int id;
+	float x, y, z, rx, ry;
+};
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
 	if (action == GLFW_PRESS) {
+		if (key == GLFW_KEY_E) {
+			if (hasRifle) {
+				sniperRifle->rb->setType(BodyType::DYNAMIC);
+				BoxShape* sniperShape = physicsCommon.createBoxShape(Vector3(0.12f, 0.587f, 2.7f));
+				Transform colliderOffset = Transform(Vector3(0, -0.08f, -0.36f), Quaternion::identity());
+				sniperRifle->rb->addCollider(sniperShape, colliderOffset);
+				sniperRifle->rb->setMass(1);
+				Vector3 position(
+					camera->position.x + std::cos(camera->rotation.y - 1.57f) * 2,
+					camera->position.y,
+					camera->position.z + std::sin(camera->rotation.y - 1.57f) * 2
+				);
+				sniperRifle->rb->setTransform(Transform(position, Quaternion::identity()));
+				sniperRifle->rb->setLinearVelocity(Vector3::zero());
+				sniperRifle->rb->setAngularVelocity(Vector3::zero());
+				sniperRifle->rb->applyWorldForceAtCenterOfMass(
+					Vector3(
+						std::cos(camera->rotation.y - 1.57f) * 200,
+						300,
+						std::sin(camera->rotation.y - 1.57f) * 200)
+				);
+			}
+			else {
+				sniperRifle->rb->removeCollider(sniperRifle->rb->getCollider(0));
+				sniperRifle->rb->setType(BodyType::STATIC);
+			}
+
+			hasRifle ^= 1;
+		}
+		if (key == GLFW_KEY_BACKSPACE) {
+			player->rb->setTransform(Transform::identity());
+		}
 		if (key == GLFW_KEY_ESCAPE) {
 			exit(0);
 		}
@@ -86,6 +126,24 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 		}
 		else {
 			camera->hFov = 60;
+		}
+	}
+	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+		Vector3 startPoint = player->rb->getTransform().getPosition();
+		Vector3 endPoint(
+			startPoint.x + std::cos(camera->rotation.y - 1.57f) * 50.f,
+			startPoint.y + std::sin(camera->rotation.x) * 10.f,
+			startPoint.z + std::sin(camera->rotation.y - 1.57f) * 50.f
+		);
+		Ray ray(startPoint, endPoint);
+		RaycastInfo raycastInfo;
+
+		for (int i = 0; i < enemies_count; i++) {
+			EnemyModel* enemy = enemies[i];
+			bool hit = enemy->rb->raycast(ray, raycastInfo);
+			if (hit) {
+				enemy->rb->applyWorldForceAtWorldPosition(raycastInfo.worldNormal * -200, raycastInfo.worldPoint);
+			}
 		}
 	}
 };
@@ -109,6 +167,12 @@ int main() {
 	PLOGI << "[OGL] Message debug callback created";
 #endif
 
+	world = physicsCommon.createPhysicsWorld();
+
+	DebugRenderer& debugRenderer = world->getDebugRenderer();
+	debugRenderer.setIsDebugItemDisplayed(DebugRenderer::DebugItem::COLLISION_SHAPE, true);
+	world->setIsDebugRenderingEnabled(false);
+
 #ifdef RMT_PROFILER
 	rmt_CreateGlobalInstance(&rmt);
 	rmt_BindOpenGL();
@@ -119,37 +183,38 @@ int main() {
 	debugShader = new Shader("./data/shaders/debug");
 	shadows = new ShadowsCaster(4096, 4096, "./data/shaders/depth", lightPos);
 
-	map = new Model("./data/meshes/map.obj");
-	sniperRifle = new Model("./data/meshes/sniper.obj");
+	map = new Model("./data/meshes/map.obj", world, &physicsCommon, true);
+	sniperRifle = new Model("./data/meshes/sniper.obj", world, &physicsCommon);
+	sniperRifle->rb->setType(BodyType::STATIC);
 
-	std::vector<float> output = std::vector<float>(), vertices = std::vector<float>();
-	std::vector<int> indices = std::vector<int>();
-	Model::loadMesh("./data/meshes/player.obj", &indices, &vertices, &output);
+	MeshData* data = new MeshData();
+	Model::loadMesh("./data/meshes/player.obj", data);
 
-	PLOGI << "Loading models and physics successfully";
+	CapsuleShape* playerShape = physicsCommon.createCapsuleShape(1.f, 2.5f);
+
+	enemies = std::vector<EnemyModel*>();
+
+	for (int i = 0; i < 16; i++) {
+		EnemyModel* newEnemy = new EnemyModel(data, world, &physicsCommon);
+		newEnemy->rb->addCollider(playerShape, Transform(Vector3(0, 1.2f, 0), Quaternion::identity()));
+		newEnemy->rb->setType(BodyType::STATIC);
+		enemies.push_back(newEnemy);
+	}
+
+	player = new Model(data, world, &physicsCommon);
+	player->rb->addCollider(playerShape, Transform(Vector3(0, 1.2f, 0), Quaternion::identity()));
+	player->rb->updateMassFromColliders();
+	player->rb->updateLocalCenterOfMassFromColliders();
+	player->rb->setIsAllowedToSleep(false);
+	player->rb->setAngularLockAxisFactor(Vector3::zero());
+
+	delete data;
 
 	sniperTexture = new Texture("data/textures/sniper.png");
 	mapTexture = new Texture("data/textures/palette.png");
-	PLOGI << "Loading textures successfully";
-
-	collisionConfiguration = new btDefaultCollisionConfiguration();
-	dispatcher = new btCollisionDispatcher(collisionConfiguration);
-	overlappingPairCache = new btDbvtBroadphase();
-	solver = new btSequentialImpulseConstraintSolver();
-	dynamicsWorld = new btDiscreteDynamicsWorld(dispatcher,
-		overlappingPairCache, solver, collisionConfiguration);
-	dynamicsWorld->setGravity(btVector3(0, -9.8f, 0));
-
-	btBoxShape* box = new btBoxShape(btVector3(0, 0, 0));
-	btRigidBody* body = new btRigidBody(0, new btDefaultMotionState(btTransform(btQuaternion::getIdentity(), btVector3(0, 0 ,0))), box);
-
-	exit(0);
-
-	PLOGI << "Bullet initialized successfully";
 
 	hud = new HUD(window);
-	console = new AppConsole();
-	AppConsole::i = console;
+	Chat::i = new Chat();
 
 	camera = new Camera(&window->width, &window->height, &window->ratio);
 
@@ -168,12 +233,18 @@ int main() {
 			{
 				rmt_ScopedCPUSample(IOEvents, 0);
 
-				camera->pollEvents(window);
+				camera->pollEvents(window, player->rb);
+
+				if (hasRifle) {
+					Vector3 newPos(camera->position.x + std::cos(camera->rotation.y) * 0.9f, camera->position.y - 0.4f, camera->position.z + std::sin(camera->rotation.y) * 0.9f);
+					sniperRifle->rb->setTransform(Transform(newPos, Quaternion::fromEulerAngles(-camera->rotation.x, -camera->rotation.y, 0)));
+				}
 			}
 			if (client->isConnected()) {
 				rmt_ScopedCPUSample(Networking, 0);
 				if (glfwGetTime() - lastUpdate > 0.02f) {
-					//client->sendUpdate(pos.x, pos.y, pos.z, camera->rotation.x, camera->rotation.y);
+					Vector3 pos = player->rb->getTransform().getPosition();
+					client->sendUpdate(pos.x, pos.y, pos.z, camera->rotation.x, camera->rotation.y);
 					lastUpdate = glfwGetTime();
 				}
 
@@ -183,8 +254,8 @@ int main() {
 						if (packet->type == ServerPacketTypes::UPDATE) {
 							enemies_count = packet->payload[0];
 
-							/*for (int i = enemies_count; i < enemies.size(); i++) {
-								//enemies[i]->rb->setTransform(Transform(Vector3(-9999, -9999, -9999), Quaternion::identity()));
+							for (int i = enemies_count; i < enemies.size(); i++) {
+								enemies[i]->rb->setTransform(Transform(Vector3(-9999, -9999, -9999), Quaternion::identity()));
 							}
 
 							Enemy* e = new Enemy();
@@ -193,9 +264,9 @@ int main() {
 
 								EnemyModel* model = enemies[i];
 								model->id = e->id;
-								//model->rb->setTransform(Transform(Vector3(e->x, e->y, e->z), Quaternion::identity()));
+								model->rb->setTransform(Transform(Vector3(e->x, e->y, e->z), Quaternion::identity()));
 							}
-							delete e;*/
+							delete e;
 						}
 						else if (packet->type == ServerPacketTypes::HANDSHAKE) {
 							memcpy(&client->my_id, packet->payload, 4);
@@ -213,14 +284,14 @@ int main() {
 							memcpy(message, packet->payload + 2 + sender_length, message_length);
 							message[message_length] = 0;
 
-							console->AddLog("[chat] [%s] %s", sender, message);
+							Chat::i->AddLog("[chat] [%s] %s", sender, message);
 						}
 						else if (packet->type == ServerPacketTypes::KICK) {
 							char* reason = new char[packet->length + 1];
 							memcpy(reason, packet->payload, packet->length);
 							reason[packet->length] = 0;
 
-							console->AddLog("[error] You kicked from server. Reason: %s\n", reason);
+							Chat::i->AddLog("[error] You kicked from server. Reason: %s\n", reason);
 						}
 						else if (packet->type == ServerPacketTypes::PLAYER_INFO) {
 							char* nickname = new char[packet->length - 4 + 1];
@@ -235,6 +306,11 @@ int main() {
 					}
 				}
 			}
+			{
+				rmt_ScopedCPUSample(Physics, 0);
+
+				world->update(ImGui::GetIO().DeltaTime);
+			}
 		}
 		{
 			rmt_ScopedCPUSample(Shadows, 0);
@@ -243,6 +319,9 @@ int main() {
 			depth->draw(sniperRifle);
 			depth->draw(map);
 			depth->draw(player);
+			for (int i = 0; i < enemies_count && i < enemies.size(); i++) {
+				depth->draw(enemies[i]);
+			}
 			shadows->end();
 		}
 		{
@@ -267,7 +346,64 @@ int main() {
 			shader->draw(sniperRifle);
 			mapTexture->bind();
 			shader->draw(map);
+			shader->upload("hasTexture", 0);
+			for (int i = 0; i < enemies_count && i < enemies.size(); i++) {
+				shader->draw(enemies[i]);
+			}
 			shader->unbind();
+		}
+
+		if (world->getIsDebugRenderingEnabled()) {
+
+			rmt_ScopedCPUSample(PhysicsRender, 0);
+			rmt_ScopedOpenGLSample(PhysicsRenderGPU);
+
+			{
+				int verticesCount = debugRenderer.getNbTriangles() * 9;
+				if (verticesCount > 0) {
+					float* vertices = new float[verticesCount];
+					for (int i = 0; i < debugRenderer.getNbTriangles(); i++) {
+						DebugRenderer::DebugTriangle t = debugRenderer.getTriangles()[i];
+						vertices[i * 9] = t.point1.x;
+						vertices[i * 9 + 1] = t.point1.y;
+						vertices[i * 9 + 2] = t.point1.z;
+
+						vertices[i * 9 + 3] = t.point2.x;
+						vertices[i * 9 + 4] = t.point2.y;
+						vertices[i * 9 + 5] = t.point2.z;
+
+						vertices[i * 9 + 6] = t.point3.x;
+						vertices[i * 9 + 7] = t.point3.y;
+						vertices[i * 9 + 8] = t.point3.z;
+					}
+
+					static unsigned int VAO = -1, VBO;
+
+					if (VAO == -1) {
+						glGenVertexArrays(1, &VAO);
+						glBindVertexArray(VAO);
+
+						glGenBuffers(1, &VBO);
+						glBindBuffer(GL_ARRAY_BUFFER, VBO);
+						glBufferData(GL_ARRAY_BUFFER, verticesCount * sizeof(float), vertices, GL_DYNAMIC_DRAW);
+						glEnableVertexAttribArray(0);
+						glVertexAttribPointer(0, 3, GL_FLOAT, false,
+							3 * sizeof(float), (void*)0);
+					}
+					else {
+						glBindVertexArray(VAO);
+						glBindBuffer(GL_ARRAY_BUFFER, VBO);
+						glBufferData(GL_ARRAY_BUFFER, verticesCount * sizeof(float), vertices, GL_DYNAMIC_DRAW);
+					}
+
+					debugShader->bind();
+					debugShader->upload("proj", camera->getPerspective());
+					debugShader->upload("view", camera->getView());
+					glDrawArrays(GL_TRIANGLES, 0, verticesCount);
+					debugShader->unbind();
+					delete[] vertices;
+				}
+			}
 		}
 
 		{
@@ -284,6 +420,9 @@ int main() {
 				ImGui::Separator();
 				if (ImGui::Checkbox("VSync", &vsync)) {
 					window->setVsync(vsync);
+				}
+				if (ImGui::Checkbox("Debug render", &physicsDebugRender)) {
+					world->setIsDebugRenderingEnabled(physicsDebugRender);
 				}
 				ImGui::Checkbox("Show wireframe", &wireframe);
 				ImGui::Separator();
@@ -345,8 +484,7 @@ int main() {
 					ImGui::Text("Rotation: X: %.1f, Y: %.1f", camera->rotation.x, camera->rotation.y);
 					if (client->isConnected()) {
 						ImGui::Text("ID: %d", client->my_id);
-						ImGui::Text("Packets: %d/s in, %d/s out", client->getIncoming()->previousSecond, client->getOutcoming()->previousSecond);
-						/*if (enemies_count > 0) {
+						if (enemies_count > 0) {
 							ImGui::Text("Player list (K/D):");
 							for (int i = 0; i < enemies_count; i++) {
 								if (nicknames.contains(enemies[i]->id)) {
@@ -364,7 +502,7 @@ int main() {
 									ImGui::Text("%d. Unknown (0/0)", i + 1);
 								}
 							}
-						}*/
+						}
 					}
 				}
 				ImGui::End();
@@ -395,20 +533,20 @@ int main() {
 				}
 
 				if (console_open) {
-					console->Draw();
+					Chat::i->Draw();
 				}
-				if (strlen(console->buffer) > 0) {
+				if (strlen(Chat::i->buffer) > 0) {
 					if (client->isConnected()) {
-						client->sendMessage(console->buffer);
+						client->sendMessage(Chat::i->buffer);
 					}
-					memset(console->buffer, 0, 256);
+					memset(Chat::i->buffer, 0, 256);
 				}
 			}
 			hud->end();
 		}
 	}
 
-	//physicsCommon.destroyPhysicsWorld(world);
+	physicsCommon.destroyPhysicsWorld(world);
 
 #ifdef RMT_PROFILER
 	rmt_UnbindOpenGL();
