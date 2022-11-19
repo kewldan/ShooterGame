@@ -24,10 +24,10 @@ Model::Model(MeshData* data, PhysicsWorld* world, PhysicsCommon* common, bool cr
 		TriangleVertexArray* triangleArray =
 			new TriangleVertexArray(
 				data->vertices->size() / 3, data->vertices->data(), 3 * sizeof(float),
-				//data->normals->data(), 3 * sizeof(float),
+				data->normals->data(), 3 * sizeof(float),
 				data->indices->size() / 3, data->indices->data(), 3 * sizeof(int),
 				TriangleVertexArray::VertexDataType::VERTEX_FLOAT_TYPE,
-				//TriangleVertexArray::NormalDataType::NORMAL_FLOAT_TYPE,
+				TriangleVertexArray::NormalDataType::NORMAL_FLOAT_TYPE,
 				TriangleVertexArray::IndexDataType::INDEX_INTEGER_TYPE);
 		TriangleMesh* triangleMesh = common->createTriangleMesh();
 		triangleMesh->addSubpart(triangleArray);
@@ -87,6 +87,10 @@ void Model::loadMesh(const char* filename, MeshData* out)
 		out->normals->push_back(mesh->mNormals[i].x);
 		out->normals->push_back(mesh->mNormals[i].y);
 		out->normals->push_back(mesh->mNormals[i].z);
+
+		if (mesh->mNormals[i].x > 1 || mesh->mNormals[i].y > 1 || mesh->mNormals[i].z > 1) {
+			PLOGE << "Normal invalid";
+		}
 	}
 
 	for (unsigned int i = 0; i < mesh->mNumFaces; i++)

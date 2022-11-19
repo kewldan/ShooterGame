@@ -188,7 +188,7 @@ int main() {
 	skyShader = new Shader("./data/shaders/sky");
 	shadows = new ShadowsCaster(4096, 4096, "./data/shaders/depth", lightPos);
 
-	map = new Model("./data/meshes/map.obj", world, &physicsCommon, true);
+	map = new Model("./data/meshes/pool.obj", world, &physicsCommon, true);
 	sniperRifle = new Model("./data/meshes/sniper.obj", world, &physicsCommon);
 	sniperRifle->rb->setType(BodyType::STATIC);
 
@@ -207,10 +207,8 @@ int main() {
 	}
 
 	player = new Model(data, world, &physicsCommon);
+	player->rb->setTransform(Transform(Vector3(0, 20, 0), Quaternion::identity()));
 	player->rb->addCollider(playerShape, Transform(Vector3(0, 1.2f, 0), Quaternion::identity()));
-	player->rb->updateMassFromColliders();
-	player->rb->updateLocalCenterOfMassFromColliders();
-	player->rb->setIsAllowedToSleep(false);
 	player->rb->setAngularLockAxisFactor(Vector3::zero());
 
 	delete data;
