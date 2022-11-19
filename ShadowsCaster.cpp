@@ -6,6 +6,7 @@ ShadowsCaster::ShadowsCaster(int width, int height, const char* shaderName, glm:
 	glGenFramebuffers(1, &FBO);
 	glGenTextures(1, &map);
 	glBindTexture(GL_TEXTURE_2D, map);
+	glObjectLabelStr(GL_TEXTURE, map, "Texture [Shadow caster]");
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT,
 		w, h, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
@@ -16,6 +17,7 @@ ShadowsCaster::ShadowsCaster(int width, int height, const char* shaderName, glm:
 	glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor);
 
 	glBindFramebuffer(GL_FRAMEBUFFER, FBO);
+	glObjectLabelStr(GL_FRAMEBUFFER, FBO, "FBO [Shadow caster]");
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, map, 0);
 	glDrawBuffer(GL_NONE);
 	glReadBuffer(GL_NONE);
@@ -49,8 +51,8 @@ void ShadowsCaster::end() {
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-glm::mat4* ShadowsCaster::getLightSpaceMatrix() {
-	return &lightSpaceMatrix;
+glm::mat4 ShadowsCaster::getLightSpaceMatrix() {
+	return lightSpaceMatrix;
 }
 
 ShadowsCaster::~ShadowsCaster()

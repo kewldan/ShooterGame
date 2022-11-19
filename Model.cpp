@@ -1,34 +1,24 @@
 #include "Model.h"
 
-#include <windows.h>
-
-std::string GetExeFileName()
-{
-	char* buffer = new char[256];
-	GetModuleFileName(NULL, buffer, 256);
-	std::string b = std::string(buffer);
-	return b.substr(0, b.find_last_of("\\/"));
-}
-
-Model::Model(const char* filename, PhysicsWorld* world, PhysicsCommon* common, bool createConcaveCollider) {
+Model::Model(const char* filename, PhysicsWorld* world, PhysicsCommon* common, bool createConcaveCollider, char* label) {
 	int nb = -2;
 	MeshData* meshesData = loadMesh(filename, &nb);
-
-	new (this) Model(meshesData, nb, world, common, createConcaveCollider);
+	char* f = new char[256];
+	strcpy(f, filename);
+	new (this) Model(meshesData, nb, world, common, createConcaveCollider, label != nullptr ? label : f);
 }
 
-Model::Model(MeshData* data, int nb, PhysicsWorld* world, PhysicsCommon* common, bool createConcaveCollider)
+Model::Model(MeshData* data, int nb, PhysicsWorld* world, PhysicsCommon* common, bool createConcaveCollider, char* label)
 {
 	meshes = (MyMesh*)calloc(nb, sizeof(MyMesh));
 	for (int i = 0; i < nb; i++) {
-		meshes[i] = MyMesh(data[i].output, data[i].indices, 8);
+		meshes[i] = MyMesh(data[i].output, data[i].indices, 8, label);
 		meshes[i].addParameter(0, 3);
 		meshes[i].addParameter(1, 2);
 		meshes[i].addParameter(2, 3);
 		if (strlen(data[i].texturePath) > 0) {
 			char* path = new char[256];
-			strcpy(path, GetExeFileName().c_str());
-			strcat(path, "\\data\\textures\\");
+			strcpy(path, ".\\data\\textures\\");
 			strcat(path, data[i].texturePath);
 			meshes[i].texture = new Texture(path);
 		}

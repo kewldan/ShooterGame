@@ -25,6 +25,7 @@
 #include <regex>
 #include <windows.h>
 #include "Skybox.h"
+#include "Minimap.h"
 
 
 #ifndef NDEBUG
@@ -63,6 +64,7 @@ char enemies_count;
 double lastUpdate;
 Remotery* rmt;
 Skybox* skybox;
+Minimap* minimap;
 std::map<int, char*> nicknames = std::map<int, char*>();
 
 const glm::vec3 lightPos(-3.5f, 10.f, -1.5f);
@@ -70,7 +72,7 @@ const std::regex ip_regex("(^((25[0-5]|(2[0-4]|1\\d|[1-9]|)\\d)\\.?\\b){4}$)");
 
 Chat* Chat::i = nullptr;
 
-bool wireframe, hasRifle = true, vsync = true, physicsDebugRender, console_open;
+bool wireframe, hasRifle = true, vsync = true, physicsDebugRender, console_open, castShadows;
 
 struct Enemy {
 	int id;
@@ -220,6 +222,8 @@ int main() {
 
 	camera = new Camera(&window->width, &window->height, &window->ratio);
 
+	minimap = new Minimap("./data/shaders/map", 512, 512, &camera->position, 30);
+
 	client = new Client();
 	nickname = new char[64];
 	ip = new char[16];
@@ -313,7 +317,8 @@ int main() {
 				world->update(ImGui::GetIO().DeltaTime);
 			}
 		}
-		{
+
+		if(castShadows == 1){
 			rmt_ScopedCPUSample(Shadows, 0);
 			rmt_ScopedOpenGLSample(ShadowsGPU);
 			Shader* depth = shadows->begin(camera->position, 25);
@@ -324,8 +329,21 @@ int main() {
 				depth->draw(enemies[i]);
 			}
 			shadows->end();
-			window->reset();
 		}
+
+		{
+			rmt_ScopedCPUSample(MinimapUpdate, 0);
+			rmt_ScopedOpenGLSample(MinimapGPU);
+			Shader* mapShader = minimap->begin(camera->rotation.y);
+			mapShader->draw(sniperRifle);
+			mapShader->draw(map);
+			mapShader->draw(player);
+			for (int i = 0; i < enemies_count && i < enemies.size(); i++) {
+				mapShader->draw(enemies[i]);
+			}
+			minimap->end();
+		}
+		window->reset();
 
 		{
 			rmt_ScopedCPUSample(SkyboxUpdate, 0);
@@ -343,9 +361,10 @@ int main() {
 			shader->upload("camera.transform", camera->getView());
 			shader->upload("environment.sun_position", lightPos);
 			shader->upload("displayWireframe", wireframe ? 1 : 0);
+			shader->upload("castShadows", castShadows ? 1 : 0);
 			shader->upload("aTexture", 1);
 			shader->upload("shadowMap", 0);
-			shader->upload("lightSpaceMatrix", *(shadows->getLightSpaceMatrix()));
+			shader->upload("lightSpaceMatrix", shadows->getLightSpaceMatrix());
 			glActiveTexture(GL_TEXTURE0);
 			glBindTexture(GL_TEXTURE_2D, shadows->getMap());
 			for (int i = 0; i < enemies_count && i < enemies.size(); i++) {
@@ -388,8 +407,11 @@ int main() {
 						glGenVertexArrays(1, &VAO);
 						glBindVertexArray(VAO);
 
+						glObjectLabelBuild(GL_VERTEX_ARRAY, VAO, "VAO", "Debug");
+
 						glGenBuffers(1, &VBO);
 						glBindBuffer(GL_ARRAY_BUFFER, VBO);
+						glObjectLabelBuild(GL_BUFFER, VBO, "VBO", "Debug");
 						glBufferData(GL_ARRAY_BUFFER, verticesCount * sizeof(float), vertices, GL_DYNAMIC_DRAW);
 						glEnableVertexAttribArray(0);
 						glVertexAttribPointer(0, 3, GL_FLOAT, false,
@@ -430,6 +452,9 @@ int main() {
 					world->setIsDebugRenderingEnabled(physicsDebugRender);
 				}
 				ImGui::Checkbox("Show wireframe", &wireframe);
+				ImGui::Checkbox("Cast shadows", &castShadows);
+
+				ImGui::Image((void*)(intptr_t)minimap->map, ImVec2(512, 512));
 				ImGui::Separator();
 			}
 			ImGui::End();

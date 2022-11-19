@@ -7,6 +7,12 @@ Skybox::Skybox(const char* filename)
     glGenTextures(1, &texture);
     bind();
 
+	char* label = new char[256];
+	strcpy(label, "Texture 3D [");
+	strcat(label, filename);
+	strcat(label, "]");
+	glObjectLabelStr(GL_TEXTURE, texture, label);
+
     int width, height, nrChannels;
     char* path = new char[256];
     strcpy(path, filename);

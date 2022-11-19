@@ -1,6 +1,7 @@
 #include "MyMesh.h"
 
-MyMesh::MyMesh(std::vector<float>* vertices, std::vector<int>* indices, unsigned int vertexSize) {
+MyMesh::MyMesh(std::vector<float>* vertices, std::vector<int>* indices, unsigned int vertexSize, char* label)
+{
 	VAO = -1;
 	VBO = -1;
 	EBO = -1;
@@ -8,13 +9,20 @@ MyMesh::MyMesh(std::vector<float>* vertices, std::vector<int>* indices, unsigned
 	glGenVertexArrays(1, &VAO);
 	glBindVertexArray(VAO);
 
+	if(label != nullptr)
+		glObjectLabelBuild(GL_VERTEX_ARRAY, VAO, "VAO", label);
+
 	glGenBuffers(1, &EBO);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+	if (label != nullptr)
+		glObjectLabelBuild(GL_BUFFER, EBO, "EBO", label);
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, (int)(indices->size() * sizeof(int)), indices->data(),
 		GL_STATIC_DRAW);
 
 	glGenBuffers(1, &VBO);
 	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	if (label != nullptr)
+		glObjectLabelBuild(GL_BUFFER, VBO, "VBO", label);
 	glBufferData(GL_ARRAY_BUFFER, (int)(vertices->size() * sizeof(float)), vertices->data(), GL_STATIC_DRAW);
 
 	indicesCount = (int)indices->size();

@@ -38,6 +38,7 @@ Shader::Shader(const char* filename) {
 		int success = 0;
 		glGetShaderiv(vertex, GL_COMPILE_STATUS, &success);
 		if (success == GL_TRUE) {
+			glObjectLabelBuild(GL_SHADER, vertex, "Shader (V)", filename);
 			glAttachShader(program, vertex);
 			shaderParts += SHADER_PART_VERTEX;
 		}
@@ -67,6 +68,7 @@ Shader::Shader(const char* filename) {
 		int success = 0;
 		glGetShaderiv(fragment, GL_COMPILE_STATUS, &success);
 		if (success == GL_TRUE) {
+			glObjectLabelBuild(GL_SHADER, fragment, "Shader (F)", filename);
 			glAttachShader(program, fragment);
 			shaderParts += SHADER_PART_FRAGMENT;
 		}
@@ -96,6 +98,7 @@ Shader::Shader(const char* filename) {
 		int success = 0;
 		glGetShaderiv(geometry, GL_COMPILE_STATUS, &success);
 		if (success == GL_TRUE) {
+			glObjectLabelBuild(GL_SHADER, geometry, "Shader (G)", filename);
 			glAttachShader(program, geometry);
 			shaderParts += SHADER_PART_GEOMETRY;
 		}
@@ -105,6 +108,7 @@ Shader::Shader(const char* filename) {
 	}
 
 	glLinkProgram(program);
+	glObjectLabelBuild(GL_PROGRAM, program, "Program", filename);
 	PLOG_INFO << "Shader [" << filename << "] linked ["
 		<< ((shaderParts & SHADER_PART_VERTEX) != 0 ? 'V' : '\0')
 		<< ((shaderParts & SHADER_PART_GEOMETRY) != 0 ? 'G' : '\0')

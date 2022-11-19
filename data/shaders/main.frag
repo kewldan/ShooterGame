@@ -25,6 +25,7 @@ uniform sampler2D shadowMap;
 uniform sampler2D aTexture;
 uniform int hasTexture = 0;
 uniform int displayWireframe = 0;
+uniform int castShadows = 1;
 
 out vec4 fragColor;
 
@@ -83,8 +84,13 @@ void main()
     vec3 diffuse = diff * lightColor;
 
     // calculate shadow
-    float shadow = ShadowCalculation(vertex.posLightSpace);
-    vec3 lighting = (ambient + (1.0 - shadow) * diffuse) * color;
+    vec3 lighting;
+    if(castShadows == 1){
+        float shadow = ShadowCalculation(vertex.posLightSpace);
+        lighting = (ambient + (1.0 - shadow) * diffuse) * color;
+    }else{
+        lighting = (ambient + diffuse) * color;
+    }
 
     float fNearest = min(min(vertex.distance[0], vertex.distance[1]), vertex.distance[2]);
     float fEdgeIntensity = clamp(exp2(-0.1 * fNearest * fNearest), 0.0, 1.0);

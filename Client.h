@@ -2,10 +2,10 @@
 #define SHOOTERGAME_CLIENT_H
 
 #include <iostream>
-#include <WinSock2.h>
-#include <WS2tcpip.h>
 #include "plog/Log.h"
 #include "Chat.h"
+#include <WinSock2.h>
+#include <WS2tcpip.h>
 
 class ClientPacketTypes {
 public:

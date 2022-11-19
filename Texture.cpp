@@ -11,9 +11,12 @@ Texture::Texture(const char* filename) {
 
 	unsigned char* data = stbi_load(filename, &width, &height, &nrChannels, 0);
 	if (data) {
+		assert((void("Image channels must be 3 or 4!"), nrChannels == 3 || nrChannels == 4));
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, nrChannels == 4 ? GL_RGBA : GL_RGB, GL_UNSIGNED_BYTE,
 			data);
 		glGenerateMipmap(GL_TEXTURE_2D);
+
+		glObjectLabelBuild(GL_TEXTURE, texture, "Texture", filename);
 
 		PLOGI << "Texture [" << filename << "] loaded (" << width << "x" << height << ")";
 	}

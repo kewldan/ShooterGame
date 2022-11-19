@@ -13,7 +13,7 @@ class MyMesh {
 public:
 	Texture* texture;
 	int indicesCount, stride;
-	MyMesh(std::vector<float>* vertices, std::vector<int>* indices, unsigned int vertexSize);
+	MyMesh(std::vector<float>* vertices, std::vector<int>* indices, unsigned int vertexSize, char* label = nullptr);
 
 	void draw() const;
 

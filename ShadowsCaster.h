@@ -18,7 +18,7 @@ public:
 
 	void end();
 
-	glm::mat4* getLightSpaceMatrix();
+	glm::mat4 getLightSpaceMatrix();
 
 	unsigned int getMap() const;
 };

@@ -39,7 +39,7 @@ add_executable(${PROJECT_NAME}
         HUD.cpp HUD.h
         Client.cpp Client.h
         Chat.cpp Chat.h
- "Skybox.h" "Skybox.cpp")
+ "Skybox.h" "Skybox.cpp" "Minimap.h" "Minimap.cpp")
 
 set(GAME_LIBRARIES glfw3 opengl32 gdi32 Ws2_32 assimp::assimp)
 
