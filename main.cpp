@@ -10,7 +10,7 @@
 
 #include <plog/Log.h>
 #include "plog/Initializers/RollingFileInitializer.h"
-#include "plog/Formatters/TxtFormatter.h"
+#include "plog/Formatters/FuncMessageFormatter.h"
 #include "plog/Appenders/ColorConsoleAppender.h"
 #include "Model.h"
 #include "Camera.h"
@@ -54,7 +54,6 @@ PhysicsWorld* world;
 Shader* shader, * debugShader, * skyShader;
 ShadowsCaster* shadows;
 Model* map, * player, * sniperRifle;
-Texture* sniperTexture;
 Camera* camera;
 HUD* hud;
 Client* client;
@@ -161,7 +160,7 @@ int main() {
 	glfwSetKeyCallback(window->getId(), key_callback);
 	glfwSetMouseButtonCallback(window->getId(), mouse_button_callback);
 
-	plog::get()->addAppender(new plog::ColorConsoleAppender<plog::TxtFormatter>());
+	plog::get()->addAppender(new plog::ColorConsoleAppender<plog::FuncMessageFormatter>());
 
 	PLOGI << "Logger initialized";
 
@@ -213,8 +212,6 @@ int main() {
 	player->rb->setAngularLockAxisFactor(Vector3::zero());
 
 	delete[] data;
-
-	sniperTexture = new Texture("data/textures/sniper.png");
 
 	skybox = new Skybox("data/textures/sky");
 
@@ -345,21 +342,19 @@ int main() {
 			shader->upload("proj", camera->getPerspective());
 			shader->upload("camera.transform", camera->getView());
 			shader->upload("environment.sun_position", lightPos);
-			shader->upload("hasTexture", 1);
 			shader->upload("displayWireframe", wireframe ? 1 : 0);
 			shader->upload("aTexture", 1);
 			shader->upload("shadowMap", 0);
 			shader->upload("lightSpaceMatrix", *(shadows->getLightSpaceMatrix()));
 			glActiveTexture(GL_TEXTURE0);
 			glBindTexture(GL_TEXTURE_2D, shadows->getMap());
-			glActiveTexture(GL_TEXTURE1);
-			sniperTexture->bind();
-			shader->draw(sniperRifle);
-			shader->draw(map);
-			shader->upload("hasTexture", 0);
 			for (int i = 0; i < enemies_count && i < enemies.size(); i++) {
 				shader->draw(enemies[i]);
 			}
+			shader->upload("hasTexture", 1);
+			glActiveTexture(GL_TEXTURE1);
+			shader->draw(sniperRifle);
+			shader->draw(map);
 			shader->unbind();
 		}
 

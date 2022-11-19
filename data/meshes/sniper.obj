@@ -1,5 +1,7 @@
 # Blender 3.3.1
 # www.blender.org
+mtllib sniper.mtl
+usemtl material_0
 o Aim
 v 0.000000 0.425622 0.329014
 v -0.045106 0.406940 0.329014
