@@ -1,19 +1,39 @@
 #include "Model.h"
 
-Model::Model(const char* filename, PhysicsWorld* world, PhysicsCommon* common, bool createConcaveCollider) {
-	auto* data = new MeshData();
+#include <windows.h>
 
-	loadMesh(filename, data);
-
-	new (this) Model(data, world, common, createConcaveCollider);
+std::string GetExeFileName()
+{
+	char* buffer = new char[256];
+	GetModuleFileName(NULL, buffer, 256);
+	std::string b = std::string(buffer);
+	return b.substr(0, b.find_last_of("\\/"));
 }
 
-Model::Model(MeshData* data, PhysicsWorld* world, PhysicsCommon* common, bool createConcaveCollider)
+Model::Model(const char* filename, PhysicsWorld* world, PhysicsCommon* common, bool createConcaveCollider) {
+	int nb = -2;
+	MeshData* meshesData = loadMesh(filename, &nb);
+
+	new (this) Model(meshesData, nb, world, common, createConcaveCollider);
+}
+
+Model::Model(MeshData* data, int nb, PhysicsWorld* world, PhysicsCommon* common, bool createConcaveCollider)
 {
-	myMesh = new MyMesh(data->output, data->indices, 8);
-	myMesh->addParameter(0, 3);
-	myMesh->addParameter(1, 2);
-	myMesh->addParameter(2, 3);
+	meshes = (MyMesh*)calloc(nb, sizeof(MyMesh));
+	for (int i = 0; i < nb; i++) {
+		meshes[i] = MyMesh(data[i].output, data[i].indices, 8);
+		meshes[i].addParameter(0, 3);
+		meshes[i].addParameter(1, 2);
+		meshes[i].addParameter(2, 3);
+		if (strlen(data[i].texturePath) > 0) {
+			char* path = new char[256];
+			strcpy(path, GetExeFileName().c_str());
+			strcat(path, "\\data\\textures\\");
+			strcat(path, data[i].texturePath);
+			meshes[i].texture = new Texture(path);
+		}
+	}
+	nbMeshes = nb;
 
 	rb = world->createRigidBody(Transform::identity());
 
@@ -21,26 +41,23 @@ Model::Model(MeshData* data, PhysicsWorld* world, PhysicsCommon* common, bool cr
 
 	if (createConcaveCollider) {
 		rb->setType(BodyType::STATIC);
-		TriangleVertexArray* triangleArray =
-			new TriangleVertexArray(
-				data->vertices->size() / 3, data->vertices->data(), 3 * sizeof(float),
-				data->normals->data(), 3 * sizeof(float),
-				data->indices->size() / 3, data->indices->data(), 3 * sizeof(int),
-				TriangleVertexArray::VertexDataType::VERTEX_FLOAT_TYPE,
-				TriangleVertexArray::NormalDataType::NORMAL_FLOAT_TYPE,
-				TriangleVertexArray::IndexDataType::INDEX_INTEGER_TYPE);
 		TriangleMesh* triangleMesh = common->createTriangleMesh();
-		triangleMesh->addSubpart(triangleArray);
+		for (int i = 0; i < nb; i++) {
+			TriangleVertexArray* triangleArray =
+				new TriangleVertexArray(
+					data[i].vertices->size() / 3, data[i].vertices->data(), 3 * sizeof(float),
+					data[i].normals->data(), 3 * sizeof(float),
+					data[i].indices->size() / 3, data[i].indices->data(), 3 * sizeof(int),
+					TriangleVertexArray::VertexDataType::VERTEX_FLOAT_TYPE,
+					TriangleVertexArray::NormalDataType::NORMAL_FLOAT_TYPE,
+					TriangleVertexArray::IndexDataType::INDEX_INTEGER_TYPE);
+			triangleMesh->addSubpart(triangleArray);
+		}
 		rb->addCollider(common->createConcaveMeshShape(triangleMesh), Transform::identity());
 	}
 }
 
-Model::~Model()
-{
-	delete myMesh;
-}
-
-void Model::loadMesh(const char* filename, MeshData* out)
+MeshData* Model::loadMesh(const char* filename, int* len)
 {
 	Assimp::Importer importer;
 	const aiScene* scene = importer.ReadFile(filename, aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices);
@@ -53,56 +70,65 @@ void Model::loadMesh(const char* filename, MeshData* out)
 	if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) // if is Not Zero
 	{
 		PLOGE << "Failed to load " << filename;
-		return;
+		return nullptr;
 	}
 
 	aiNode* root = scene->mRootNode;
 	aiNode* child = root->mChildren[0];
-	aiMesh* mesh = scene->mMeshes[child->mMeshes[0]];
 
-	for (unsigned int i = 0; i < mesh->mNumVertices; i++)
-	{
-		out->vertices->push_back(mesh->mVertices[i].x);
-		out->vertices->push_back(mesh->mVertices[i].y);
-		out->vertices->push_back(mesh->mVertices[i].z);
-
-		out->output->push_back(mesh->mVertices[i].x);
-		out->output->push_back(mesh->mVertices[i].y);
-		out->output->push_back(mesh->mVertices[i].z);
-
-		if (mesh->mTextureCoords[0])
+	MeshData* data = new MeshData[child->mNumMeshes];
+	for (unsigned int j = 0; j < child->mNumMeshes; j++) {
+		aiMesh* mesh = scene->mMeshes[child->mMeshes[j]];
+		data[j] = MeshData();
+		aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
+		if (material->GetTextureCount(aiTextureType_DIFFUSE) > 0) {
+			aiString str;
+			material->GetTexture(aiTextureType_DIFFUSE, 0, &str);
+			strcpy(data[j].texturePath, str.C_Str());
+		}
+		for (unsigned int i = 0; i < mesh->mNumVertices; i++)
 		{
-			out->output->push_back(mesh->mTextureCoords[0][i].x);
-			out->output->push_back(mesh->mTextureCoords[0][i].y);
+			data[j].vertices->push_back(mesh->mVertices[i].x);
+			data[j].vertices->push_back(mesh->mVertices[i].y);
+			data[j].vertices->push_back(mesh->mVertices[i].z);
+
+			data[j].output->push_back(mesh->mVertices[i].x);
+			data[j].output->push_back(mesh->mVertices[i].y);
+			data[j].output->push_back(mesh->mVertices[i].z);
+
+			if (mesh->mTextureCoords[0])
+			{
+				data[j].output->push_back(mesh->mTextureCoords[0][i].x);
+				data[j].output->push_back(mesh->mTextureCoords[0][i].y);
+			}
+			else {
+				data[j].output->push_back(0);
+				data[j].output->push_back(0);
+			}
+
+			data[j].output->push_back(mesh->mNormals[i].x);
+			data[j].output->push_back(mesh->mNormals[i].y);
+			data[j].output->push_back(mesh->mNormals[i].z);
+
+			data[j].normals->push_back(mesh->mNormals[i].x);
+			data[j].normals->push_back(mesh->mNormals[i].y);
+			data[j].normals->push_back(mesh->mNormals[i].z);
 		}
-		else {
-			out->output->push_back(0);
-			out->output->push_back(0);
-		}
 
-		out->output->push_back(mesh->mNormals[i].x);
-		out->output->push_back(mesh->mNormals[i].y);
-		out->output->push_back(mesh->mNormals[i].z);
+		for (unsigned int i = 0; i < mesh->mNumFaces; i++)
+		{
+			aiFace face = mesh->mFaces[i];
 
-		out->normals->push_back(mesh->mNormals[i].x);
-		out->normals->push_back(mesh->mNormals[i].y);
-		out->normals->push_back(mesh->mNormals[i].z);
-
-		if (mesh->mNormals[i].x > 1 || mesh->mNormals[i].y > 1 || mesh->mNormals[i].z > 1) {
-			PLOGE << "Normal invalid";
+			data[j].indices->push_back(face.mIndices[0]);
+			data[j].indices->push_back(face.mIndices[1]);
+			data[j].indices->push_back(face.mIndices[2]);
 		}
 	}
 
-	for (unsigned int i = 0; i < mesh->mNumFaces; i++)
-	{
-		aiFace face = mesh->mFaces[i];
+	*len = child->mNumMeshes;
 
-		out->indices->push_back(face.mIndices[0]);
-		out->indices->push_back(face.mIndices[1]);
-		out->indices->push_back(face.mIndices[2]);
-	}
-
-	PLOGI << "Mesh [" << filename << "] loaded [" << (mesh->HasPositions() ? 'V' : '\0') << (mesh->mTextureCoords[0] ? 'T' : '\0') << (mesh->HasNormals() ? 'N' : '\0') << "], (V " << mesh->mNumVertices << " | F " << mesh->mNumFaces << ")";
+	PLOGI << "Model [" << filename << "] loaded " << child->mNumMeshes << " meshes";
+	return data;
 }
 
 float* Model::getMVP() {
@@ -111,7 +137,12 @@ float* Model::getMVP() {
 }
 
 void Model::draw() {
-	myMesh->draw();
+	for (int i = 0; i < nbMeshes; i++) {
+		if (meshes[i].hasTexture()) {
+			meshes[i].texture->bind();
+			meshes[i].draw();
+		}
+	}
 }
 
 MeshData::MeshData() {
@@ -119,6 +150,8 @@ MeshData::MeshData() {
 	output = new std::vector<float>();
 	normals = new std::vector<float>();
 	indices = new std::vector<int>();
+	texturePath = new char[256];
+	strcpy(texturePath, "");
 }
 
 MeshData::~MeshData() {

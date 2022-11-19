@@ -54,6 +54,7 @@ void Camera::pollEvents(Window* window, RigidBody* player) {
 		window->hideCursor();
 	}
 	else {
+		;
 		window->showCursor();
 	}
 
@@ -77,7 +78,7 @@ void Camera::pollEvents(Window* window, RigidBody* player) {
 		vel.x += std::cos(rotation.y) * 5.f * speed * crouch;
 		vel.z += std::sin(rotation.y) * 5.f * speed * crouch;
 	}
-	Vector3 current = player->getLinearVelocity();
+	Vector3 current = player->getLinearVelocity(); //Get curreny velocity (To save Y Axis velocity)
 	current.x = vel.x;
 	current.z = vel.z;
 	player->setLinearVelocity(current);

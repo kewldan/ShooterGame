@@ -43,23 +43,8 @@ add_executable(${PROJECT_NAME}
 
 set(GAME_LIBRARIES glfw3 opengl32 gdi32 Ws2_32 assimp::assimp)
 
-set(BUILD_DIR ${CMAKE_CURRENT_SOURCE_DIR}/Release/)
-
 if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E echo "Debug build is ready to test"
-    )
     target_link_libraries(${PROJECT_NAME} ${GAME_LIBRARIES} reactphysics3dd)
 else()
-    file(MAKE_DIRECTORY ${BUILD_DIR})
-    file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/data DESTINATION ${BUILD_DIR})
-    file(REMOVE ${BUILD_DIR}/latest.log)
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}.exe ${BUILD_DIR}
-        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/zlib1.dll ${BUILD_DIR}
-        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/assimp-vc143-mt.dll ${BUILD_DIR}
-        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/pugixml.dll ${BUILD_DIR}
-        COMMAND ${CMAKE_COMMAND} -E echo "Release build is ready to shipment"
-    )
     target_link_libraries(${PROJECT_NAME} ${GAME_LIBRARIES} reactphysics3d)
 endif()

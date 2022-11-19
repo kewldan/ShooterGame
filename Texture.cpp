@@ -19,6 +19,7 @@ Texture::Texture(const char* filename) {
 	}
 	else {
 		PLOGE << "Failed to load texture [" << filename << "]";
+		PLOGE << stbi_failure_reason();
 	}
 	stbi_image_free(data);
 }

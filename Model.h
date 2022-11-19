@@ -14,24 +14,25 @@
 using namespace reactphysics3d;
 
 struct MeshData {
-	std::vector<float>* vertices, * output, *normals;
+	std::vector<float>* vertices, * output, * normals;
 	std::vector<int>* indices;
+	char* texturePath;
 
 	MeshData();
 	~MeshData();
 };
 
 class Model {
-	MyMesh* myMesh;
+	MyMesh* meshes;
+	int nbMeshes;
 	float* mvp;
 public:
 	RigidBody* rb;
 
 	Model(const char* filename, PhysicsWorld* world, PhysicsCommon* common, bool createConcaveCollider = false);
-	Model(MeshData* data, PhysicsWorld* world, PhysicsCommon* common, bool createConcaveCollider = false);
-	~Model();
+	Model(MeshData* data, int nb, PhysicsWorld* world, PhysicsCommon* common, bool createConcaveCollider = false);
 
-	static void loadMesh(const char* filename, MeshData* out);
+	static MeshData* loadMesh(const char* filename, int* len);
 
 	void draw();
 

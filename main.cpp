@@ -54,7 +54,7 @@ PhysicsWorld* world;
 Shader* shader, * debugShader, * skyShader;
 ShadowsCaster* shadows;
 Model* map, * player, * sniperRifle;
-Texture* sniperTexture, * mapTexture;
+Texture* sniperTexture;
 Camera* camera;
 HUD* hud;
 Client* client;
@@ -188,33 +188,33 @@ int main() {
 	skyShader = new Shader("./data/shaders/sky");
 	shadows = new ShadowsCaster(4096, 4096, "./data/shaders/depth", lightPos);
 
-	map = new Model("./data/meshes/pool.obj", world, &physicsCommon, true);
+	map = new Model("./data/meshes/dust.obj", world, &physicsCommon, true);
 	sniperRifle = new Model("./data/meshes/sniper.obj", world, &physicsCommon);
 	sniperRifle->rb->setType(BodyType::STATIC);
 
-	MeshData* data = new MeshData();
-	Model::loadMesh("./data/meshes/player.obj", data);
-
+	int nb = -1;
+	MeshData* data = Model::loadMesh("./data/meshes/player.obj", &nb);
+	
 	CapsuleShape* playerShape = physicsCommon.createCapsuleShape(1.f, 2.5f);
 
 	enemies = std::vector<EnemyModel*>();
 
 	for (int i = 0; i < 16; i++) {
-		EnemyModel* newEnemy = new EnemyModel(data, world, &physicsCommon);
+		EnemyModel* newEnemy = new EnemyModel(data, nb, world, &physicsCommon);
+		newEnemy->rb->setTransform(Transform(Vector3(-9999, -9999, -9999), Quaternion::identity()));
 		newEnemy->rb->addCollider(playerShape, Transform(Vector3(0, 1.2f, 0), Quaternion::identity()));
 		newEnemy->rb->setType(BodyType::STATIC);
 		enemies.push_back(newEnemy);
 	}
 
-	player = new Model(data, world, &physicsCommon);
+	player = new Model(data, nb, world, &physicsCommon);
 	player->rb->setTransform(Transform(Vector3(0, 20, 0), Quaternion::identity()));
 	player->rb->addCollider(playerShape, Transform(Vector3(0, 1.2f, 0), Quaternion::identity()));
 	player->rb->setAngularLockAxisFactor(Vector3::zero());
 
-	delete data;
+	delete[] data;
 
 	sniperTexture = new Texture("data/textures/sniper.png");
-	mapTexture = new Texture("data/textures/palette.png");
 
 	skybox = new Skybox("data/textures/sky");
 
@@ -355,7 +355,6 @@ int main() {
 			glActiveTexture(GL_TEXTURE1);
 			sniperTexture->bind();
 			shader->draw(sniperRifle);
-			mapTexture->bind();
 			shader->draw(map);
 			shader->upload("hasTexture", 0);
 			for (int i = 0; i < enemies_count && i < enemies.size(); i++) {

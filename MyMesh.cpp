@@ -20,6 +20,8 @@ MyMesh::MyMesh(std::vector<float>* vertices, std::vector<int>* indices, unsigned
 	indicesCount = (int)indices->size();
 	stride = (int)(vertexSize * sizeof(float));
 	vertexOffset = 0;
+
+	texture = nullptr;
 }
 
 void MyMesh::draw() const {
@@ -33,6 +35,11 @@ void MyMesh::addParameter(int location, int size, bool normalized) {
 	glVertexAttribPointer(location, size, GL_FLOAT, normalized,
 		stride, (void*)(vertexOffset));
 	vertexOffset += sizeof(float) * size;
+}
+
+bool MyMesh::hasTexture()
+{
+	return texture != nullptr;
 }
 
 void MyMesh::addParameter(int location, int size) {
