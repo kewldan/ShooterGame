@@ -483,7 +483,7 @@ int main() {
 					rmt_ScopedCPUSample(HUD_DebugOverlay, 0);
 
 					ImGui::Text("https://github.com/kewldan/");
-					ImGui::Text("Version: 50");
+					ImGui::Text("Version: 55");
 					ImGui::Text("");
 					ImGui::Text("Screen: %dx%d", window->width, window->height);
 					ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
