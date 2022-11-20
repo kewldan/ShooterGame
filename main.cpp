@@ -26,6 +26,7 @@
 #include <windows.h>
 #include "Skybox.h"
 #include "Minimap.h"
+#include "GBuffer.h"
 
 
 #ifndef NDEBUG
@@ -66,13 +67,14 @@ Remotery* rmt;
 Skybox* skybox;
 Minimap* minimap;
 std::map<int, char*> nicknames = std::map<int, char*>();
+GBuffer* gBuffer;
 
 const glm::vec3 lightPos(-3.5f, 10.f, -1.5f);
 const std::regex ip_regex("(^((25[0-5]|(2[0-4]|1\\d|[1-9]|)\\d)\\.?\\b){4}$)");
 
 Chat* Chat::i = nullptr;
 
-bool wireframe, hasRifle = true, vsync = true, physicsDebugRender, console_open, castShadows;
+bool wireframe, hasRifle = true, vsync = true, physicsDebugRender, console_open, castShadows, show_minimap = true;
 
 struct Enemy {
 	int id;
@@ -195,7 +197,7 @@ int main() {
 
 	int nb = -1;
 	MeshData* data = Model::loadMesh("./data/meshes/player.obj", &nb);
-	
+
 	CapsuleShape* playerShape = physicsCommon.createCapsuleShape(1.f, 2.5f);
 
 	enemies = std::vector<EnemyModel*>();
@@ -222,7 +224,9 @@ int main() {
 
 	camera = new Camera(&window->width, &window->height, &window->ratio);
 
-	minimap = new Minimap("./data/shaders/map", 512, 512, &camera->position, 30);
+	minimap = new Minimap("./data/shaders/map", 1024, 1024, &camera->position, 60);
+
+	gBuffer = new GBuffer("./data/shaders/pass1", "./data/shaders/pass2", &window->width, &window->height);
 
 	client = new Client();
 	nickname = new char[64];
@@ -318,7 +322,7 @@ int main() {
 			}
 		}
 
-		if(castShadows == 1){
+		if (castShadows) {
 			rmt_ScopedCPUSample(Shadows, 0);
 			rmt_ScopedOpenGLSample(ShadowsGPU);
 			Shader* depth = shadows->begin(camera->position, 25);
@@ -331,17 +335,38 @@ int main() {
 			shadows->end();
 		}
 
-		{
+		if (show_minimap) {
 			rmt_ScopedCPUSample(MinimapUpdate, 0);
 			rmt_ScopedOpenGLSample(MinimapGPU);
 			Shader* mapShader = minimap->begin(camera->rotation.y);
+			mapShader->upload("aTexture", 0);
+			mapShader->upload("hasTexture", 1);
+			glActiveTexture(GL_TEXTURE0);
 			mapShader->draw(sniperRifle);
 			mapShader->draw(map);
+			mapShader->upload("hasTexture", 0);
 			mapShader->draw(player);
 			for (int i = 0; i < enemies_count && i < enemies.size(); i++) {
 				mapShader->draw(enemies[i]);
 			}
 			minimap->end();
+		}
+			
+		{
+			rmt_ScopedCPUSample(GBufferUpdate, 0);
+			rmt_ScopedOpenGLSample(GBufferGPU);
+			Shader* pass1 = gBuffer->beginGeometryPass(camera->getPerspective(), camera->getView());
+			pass1->upload("aTexture", 0);
+			pass1->upload("hasTexture", 1);
+			glActiveTexture(GL_TEXTURE0);
+			pass1->draw(sniperRifle);
+			pass1->draw(map);
+			pass1->upload("hasTexture", 0);
+			pass1->draw(player);
+			for (int i = 0; i < enemies_count && i < enemies.size(); i++) {
+				pass1->draw(enemies[i]);
+			}
+			gBuffer->endGeometryPass();
 		}
 		window->reset();
 
@@ -361,10 +386,12 @@ int main() {
 			shader->upload("camera.transform", camera->getView());
 			shader->upload("environment.sun_position", lightPos);
 			shader->upload("displayWireframe", wireframe ? 1 : 0);
+			shader->upload("viewportSize", glm::vec2(window->width, window->height));
 			shader->upload("castShadows", castShadows ? 1 : 0);
 			shader->upload("aTexture", 1);
 			shader->upload("shadowMap", 0);
 			shader->upload("lightSpaceMatrix", shadows->getLightSpaceMatrix());
+
 			glActiveTexture(GL_TEXTURE0);
 			glBindTexture(GL_TEXTURE_2D, shadows->getMap());
 			for (int i = 0; i < enemies_count && i < enemies.size(); i++) {
@@ -443,8 +470,7 @@ int main() {
 			if (ImGui::Begin("Debug", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
 				rmt_ScopedCPUSample(HUD_Configuration, 0);
 
-				ImGui::SliderFloat("Camera speed", &camera->speed, 0.01f, 10.f);
-				ImGui::Separator();
+				ImGui::SliderFloat("Camera speed", &camera->speed, 0.1f, 10.f, "%.1f");
 				if (ImGui::Checkbox("VSync", &vsync)) {
 					window->setVsync(vsync);
 				}
@@ -453,9 +479,10 @@ int main() {
 				}
 				ImGui::Checkbox("Show wireframe", &wireframe);
 				ImGui::Checkbox("Cast shadows", &castShadows);
-
-				ImGui::Image((void*)(intptr_t)minimap->map, ImVec2(512, 512));
-				ImGui::Separator();
+				ImGui::Checkbox("Show minimap", &show_minimap);
+				if (show_minimap) {
+					ImGui::Image((void*)(intptr_t)minimap->map, ImVec2(512, 512), ImVec2(0, 1), ImVec2(1, 0));
+				}
 			}
 			ImGui::End();
 

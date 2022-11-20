@@ -37,14 +37,14 @@ Minimap::~Minimap()
 
 Shader* Minimap::begin(float rotation_y)
 {
-	glm::mat4 proj = glm::ortho(-100.f, 100.f, -100.f, 100.f, 0.1f, 100.f);
+	glm::mat4 proj = glm::ortho(-100.f, 100.f, -100.f, 100.f, 0.1f, 300.f);
 
-	glm::vec2 rotation = glm::vec2(1.57f, -rotation_y);
+	glm::vec2 rotation = glm::vec2(1.57f, rotation_y);
 
 	glm::mat4 view = glm::mat4(1);
 	view = glm::rotate(view, rotation.x, glm::vec3(1, 0, 0));
 	view = glm::rotate(view, rotation.y, glm::vec3(0, 1, 0));
-	view = glm::translate(view, -glm::vec3((*pos).x, 20 + (*pos).y, -(*pos).z));
+	view = glm::translate(view, -glm::vec3((*pos).x, 20 + (*pos).y, (*pos).z));
 
 	glViewport(0, 0, w, h);
 	glBindFramebuffer(GL_FRAMEBUFFER, FBO);

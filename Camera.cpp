@@ -37,7 +37,7 @@ const glm::mat4& Camera::getOrthographic() {
 const glm::mat4& Camera::getPerspective() {
 	float hfovRad = (float)hFov * 3.1415f / 180;
 	float vfovRad = 2.f * std::atan(std::tan(hfovRad / 2) * *ratio);
-	perspective = glm::perspective(vfovRad, *ratio, 0.005f, 500.f);
+	perspective = glm::perspective(vfovRad, *ratio, 0.001f, 500.f);
 	return perspective;
 }
 

@@ -19,8 +19,6 @@ uniform struct Environment
     vec3 sun_position;
 } environment;
 
-precision highp float;
-
 uniform sampler2D shadowMap;
 uniform sampler2D aTexture;
 uniform int hasTexture = 0;

@@ -20,7 +20,7 @@ Window::Window(int w, int h, const char* title) {
 
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-	glfwWindowHint(GLFW_SAMPLES, 16);
+	glfwWindowHint(GLFW_SAMPLES, 0);
 
 	window = glfwCreateWindow(w, h, title, nullptr, nullptr);
 	if (!window) {
@@ -38,7 +38,7 @@ Window::Window(int w, int h, const char* title) {
 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
-	glEnable(GL_MULTISAMPLE);
+	glDisable(GL_MULTISAMPLE);
 
 	glClearColor(52 / 255.f, 168 / 255.f, 235 / 255.f, 1.f);
 }
