@@ -2,8 +2,6 @@
 
 #define STB_IMAGE_IMPLEMENTATION
 
-//#define RMT_PROFILER
-
 #include "Shader.h"
 #include <cstdlib>
 #include "Window.h"
@@ -21,7 +19,12 @@
 #include "imgui.h"
 #include "HUD.h"
 #include "Client.h"
+#ifdef RMT_PROFILER
 #include "Remotery.h"
+#else
+#define rmt_ScopedCPUSample(n, n1)
+#define rmt_ScopedOpenGLSample(n)
+#endif
 #include <regex>
 #include <windows.h>
 #include "Skybox.h"
@@ -53,7 +56,7 @@ public:
 Window* window;
 PhysicsCommon physicsCommon;
 PhysicsWorld* world;
-Shader* shader, * debugShader, * skyShader;
+Shader* debugShader, * skyShader;
 ShadowsCaster* shadows;
 Model* map, * player, * sniperRifle;
 Camera* camera;
@@ -63,18 +66,21 @@ char* nickname, * ip;
 std::vector<EnemyModel*> enemies;
 char enemies_count;
 double lastUpdate;
+#ifdef RMT_PROFILER
 Remotery* rmt;
+#endif
 Skybox* skybox;
 Minimap* minimap;
 std::map<int, char*> nicknames = std::map<int, char*>();
 GBuffer* gBuffer;
+std::vector<Light>* lights;
 
 const glm::vec3 lightPos(-3.5f, 10.f, -1.5f);
 const std::regex ip_regex("(^((25[0-5]|(2[0-4]|1\\d|[1-9]|)\\d)\\.?\\b){4}$)");
 
 Chat* Chat::i = nullptr;
 
-bool wireframe, hasRifle = true, vsync = true, physicsDebugRender, console_open, castShadows, show_minimap = true;
+bool hasRifle = true, vsync = true, physicsDebugRender, console_open, castShadows, show_minimap = true;
 
 struct Enemy {
 	int id;
@@ -186,7 +192,6 @@ int main() {
 	PLOGI << "Profiler initialized";
 #endif
 
-	shader = new Shader("./data/shaders/main");
 	debugShader = new Shader("./data/shaders/debug");
 	skyShader = new Shader("./data/shaders/sky");
 	shadows = new ShadowsCaster(4096, 4096, "./data/shaders/depth", lightPos);
@@ -228,6 +233,16 @@ int main() {
 
 	gBuffer = new GBuffer("./data/shaders/pass1", "./data/shaders/pass2", &window->width, &window->height);
 
+	lights = new std::vector<Light>();
+	for (int i = 0; i < 31; i++) {
+		lights->push_back(
+			{
+				glm::vec3(0, 0, 0),
+				glm::vec3(10, 1, 0)
+			}
+		);
+	}
+
 	client = new Client();
 	nickname = new char[64];
 	ip = new char[16];
@@ -235,7 +250,8 @@ int main() {
 	GetUserName(nickname, &username_len);
 
 	strcpy(ip, "127.0.0.1");
-	while (window->update()) {
+	static bool windowResized = false;
+	while (window->update(&windowResized)) {
 		rmt_ScopedCPUSample(FrameUpdate, 0);
 		rmt_ScopedOpenGLSample(FrameGPUUpdate);
 		{
@@ -340,70 +356,58 @@ int main() {
 			rmt_ScopedOpenGLSample(MinimapGPU);
 			Shader* mapShader = minimap->begin(camera->rotation.y);
 			mapShader->upload("aTexture", 0);
-			mapShader->upload("hasTexture", 1);
 			glActiveTexture(GL_TEXTURE0);
+
 			mapShader->draw(sniperRifle);
 			mapShader->draw(map);
-			mapShader->upload("hasTexture", 0);
 			mapShader->draw(player);
 			for (int i = 0; i < enemies_count && i < enemies.size(); i++) {
 				mapShader->draw(enemies[i]);
 			}
+
 			minimap->end();
 		}
-			
+		
+		if (windowResized) {
+			gBuffer->resize();
+		}
+
 		{
 			rmt_ScopedCPUSample(GBufferUpdate, 0);
 			rmt_ScopedOpenGLSample(GBufferGPU);
-			Shader* pass1 = gBuffer->beginGeometryPass(camera->getPerspective(), camera->getView());
+			Shader* pass1 = gBuffer->beginGeometryPass(camera);
 			pass1->upload("aTexture", 0);
-			pass1->upload("hasTexture", 1);
 			glActiveTexture(GL_TEXTURE0);
+
 			pass1->draw(sniperRifle);
 			pass1->draw(map);
-			pass1->upload("hasTexture", 0);
-			pass1->draw(player);
 			for (int i = 0; i < enemies_count && i < enemies.size(); i++) {
 				pass1->draw(enemies[i]);
 			}
+
 			gBuffer->endGeometryPass();
 		}
+
 		window->reset();
-
-		{
-			rmt_ScopedCPUSample(SkyboxUpdate, 0);
-			rmt_ScopedOpenGLSample(SkyboxGPU);
-			skybox->draw(skyShader, camera);
-		}
-
+		
 		{
 
 			rmt_ScopedCPUSample(Render, 0);
 			rmt_ScopedOpenGLSample(RenderGPU);
 
-			shader->bind();
-			shader->upload("proj", camera->getPerspective());
-			shader->upload("camera.transform", camera->getView());
-			shader->upload("environment.sun_position", lightPos);
-			shader->upload("displayWireframe", wireframe ? 1 : 0);
-			shader->upload("viewportSize", glm::vec2(window->width, window->height));
-			shader->upload("castShadows", castShadows ? 1 : 0);
-			shader->upload("aTexture", 1);
-			shader->upload("shadowMap", 0);
-			shader->upload("lightSpaceMatrix", shadows->getLightSpaceMatrix());
-
-			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, shadows->getMap());
-			for (int i = 0; i < enemies_count && i < enemies.size(); i++) {
-				shader->draw(enemies[i]);
-			}
-			shader->upload("hasTexture", 1);
-			glActiveTexture(GL_TEXTURE1);
-			shader->draw(sniperRifle);
-			shader->draw(map);
-			shader->unbind();
+			Shader* s = gBuffer->beginLightingPass(lights, camera->position);
+			gBuffer->endLightingPass();
 		}
 
+
+		{
+
+			rmt_ScopedCPUSample(SkyboxUpdate, 0);
+			rmt_ScopedOpenGLSample(SkyboxGPU);
+
+			skybox->draw(skyShader, camera);
+		}
+		
 		if (world->getIsDebugRenderingEnabled()) {
 
 			rmt_ScopedCPUSample(PhysicsRender, 0);
@@ -454,7 +458,6 @@ int main() {
 					debugShader->upload("proj", camera->getPerspective());
 					debugShader->upload("view", camera->getView());
 					glDrawArrays(GL_TRIANGLES, 0, verticesCount);
-					debugShader->unbind();
 					delete[] vertices;
 				}
 			}
@@ -477,7 +480,6 @@ int main() {
 				if (ImGui::Checkbox("Debug render", &physicsDebugRender)) {
 					world->setIsDebugRenderingEnabled(physicsDebugRender);
 				}
-				ImGui::Checkbox("Show wireframe", &wireframe);
 				ImGui::Checkbox("Cast shadows", &castShadows);
 				ImGui::Checkbox("Show minimap", &show_minimap);
 				if (show_minimap) {
@@ -535,7 +537,7 @@ int main() {
 					rmt_ScopedCPUSample(HUD_DebugOverlay, 0);
 
 					ImGui::Text("https://github.com/kewldan/");
-					ImGui::Text("Version: 55");
+					ImGui::Text("Version: 58");
 					ImGui::Text("");
 					ImGui::Text("Screen: %dx%d", window->width, window->height);
 					ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);

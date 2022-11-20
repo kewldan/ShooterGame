@@ -19,4 +19,5 @@ void main()
     }else{
         gAlbedoSpec.rgb = vec3(1);
     }
+    gAlbedoSpec.a = 1;
 }

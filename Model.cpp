@@ -126,15 +126,6 @@ float* Model::getMVP() {
 	return mvp;
 }
 
-void Model::draw() {
-	for (int i = 0; i < nbMeshes; i++) {
-		if (meshes[i].hasTexture()) {
-			meshes[i].texture->bind();
-		}
-		meshes[i].draw();
-	}
-}
-
 MeshData::MeshData() {
 	vertices = new std::vector<float>();
 	output = new std::vector<float>();

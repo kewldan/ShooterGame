@@ -111,7 +111,6 @@ void Skybox::draw(Shader* shader, Camera* camera)
 
 	shader->upload("skybox", 0);
 	mesh->draw();
-	shader->unbind();
 	glDepthFunc(GL_LESS);
 }
 

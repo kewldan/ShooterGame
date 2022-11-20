@@ -47,8 +47,6 @@ public:
 
 	void bind();
 
-	void unbind();
-
 	void upload(const char* name, int value) const;
 
 	void upload(const char* name, float value) const;

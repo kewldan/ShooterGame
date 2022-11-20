@@ -39,7 +39,7 @@ public:
 
 	GLFWwindow* getId();
 
-	bool update();
+	bool update(bool* resized);
 
 	void hideCursor();
 

@@ -46,7 +46,6 @@ Shader* ShadowsCaster::begin(glm::vec3 cam, float distance) {
 }
 
 void ShadowsCaster::end() {
-	shader->unbind();
 	glCullFace(GL_BACK);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }

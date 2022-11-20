@@ -144,10 +144,6 @@ void Shader::bind() {
 	glUseProgram(program);
 }
 
-void Shader::unbind() {
-	glUseProgram(0);
-}
-
 Shader::~Shader() {
 	if ((shaderParts & SHADER_PART_VERTEX) != 0) {
 		glDetachShader(program, vertex);
@@ -192,7 +188,16 @@ void Shader::uploadMat4(const char* name, float* value) const
 
 void Shader::draw(Model* model) const {
 	uploadMat4("mvp", model->getMVP());
-	model->draw();
+	for (int i = 0; i < model->nbMeshes; i++) {
+		if (model->meshes[i].hasTexture()) {
+			model->meshes[i].texture->bind();
+			upload("hasTexture", 1);
+		}
+		else {
+			upload("hasTexture", 0);
+		}
+		model->meshes[i].draw();
+	}
 }
 
 void Shader::upload(const  char* name, float x, float y) const {

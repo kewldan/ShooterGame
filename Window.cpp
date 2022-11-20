@@ -39,8 +39,6 @@ Window::Window(int w, int h, const char* title) {
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
 	glDisable(GL_MULTISAMPLE);
-
-	glClearColor(52 / 255.f, 168 / 255.f, 235 / 255.f, 1.f);
 }
 
 void Window::setVsync(bool value) {
@@ -74,12 +72,14 @@ Window::~Window() {
 
 bool Window::glfwInitialized = false;
 
-bool Window::update() {
+bool Window::update(bool* resized) {
 	glfwSwapBuffers(window);
 	glfwPollEvents();
 
+	int lw = width, lh = height;
 	glfwGetFramebufferSize(window, &width, &height);
 	ratio = (float)width / (float)height;
+	*resized = (lw != width || lh != height);
 
 	return !glfwWindowShouldClose(window);
 }

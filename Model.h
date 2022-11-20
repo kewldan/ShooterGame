@@ -23,18 +23,16 @@ struct MeshData {
 };
 
 class Model {
-	MyMesh* meshes;
-	int nbMeshes;
 	float* mvp;
 public:
+	MyMesh* meshes;
+	int nbMeshes;
 	RigidBody* rb;
 
 	Model(const char* filename, PhysicsWorld* world, PhysicsCommon* common, bool createConcaveCollider = false, char* label = nullptr);
 	Model(MeshData* data, int nb, PhysicsWorld* world, PhysicsCommon* common, bool createConcaveCollider = false, char* label = nullptr);
 
 	static MeshData* loadMesh(const char* filename, int* len);
-
-	void draw();
 
 	float* getMVP();
 };

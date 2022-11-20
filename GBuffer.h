@@ -3,6 +3,11 @@
 
 #include "Shader.h"
 
+struct Light {
+	glm::vec3 pos;
+	glm::vec3 color;
+};
+
 class GBuffer {
 	unsigned int FBO, gPosition, gNormal, gAlbedo, rboDepth, VAO, VBO;
 	int* w, *h;
@@ -10,8 +15,13 @@ class GBuffer {
 public:
 	GBuffer(const char* gShaderPath, const char* lShaderPath, int* width, int* height);
 
-	Shader* beginGeometryPass(glm::mat4 proj, glm::mat4 view);
+	void resize();
+
+	Shader* beginGeometryPass(Camera* camera);
 	void endGeometryPass();
+
+	Shader* beginLightingPass(std::vector<Light>* lights, glm::vec3 camera_pos);
+	void endLightingPass();
 };
 
 #endif

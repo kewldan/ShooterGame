@@ -48,6 +48,7 @@ Shader* Minimap::begin(float rotation_y)
 
 	glViewport(0, 0, w, h);
 	glBindFramebuffer(GL_FRAMEBUFFER, FBO);
+	glClearColor(0.5, 0.8, 1, 0);
 	glClear(GL_COLOR_BUFFER_BIT);
 	shader->bind();
 	shader->upload("proj", proj);
@@ -57,6 +58,5 @@ Shader* Minimap::begin(float rotation_y)
 
 void Minimap::end()
 {
-	shader->unbind();
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }

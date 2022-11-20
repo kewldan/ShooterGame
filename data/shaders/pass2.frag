@@ -1,7 +1,9 @@
 #version 330 core
 out vec4 FragColor;
 
-in vec2 TexCoords;
+in Vertex {
+    vec2 texCoord;
+} vertex;
 
 uniform sampler2D gPosition;
 uniform sampler2D gNormal;
@@ -13,24 +15,24 @@ struct Light {
     
     float Linear;
     float Quadratic;
+    float Radius;
 };
 
 const int NR_LIGHTS = 32;
+uniform int nbLights;
 uniform Light lights[NR_LIGHTS];
 uniform vec3 viewPos;
 
 void main()
 {             
-    // retrieve data from gbuffer
-    vec3 FragPos = texture(gPosition, TexCoords).rgb;
-    vec3 Normal = texture(gNormal, TexCoords).rgb;
-    vec3 Diffuse = texture(gAlbedoSpec, TexCoords).rgb;
-    float Specular = texture(gAlbedoSpec, TexCoords).a;
+    vec3 FragPos = texture(gPosition, vertex.texCoord).rgb;
+    vec3 Normal = texture(gNormal, vertex.texCoord).rgb;
+    vec3 Diffuse = texture(gAlbedoSpec, vertex.texCoord).rgb;
+    float Specular = texture(gAlbedoSpec, vertex.texCoord).a;
     
-    // then calculate lighting as usual
-    vec3 lighting  = Diffuse * 0.1; // hard-coded ambient component
+    vec3 lighting  = Diffuse * 0.1;
     vec3 viewDir  = normalize(viewPos - FragPos);
-    for(int i = 0; i < NR_LIGHTS; ++i)
+    for(int i = 0; i < nbLights && i < NR_LIGHTS; ++i)
     {
         // diffuse
         vec3 lightDir = normalize(lights[i].Position - FragPos);
@@ -46,5 +48,7 @@ void main()
         specular *= attenuation;
         lighting += diffuse + specular;        
     }
+    if(Diffuse == vec3(0))
+        discard;
     FragColor = vec4(lighting, 1.0);
 }

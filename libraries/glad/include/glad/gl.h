@@ -15432,8 +15432,13 @@ GLAD_API_CALL PFNGLWINDOWRECTANGLESEXTPROC glad_glWindowRectanglesEXT;
 GLAD_API_CALL PFNGLWRITEMASKEXTPROC glad_glWriteMaskEXT;
 #define glWriteMaskEXT glad_glWriteMaskEXT
 
+#ifndef NDEBUG
 #define glObjectLabelStr(type, name, label) glObjectLabel(type, name, strlen(label), label)
 #define glObjectLabelBuild(type, name, type_name, description) {char* _ = new char[256]; strcpy(_, type_name); strcat(_, " ["); strcat(_, description); strcat(_, "]"); glObjectLabelStr(type, name, _);}
+#else
+#define glObjectLabelStr(type, name, label)
+#define glObjectLabelBuild(type, name, type_name, description)
+#endif
 
 GLAD_API_CALL int gladLoadGLUserPtr( GLADuserptrloadfunc load, void *userptr);
 GLAD_API_CALL int gladLoadGL( GLADloadfunc load);
