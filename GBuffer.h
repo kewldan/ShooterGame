@@ -10,12 +10,12 @@ struct Light {
 
 class GBuffer {
 	unsigned int FBO, gPosition, gNormal, gAlbedo, rboDepth, VAO, VBO;
-	int* w, *h;
+	int w, h;
 	Shader* gShader, * lShader;
 public:
-	GBuffer(const char* gShaderPath, const char* lShaderPath, int* width, int* height);
+	GBuffer(const char* gShaderPath, const char* lShaderPath, int width, int height);
 
-	void resize();
+	void resize(int nw, int nh);
 
 	Shader* beginGeometryPass(Camera* camera);
 	void endGeometryPass();

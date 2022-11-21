@@ -30,7 +30,7 @@ void main()
     vec3 Diffuse = texture(gAlbedoSpec, vertex.texCoord).rgb;
     float Specular = texture(gAlbedoSpec, vertex.texCoord).a;
     
-    vec3 lighting  = Diffuse * 0.1;
+    vec3 lighting  = Diffuse * 0.4;
     vec3 viewDir  = normalize(viewPos - FragPos);
     for(int i = 0; i < nbLights && i < NR_LIGHTS; ++i)
     {
@@ -48,7 +48,5 @@ void main()
         specular *= attenuation;
         lighting += diffuse + specular;        
     }
-    if(Diffuse == vec3(0))
-        discard;
     FragColor = vec4(lighting, 1.0);
 }

@@ -32,7 +32,8 @@ Window::Window(int w, int h, const char* title) {
 
 	if (!glfwInitialized) {
 		PLOG_INFO << "GLAD loaded";
-		gladLoadGL(glfwGetProcAddress);
+		int version = gladLoadGL(glfwGetProcAddress);
+		PLOGI << "GL " << GLAD_VERSION_MAJOR(version) << '.' << GLAD_VERSION_MINOR(version);
 		glfwInitialized = true;
 	}
 

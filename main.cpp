@@ -5,6 +5,7 @@
 #include "Shader.h"
 #include <cstdlib>
 #include "Window.h"
+#include <mutex>
 
 #include <plog/Log.h>
 #include "plog/Initializers/RollingFileInitializer.h"
@@ -74,13 +75,14 @@ Minimap* minimap;
 std::map<int, char*> nicknames = std::map<int, char*>();
 GBuffer* gBuffer;
 std::vector<Light>* lights;
+std::mutex coutMutex;
 
 const glm::vec3 lightPos(-3.5f, 10.f, -1.5f);
 const std::regex ip_regex("(^((25[0-5]|(2[0-4]|1\\d|[1-9]|)\\d)\\.?\\b){4}$)");
 
 Chat* Chat::i = nullptr;
 
-bool hasRifle = true, vsync = true, physicsDebugRender, console_open, castShadows, show_minimap = true;
+bool hasRifle = true, vsync, physicsDebugRender, console_open, castShadows, show_minimap = true;
 
 struct Enemy {
 	int id;
@@ -229,9 +231,9 @@ int main() {
 
 	camera = new Camera(&window->width, &window->height, &window->ratio);
 
-	minimap = new Minimap("./data/shaders/map", 1024, 1024, &camera->position, 60);
+	minimap = new Minimap("./data/shaders/map", 512, 512, &camera->position, 60);
 
-	gBuffer = new GBuffer("./data/shaders/pass1", "./data/shaders/pass2", &window->width, &window->height);
+	gBuffer = new GBuffer("./data/shaders/pass1", "./data/shaders/pass2", window->width, window->height);
 
 	lights = new std::vector<Light>();
 	for (int i = 0; i < 31; i++) {
@@ -367,9 +369,9 @@ int main() {
 
 			minimap->end();
 		}
-		
+
 		if (windowResized) {
-			gBuffer->resize();
+			gBuffer->resize(window->width, window->height);
 		}
 
 		{
@@ -389,7 +391,7 @@ int main() {
 		}
 
 		window->reset();
-		
+
 		{
 
 			rmt_ScopedCPUSample(Render, 0);
@@ -407,7 +409,7 @@ int main() {
 
 			skybox->draw(skyShader, camera);
 		}
-		
+
 		if (world->getIsDebugRenderingEnabled()) {
 
 			rmt_ScopedCPUSample(PhysicsRender, 0);
@@ -539,11 +541,32 @@ int main() {
 					ImGui::Text("https://github.com/kewldan/");
 					ImGui::Text("Version: 58");
 					ImGui::Text("");
+
+					int b;
+					glGetIntegerv(GL_CONTEXT_PROFILE_MASK, &b);
+
+					int major, minor;
+					glGetIntegerv(GL_MAJOR_VERSION, &major);
+					glGetIntegerv(GL_MINOR_VERSION, &minor);
+					ImGui::Text("OpenGL: %d.%d (%s)", major, minor, b == GL_CONTEXT_CORE_PROFILE_BIT ? "CORE" : "COMPABILITY");
+					ImGui::Text("GPU: %s", (const char*)glGetString(GL_RENDERER));
+
+					int VRAM_CURRENT, VRAM_TOTAL;
+					glGetIntegerv(GL_GPU_MEMORY_INFO_CURRENT_AVAILABLE_VIDMEM_NVX, &VRAM_CURRENT);
+					glGetIntegerv(GL_GPU_MEMORY_INFO_TOTAL_AVAILABLE_MEMORY_NVX, &VRAM_TOTAL);
+
+					ImGui::Text("VRAM: %.0f / %.0f (%.1f%%)", (VRAM_TOTAL - VRAM_CURRENT) / 1024.f, VRAM_TOTAL / 1024.f, 100.f / (VRAM_TOTAL / (float)(VRAM_TOTAL - VRAM_CURRENT)));
+
+					int max_texture_size;
+					glGetIntegerv(GL_MAX_TEXTURE_SIZE, &max_texture_size);
+					ImGui::Text("Max texture size: %d", max_texture_size);
+
 					ImGui::Text("Screen: %dx%d", window->width, window->height);
 					ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
 					ImGui::Text("Position: X: %.1f, Y: %.1f, Z: %.1f", camera->position.x, camera->position.y,
 						camera->position.z);
 					ImGui::Text("Rotation: X: %.1f, Y: %.1f", camera->rotation.x, camera->rotation.y);
+
 					if (client->isConnected()) {
 						ImGui::Text("ID: %d", client->my_id);
 						if (enemies_count > 0) {
@@ -589,10 +612,10 @@ int main() {
 						ImGui::Text("");
 						ImGui::Text("Name: %s", "AK-47");
 						ImGui::Text("Ammo: %d / %d", 17, 30);
-					}
+				}
 					ImGui::End();
 					ImGui::PopStyleVar();
-				}
+			}
 
 				if (console_open) {
 					Chat::i->Draw();
@@ -603,10 +626,10 @@ int main() {
 					}
 					memset(Chat::i->buffer, 0, 256);
 				}
-			}
-			hud->end();
 		}
+			hud->end();
 	}
+}
 
 	physicsCommon.destroyPhysicsWorld(world);
 
