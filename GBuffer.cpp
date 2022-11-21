@@ -14,6 +14,8 @@ GBuffer::GBuffer(const char* gShaderPath, const char* lShaderPath, int width, in
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, w, h, 0, GL_RGBA, GL_FLOAT, NULL);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, gPosition, 0);
 	// normal color buffer
 	glGenTextures(1, &gNormal);
@@ -114,7 +116,7 @@ char* getLightString(unsigned int i, const char* field) {
 	return n;
 }
 
-Shader* GBuffer::beginLightingPass(std::vector<Light>* lights, glm::vec3 camera_pos)
+Shader* GBuffer::beginLightingPass(std::vector<Light>* lights, glm::vec3 camera_pos, unsigned int ssao)
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	lShader->bind();
@@ -125,10 +127,13 @@ Shader* GBuffer::beginLightingPass(std::vector<Light>* lights, glm::vec3 camera_
 	glBindTexture(GL_TEXTURE_2D, gNormal);
 	glActiveTexture(GL_TEXTURE2);
 	glBindTexture(GL_TEXTURE_2D, gAlbedo);
+	glActiveTexture(GL_TEXTURE3);
+	glBindTexture(GL_TEXTURE_2D, ssao);
 
 	lShader->upload("gPosition", 0);
 	lShader->upload("gNormal", 1);
 	lShader->upload("gAlbedoSpec", 2);
+	lShader->upload("ssao", 3);
 	lShader->upload("viewPos", camera_pos);
 	lShader->upload("nbLights", (int) lights->size());
 

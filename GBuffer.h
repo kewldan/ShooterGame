@@ -9,10 +9,10 @@ struct Light {
 };
 
 class GBuffer {
-	unsigned int FBO, gPosition, gNormal, gAlbedo, rboDepth, VAO, VBO;
 	int w, h;
 	Shader* gShader, * lShader;
 public:
+	unsigned int FBO, gPosition, gNormal, gAlbedo, rboDepth, VAO, VBO;
 	GBuffer(const char* gShaderPath, const char* lShaderPath, int width, int height);
 
 	void resize(int nw, int nh);
@@ -20,7 +20,7 @@ public:
 	Shader* beginGeometryPass(Camera* camera);
 	void endGeometryPass();
 
-	Shader* beginLightingPass(std::vector<Light>* lights, glm::vec3 camera_pos);
+	Shader* beginLightingPass(std::vector<Light>* lights, glm::vec3 camera_pos, unsigned int ssao);
 	void endLightingPass();
 };
 

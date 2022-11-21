@@ -31,6 +31,7 @@
 #include "Skybox.h"
 #include "Minimap.h"
 #include "GBuffer.h"
+#include "SSAO.h"
 
 
 #ifndef NDEBUG
@@ -76,6 +77,7 @@ std::map<int, char*> nicknames = std::map<int, char*>();
 GBuffer* gBuffer;
 std::vector<Light>* lights;
 std::mutex coutMutex;
+SSAO* ssao;
 
 const glm::vec3 lightPos(-3.5f, 10.f, -1.5f);
 const std::regex ip_regex("(^((25[0-5]|(2[0-4]|1\\d|[1-9]|)\\d)\\.?\\b){4}$)");
@@ -235,6 +237,8 @@ int main() {
 
 	gBuffer = new GBuffer("./data/shaders/pass1", "./data/shaders/pass2", window->width, window->height);
 
+	ssao = new SSAO("./data/shaders/ssao", "./data/shaders/ssaoBlur", window->width, window->height);
+
 	lights = new std::vector<Light>();
 	for (int i = 0; i < 31; i++) {
 		lights->push_back(
@@ -340,6 +344,7 @@ int main() {
 			}
 		}
 
+		// 1. Shadows pass
 		if (castShadows) {
 			rmt_ScopedCPUSample(Shadows, 0);
 			rmt_ScopedOpenGLSample(ShadowsGPU);
@@ -353,6 +358,8 @@ int main() {
 			shadows->end();
 		}
 
+
+		// 2. Minimap pass
 		if (show_minimap) {
 			rmt_ScopedCPUSample(MinimapUpdate, 0);
 			rmt_ScopedOpenGLSample(MinimapGPU);
@@ -374,6 +381,7 @@ int main() {
 			gBuffer->resize(window->width, window->height);
 		}
 
+		// 3. Geometry pass [GBuffer]
 		{
 			rmt_ScopedCPUSample(GBufferUpdate, 0);
 			rmt_ScopedOpenGLSample(GBufferGPU);
@@ -390,18 +398,25 @@ int main() {
 			gBuffer->endGeometryPass();
 		}
 
+		// 4. SSAO pass [SSAO]
+		ssao->renderSSAOTexture(gBuffer->gPosition, gBuffer->gNormal, camera->getPerspective());
+
+		// 5. SSAO blur [SSAO]
+		ssao->blurSSAOTexture();
+
 		window->reset();
 
+		// 6. Lighing pass [GBuffer]
 		{
 
 			rmt_ScopedCPUSample(Render, 0);
 			rmt_ScopedOpenGLSample(RenderGPU);
 
-			Shader* s = gBuffer->beginLightingPass(lights, camera->position);
+			Shader* s = gBuffer->beginLightingPass(lights, camera->position, ssao->ssaoColorBufferBlur);
 			gBuffer->endLightingPass();
 		}
 
-
+		// 7. Skybox draw
 		{
 
 			rmt_ScopedCPUSample(SkyboxUpdate, 0);
@@ -409,7 +424,7 @@ int main() {
 
 			skybox->draw(skyShader, camera);
 		}
-
+		
 		if (world->getIsDebugRenderingEnabled()) {
 
 			rmt_ScopedCPUSample(PhysicsRender, 0);

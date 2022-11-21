@@ -8,6 +8,7 @@ in Vertex {
 uniform sampler2D gPosition;
 uniform sampler2D gNormal;
 uniform sampler2D gAlbedoSpec;
+uniform sampler2D ssao;
 
 struct Light {
     vec3 Position;
@@ -29,8 +30,9 @@ void main()
     vec3 Normal = texture(gNormal, vertex.texCoord).rgb;
     vec3 Diffuse = texture(gAlbedoSpec, vertex.texCoord).rgb;
     float Specular = texture(gAlbedoSpec, vertex.texCoord).a;
+    float AmbientOcclusion = texture(ssao, vertex.texCoord).r;
     
-    vec3 lighting  = Diffuse * 0.4;
+    vec3 lighting  = Diffuse * 0.4 * AmbientOcclusion;
     vec3 viewDir  = normalize(viewPos - FragPos);
     for(int i = 0; i < nbLights && i < NR_LIGHTS; ++i)
     {

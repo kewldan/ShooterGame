@@ -61,7 +61,7 @@ add_executable(${PROJECT_NAME}
         Skybox.h Skybox.cpp
         Minimap.h Minimap.cpp
         GBuffer.h GBuffer.cpp
-)
+ "SSAO.cpp" "SSAO.h")
 
 set(GAME_LIBRARIES glfw3 opengl32 gdi32 Ws2_32 assimp::assimp)
 
