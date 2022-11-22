@@ -84,7 +84,7 @@ const std::regex ip_regex("(^((25[0-5]|(2[0-4]|1\\d|[1-9]|)\\d)\\.?\\b){4}$)");
 
 Chat* Chat::i = nullptr;
 
-bool hasRifle = true, vsync, physicsDebugRender, console_open, castShadows, show_minimap = true;
+bool hasRifle = true, vsync, physicsDebugRender, console_open, castShadows, show_minimap = true, show_ssao;
 
 struct Enemy {
 	int id;
@@ -170,6 +170,7 @@ int main() {
 	plog::init(plog::debug, "latest.log");
 
 	window = new Window();
+	window->setVsync(vsync);
 
 	glfwSetKeyCallback(window->getId(), key_callback);
 	glfwSetMouseButtonCallback(window->getId(), mouse_button_callback);
@@ -240,14 +241,6 @@ int main() {
 	ssao = new SSAO("./data/shaders/ssao", "./data/shaders/ssaoBlur", window->width, window->height);
 
 	lights = new std::vector<Light>();
-	for (int i = 0; i < 31; i++) {
-		lights->push_back(
-			{
-				glm::vec3(0, 0, 0),
-				glm::vec3(10, 1, 0)
-			}
-		);
-	}
 
 	client = new Client();
 	nickname = new char[64];
@@ -379,6 +372,7 @@ int main() {
 
 		if (windowResized) {
 			gBuffer->resize(window->width, window->height);
+			ssao->resize(window->width, window->height);
 		}
 
 		// 3. Geometry pass [GBuffer]
@@ -398,11 +392,13 @@ int main() {
 			gBuffer->endGeometryPass();
 		}
 
-		// 4. SSAO pass [SSAO]
-		ssao->renderSSAOTexture(gBuffer->gPosition, gBuffer->gNormal, camera->getPerspective());
+		if (show_ssao) {
+			// 4. SSAO pass [SSAO]
+			ssao->renderSSAOTexture(gBuffer->gPosition, gBuffer->gNormal, camera);
 
-		// 5. SSAO blur [SSAO]
-		ssao->blurSSAOTexture();
+			// 5. SSAO blur [SSAO]
+			ssao->blurSSAOTexture();
+		}
 
 		window->reset();
 
@@ -413,6 +409,7 @@ int main() {
 			rmt_ScopedOpenGLSample(RenderGPU);
 
 			Shader* s = gBuffer->beginLightingPass(lights, camera->position, ssao->ssaoColorBufferBlur);
+			s->upload("SSAO", show_ssao ? 1 : 0);
 			gBuffer->endLightingPass();
 		}
 
@@ -498,6 +495,7 @@ int main() {
 					world->setIsDebugRenderingEnabled(physicsDebugRender);
 				}
 				ImGui::Checkbox("Cast shadows", &castShadows);
+				ImGui::Checkbox("SSAO", &show_ssao);
 				ImGui::Checkbox("Show minimap", &show_minimap);
 				if (show_minimap) {
 					ImGui::Image((void*)(intptr_t)minimap->map, ImVec2(512, 512), ImVec2(0, 1), ImVec2(1, 0));

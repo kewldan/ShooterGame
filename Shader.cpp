@@ -14,6 +14,7 @@ Shader::Shader(const char* filename) {
 	vertex = -1;
 	geometry = -1;
 	fragment = -1;
+	blockIndex = 0;
 	
 	char* path = new char[128];
 	strcpy(path, filename);
@@ -109,11 +110,16 @@ Shader::Shader(const char* filename) {
 
 	glLinkProgram(program);
 	glObjectLabelBuild(GL_PROGRAM, program, "Program", filename);
-	PLOG_INFO << "Shader [" << filename << "] linked ["
-		<< ((shaderParts & SHADER_PART_VERTEX) != 0 ? 'V' : '\0')
-		<< ((shaderParts & SHADER_PART_GEOMETRY) != 0 ? 'G' : '\0')
-		<< ((shaderParts & SHADER_PART_FRAGMENT) != 0 ? 'F' : '\0')
-		<< ']';
+	if(shaderParts == 0){
+		PLOGW << "Empty shader [" << filename << "] linked";
+	}
+	else {
+		PLOGI << "Shader [" << filename << "] linked ["
+			<< ((shaderParts & SHADER_PART_VERTEX) != 0 ? 'V' : '\0')
+			<< ((shaderParts & SHADER_PART_GEOMETRY) != 0 ? 'G' : '\0')
+			<< ((shaderParts & SHADER_PART_FRAGMENT) != 0 ? 'F' : '\0')
+			<< ']';
+	}
 }
 
 GLuint Shader::getProgramId() const {
@@ -200,6 +206,13 @@ void Shader::draw(Model* model) const {
 	}
 }
 
+void Shader::bindUniformBlock(const char* name, UniformBlock* block)
+{
+	unsigned int uniformBlockIndexRed = glGetUniformBlockIndex(program, "Matrices");
+
+	glUniformBlockBinding(program, uniformBlockIndexRed, ++blockIndex);
+}
+
 void Shader::upload(const  char* name, float x, float y) const {
 	glUniform2f(getUniformLocation(name), x, y);
 }
@@ -210,4 +223,21 @@ void Shader::upload(const  char* name, float x, float y, float z) const {
 
 void Shader::upload(const  char* name, float x, float y, float z, float w) const {
 	glUniform4f(getUniformLocation(name), x, y, z, w);
+}
+
+UniformBlock::UniformBlock(unsigned int size)
+{
+	glGenBuffers(1, &block);
+	glBindBuffer(GL_UNIFORM_BUFFER, block);
+	glBufferData(GL_UNIFORM_BUFFER, size, NULL, GL_STATIC_DRAW);
+	glBindBuffer(GL_UNIFORM_BUFFER, 0);
+	glBindBufferRange(GL_UNIFORM_BUFFER, 0, block, 0, size);
+	glBindBuffer(GL_UNIFORM_BUFFER, block);
+	offset = 0;
+}
+
+void UniformBlock::add(unsigned int size, void* value)
+{
+	glBufferSubData(GL_UNIFORM_BUFFER, offset, size, value);
+	offset += size;
 }

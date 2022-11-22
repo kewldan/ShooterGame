@@ -13,13 +13,14 @@ class SSAO {
 	Shader* ssaoShader, * ssaoBlurShader;
 	std::uniform_real_distribution<GLfloat> randomFloats; // generates random floats between 0.0 and 1.0
 	std::default_random_engine generator;
-	std::vector<glm::vec3> ssaoKernel;
-	std::vector<glm::vec3> ssaoNoise;
+	glm::vec3* kernel, *noise;
+	UniformBlock* samplesBlock;
 public:
 	unsigned int ssaoColorBufferBlur;
 	SSAO(const char* ssaoShaderPath, const char* ssaoBlurShaderPath, int width, int height);
-	void renderSSAOTexture(unsigned int gPosition, unsigned int gNormal, glm::mat4 proj);
+	void renderSSAOTexture(unsigned int gPosition, unsigned int gNormal, Camera* camera);
 	void blurSSAOTexture();
+	void resize(int nw, int nh);
 };
 
 #endif

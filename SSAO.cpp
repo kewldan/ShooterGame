@@ -43,8 +43,7 @@ SSAO::SSAO(const char* ssaoShaderPath, const char* ssaoBlurShaderPath, int width
 	// ----------------------
 	randomFloats = std::uniform_real_distribution<GLfloat>(0.f, 1.f);
 	generator = std::default_random_engine();
-	ssaoKernel = std::vector<glm::vec3>();
-	ssaoNoise = std::vector<glm::vec3>();
+	kernel = new glm::vec3[64];
 	for (unsigned int i = 0; i < 64; ++i)
 	{
 		glm::vec3 sample(randomFloats(generator) * 2.0 - 1.0, randomFloats(generator) * 2.0 - 1.0, randomFloats(generator));
@@ -55,20 +54,20 @@ SSAO::SSAO(const char* ssaoShaderPath, const char* ssaoBlurShaderPath, int width
 		// scale samples s.t. they're more aligned to center of kernel
 		scale = ourLerp(0.1f, 1.0f, scale * scale);
 		sample *= scale;
-		ssaoKernel.push_back(sample);
+		kernel[i] = sample;
 	}
 
 	// generate noise texture
 	// ----------------------
+	noise = new glm::vec3[16];
 	for (unsigned int i = 0; i < 16; i++)
 	{
-		glm::vec3 noise(randomFloats(generator) * 2.0 - 1.0, randomFloats(generator) * 2.0 - 1.0, 0.0f); // rotate around z-axis (in tangent space)
-		ssaoNoise.push_back(noise);
+		noise[i] = glm::vec3(randomFloats(generator) * 2.0 - 1.0, randomFloats(generator) * 2.0 - 1.0, 0.0f);
 	}
 	glGenTextures(1, &noiseTexture);
 	glBindTexture(GL_TEXTURE_2D, noiseTexture);
 	glObjectLabelBuild(GL_TEXTURE, noiseTexture, "Texture", "SSAO noise");
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, 4, 4, 0, GL_RGB, GL_FLOAT, &ssaoNoise[0]);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, 4, 4, 0, GL_RGB, GL_FLOAT, noise);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -76,6 +75,9 @@ SSAO::SSAO(const char* ssaoShaderPath, const char* ssaoBlurShaderPath, int width
 
 	ssaoShader = new Shader(ssaoShaderPath);
 	ssaoBlurShader = new Shader(ssaoBlurShaderPath);
+	samplesBlock = new UniformBlock(64 * sizeof(glm::vec3));
+	samplesBlock->add(64 * sizeof(glm::vec3), kernel);
+	ssaoShader->bindUniformBlock("Kernel", samplesBlock);
 
 	float quadVertices[] = {
 		// positions        // texture Coords
@@ -96,21 +98,17 @@ SSAO::SSAO(const char* ssaoShaderPath, const char* ssaoBlurShaderPath, int width
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
 }
 
-#define SAMPLE_PATH(i) char* sample = new char[256];strcpy(sample, "samples[");char* n = new char[8];itoa(i, n, 10);strcat(sample, n);strcat(sample, "]");
-
-void SSAO::renderSSAOTexture(unsigned int gPosition, unsigned int gNormal, glm::mat4 proj)
+void SSAO::renderSSAOTexture(unsigned int gPosition, unsigned int gNormal, Camera* camera)
 {
 	glBindFramebuffer(GL_FRAMEBUFFER, ssaoFBO);
 	glClear(GL_COLOR_BUFFER_BIT);
 	ssaoShader->bind();
-	for (unsigned int i = 0; i < 64; ++i) {
-		SAMPLE_PATH(i);
-		ssaoShader->upload(sample, ssaoKernel[i]);
-	}
-	ssaoShader->upload("proj", proj);
+	ssaoShader->upload("proj", camera->getPerspective());
+	ssaoShader->upload("view", camera->getView());
 	ssaoShader->upload("gPosition", 0);
 	ssaoShader->upload("gNormal", 1);
 	ssaoShader->upload("texNoise", 2);
+	ssaoShader->upload("noiseScale", glm::vec2(w / 4.f, h / 4.f));
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, gPosition);
 	glActiveTexture(GL_TEXTURE1);
@@ -138,4 +136,16 @@ void SSAO::blurSSAOTexture()
 	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+void SSAO::resize(int nw, int nh)
+{
+	w = nw;
+	h = nh;
+
+	glBindTexture(GL_TEXTURE_2D, ssaoColorBuffer);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, w, h, 0, GL_RED, GL_FLOAT, NULL);
+
+	glBindTexture(GL_TEXTURE_2D, ssaoColorBufferBlur);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, w, h, 0, GL_RED, GL_FLOAT, NULL);
 }

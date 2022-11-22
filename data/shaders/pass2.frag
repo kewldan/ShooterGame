@@ -23,6 +23,7 @@ const int NR_LIGHTS = 32;
 uniform int nbLights;
 uniform Light lights[NR_LIGHTS];
 uniform vec3 viewPos;
+uniform int SSAO;
 
 void main()
 {             
@@ -30,7 +31,7 @@ void main()
     vec3 Normal = texture(gNormal, vertex.texCoord).rgb;
     vec3 Diffuse = texture(gAlbedoSpec, vertex.texCoord).rgb;
     float Specular = texture(gAlbedoSpec, vertex.texCoord).a;
-    float AmbientOcclusion = texture(ssao, vertex.texCoord).r;
+    float AmbientOcclusion = SSAO == 1 ? texture(ssao, vertex.texCoord).r : 1;
     
     vec3 lighting  = Diffuse * 0.4 * AmbientOcclusion;
     vec3 viewDir  = normalize(viewPos - FragPos);

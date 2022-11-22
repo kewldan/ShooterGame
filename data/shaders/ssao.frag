@@ -7,17 +7,20 @@ uniform sampler2D gPosition;
 uniform sampler2D gNormal;
 uniform sampler2D texNoise;
 
-uniform vec3 samples[64];
+layout (std140) uniform Kernel
+{
+    vec3 samples[64];
+};
 
 // parameters (you'd probably want to use them as uniforms to more easily tweak the effect)
 int kernelSize = 64;
 float radius = 0.5;
-float bias = 0.025;
+float bias = 0.25;
 
 // tile noise texture over screen based on screen dimensions divided by noise size
-const vec2 noiseScale = vec2(800.0/4.0, 600.0/4.0); 
+uniform vec2 noiseScale; 
 
-uniform mat4 proj;
+uniform mat4 proj, view;
 
 void main()
 {

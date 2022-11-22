@@ -11,6 +11,14 @@
 #include <map>
 #include <plog/Log.h>
 
+class UniformBlock {
+	unsigned int block;
+	unsigned int offset;
+public:
+	UniformBlock(unsigned int size);
+	void add(unsigned int size, void* value);
+};
+
 class Hashtable {
 	std::unordered_map<const char*, int> htmap;
 
@@ -30,7 +38,7 @@ public:
 };
 
 class Shader {
-	unsigned int vertex, fragment, geometry, program;
+	unsigned int vertex, fragment, geometry, program, blockIndex;
 	Hashtable* uniforms;
 	int8_t shaderParts;
 	const char* filename;
@@ -68,6 +76,8 @@ public:
 	void uploadMat4(const char* name, float* value) const;
 
 	void draw(Model* model) const;
+
+	void bindUniformBlock(const char* name, UniformBlock* block);
 };
 
 
