@@ -43,10 +43,9 @@ SSAO::SSAO(const char* ssaoShaderPath, const char* ssaoBlurShaderPath, int width
 	// ----------------------
 	randomFloats = std::uniform_real_distribution<GLfloat>(0.f, 1.f);
 	generator = std::default_random_engine();
-	kernel = new glm::vec3[64];
 	for (unsigned int i = 0; i < 64; ++i)
 	{
-		glm::vec3 sample(randomFloats(generator) * 2.0 - 1.0, randomFloats(generator) * 2.0 - 1.0, randomFloats(generator));
+		glm::vec4 sample(randomFloats(generator) * 2.0 - 1.0, randomFloats(generator) * 2.0 - 1.0, randomFloats(generator), 0);
 		sample = glm::normalize(sample);
 		sample *= randomFloats(generator);
 		float scale = float(i) / 64.0f;
@@ -59,7 +58,6 @@ SSAO::SSAO(const char* ssaoShaderPath, const char* ssaoBlurShaderPath, int width
 
 	// generate noise texture
 	// ----------------------
-	noise = new glm::vec3[16];
 	for (unsigned int i = 0; i < 16; i++)
 	{
 		noise[i] = glm::vec3(randomFloats(generator) * 2.0 - 1.0, randomFloats(generator) * 2.0 - 1.0, 0.0f);
@@ -75,9 +73,9 @@ SSAO::SSAO(const char* ssaoShaderPath, const char* ssaoBlurShaderPath, int width
 
 	ssaoShader = new Shader(ssaoShaderPath);
 	ssaoBlurShader = new Shader(ssaoBlurShaderPath);
-	samplesBlock = new UniformBlock(64 * sizeof(glm::vec3));
-	samplesBlock->add(64 * sizeof(glm::vec3), kernel);
-	ssaoShader->bindUniformBlock("Kernel", samplesBlock);
+	ssaoShader->bindUniformBlock("SamplesUniform");
+	samplesBlock = new UniformBlock(64 * sizeof(glm::vec4));
+	samplesBlock->add(64 * sizeof(glm::vec4), kernel);
 
 	float quadVertices[] = {
 		// positions        // texture Coords
@@ -104,7 +102,6 @@ void SSAO::renderSSAOTexture(unsigned int gPosition, unsigned int gNormal, Camer
 	glClear(GL_COLOR_BUFFER_BIT);
 	ssaoShader->bind();
 	ssaoShader->upload("proj", camera->getPerspective());
-	ssaoShader->upload("view", camera->getView());
 	ssaoShader->upload("gPosition", 0);
 	ssaoShader->upload("gNormal", 1);
 	ssaoShader->upload("texNoise", 2);

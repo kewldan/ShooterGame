@@ -12,9 +12,9 @@
 #include <plog/Log.h>
 
 class UniformBlock {
-	unsigned int block;
 	unsigned int offset;
 public:
+	unsigned int block;
 	UniformBlock(unsigned int size);
 	void add(unsigned int size, void* value);
 };
@@ -77,7 +77,7 @@ public:
 
 	void draw(Model* model) const;
 
-	void bindUniformBlock(const char* name, UniformBlock* block);
+	void bindUniformBlock(const char* name);
 };
 
 

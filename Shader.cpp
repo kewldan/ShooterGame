@@ -206,11 +206,10 @@ void Shader::draw(Model* model) const {
 	}
 }
 
-void Shader::bindUniformBlock(const char* name, UniformBlock* block)
+void Shader::bindUniformBlock(const char* name)
 {
-	unsigned int uniformBlockIndexRed = glGetUniformBlockIndex(program, "Matrices");
-
-	glUniformBlockBinding(program, uniformBlockIndexRed, ++blockIndex);
+	unsigned int bindingPoint = glGetUniformBlockIndex(program, name);
+	glUniformBlockBinding(program, bindingPoint, blockIndex++);
 }
 
 void Shader::upload(const  char* name, float x, float y) const {

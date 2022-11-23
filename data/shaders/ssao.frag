@@ -1,4 +1,4 @@
-#version 330
+#version 330 core
 out float FragColor;
 
 in vec2 TexCoords;
@@ -7,7 +7,7 @@ uniform sampler2D gPosition;
 uniform sampler2D gNormal;
 uniform sampler2D texNoise;
 
-layout (std140) uniform Kernel
+layout (std140) uniform SamplesUniform
 {
     vec3 samples[64];
 };
@@ -20,7 +20,7 @@ float bias = 0.25;
 // tile noise texture over screen based on screen dimensions divided by noise size
 uniform vec2 noiseScale; 
 
-uniform mat4 proj, view;
+uniform mat4 proj;
 
 void main()
 {

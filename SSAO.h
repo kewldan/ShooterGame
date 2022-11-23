@@ -13,7 +13,8 @@ class SSAO {
 	Shader* ssaoShader, * ssaoBlurShader;
 	std::uniform_real_distribution<GLfloat> randomFloats; // generates random floats between 0.0 and 1.0
 	std::default_random_engine generator;
-	glm::vec3* kernel, *noise;
+	glm::vec4 kernel[64];
+	glm::vec3 noise[16];
 	UniformBlock* samplesBlock;
 public:
 	unsigned int ssaoColorBufferBlur;
