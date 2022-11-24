@@ -1,7 +1,7 @@
 #ifndef SHOOTERGAME_SKYBOX_H
 #define SHOOTERGAME_SKYBOX_H
 
-#include "glad/gl.h"
+#include "glad/glad.h"
 #include "plog/Log.h"
 #include "MyMesh.h"
 #include "Shader.h"

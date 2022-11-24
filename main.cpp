@@ -43,7 +43,19 @@ void GLAPIENTRY MessageCallback(GLenum source,
 	const GLchar* message,
 	const void* userParam) {
 	if (severity != GL_DEBUG_SEVERITY_NOTIFICATION) {
-		PLOGE << "OGL: " << " type = " << type << ", severity = " << severity << ", message = " << message;
+
+
+	}
+	switch (severity) {
+	case GL_DEBUG_SEVERITY_LOW:
+		PLOGE << "OpenGL: " << message << " [" << type << "] (L)";
+		break;
+	case GL_DEBUG_SEVERITY_MEDIUM:
+		PLOGE << "OpenGL: " << message << " [" << type << "] (M)";
+		break;
+	case GL_DEBUG_SEVERITY_HIGH:
+		PLOGE << "OpenGL: " << message << " [" << type << "] (H)";
+		break;
 	}
 }
 #endif
@@ -96,8 +108,8 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 		if (key == GLFW_KEY_E) {
 			if (hasRifle) {
 				sniperRifle->rb->setType(BodyType::DYNAMIC);
-				BoxShape* sniperShape = physicsCommon.createBoxShape(Vector3(0.12f, 0.587f, 2.7f));
-				Transform colliderOffset = Transform(Vector3(0, -0.08f, -0.36f), Quaternion::identity());
+				BoxShape* sniperShape = physicsCommon.createBoxShape(Vector3(0.17f, 0.75f, 1.07f));
+				Transform colliderOffset = Transform(Vector3(0, -0.34f, 0.13f), Quaternion::identity());
 				sniperRifle->rb->addCollider(sniperShape, colliderOffset);
 				sniperRifle->rb->setMass(1);
 				Vector3 position(
@@ -188,6 +200,7 @@ int main() {
 	world = physicsCommon.createPhysicsWorld();
 
 	DebugRenderer& debugRenderer = world->getDebugRenderer();
+	debugRenderer.reset();
 	debugRenderer.setIsDebugItemDisplayed(DebugRenderer::DebugItem::COLLISION_SHAPE, true);
 	world->setIsDebugRenderingEnabled(false);
 
@@ -202,7 +215,7 @@ int main() {
 	shadows = new ShadowsCaster(4096, 4096, "./data/shaders/depth", lightPos);
 
 	map = new Model("./data/meshes/dust.obj", world, &physicsCommon, true);
-	sniperRifle = new Model("./data/meshes/sniper.obj", world, &physicsCommon);
+	sniperRifle = new Model("./data/meshes/G17.obj", world, &physicsCommon);
 	sniperRifle->rb->setType(BodyType::STATIC);
 
 	int nb = -1;
@@ -258,10 +271,14 @@ int main() {
 			{
 				rmt_ScopedCPUSample(IOEvents, 0);
 
-				camera->pollEvents(window, player->rb);
+				{
+					rmt_ScopedCPUSample(CameraIOEvents, 0);
+					camera->pollEvents(window, player->rb);
+				}
 
 				if (hasRifle) {
-					Vector3 newPos(camera->position.x + std::cos(camera->rotation.y) * 0.9f, camera->position.y - 0.4f, camera->position.z + std::sin(camera->rotation.y) * 0.9f);
+					rmt_ScopedCPUSample(StaticPositionsCalculating, 0);
+					Vector3 newPos(camera->position.x + std::cos(camera->rotation.y) * 0.9f, camera->position.y - 0.5f, camera->position.z + std::sin(camera->rotation.y) * 0.9f);
 					sniperRifle->rb->setTransform(Transform(newPos, Quaternion::fromEulerAngles(-camera->rotation.x, -camera->rotation.y, 0)));
 				}
 			}
@@ -371,6 +388,7 @@ int main() {
 		}
 
 		if (windowResized) {
+			rmt_ScopedCPUSample(BufferResizing, 0);
 			gBuffer->resize(window->width, window->height);
 			ssao->resize(window->width, window->height);
 		}
@@ -393,6 +411,8 @@ int main() {
 		}
 
 		if (show_ssao) {
+			rmt_ScopedCPUSample(SSAOUpdate, 0);
+			rmt_ScopedOpenGLSample(SSAOGPU);
 			// 4. SSAO pass [SSAO]
 			ssao->renderSSAOTexture(gBuffer->gPosition, gBuffer->gNormal, camera);
 
@@ -421,58 +441,40 @@ int main() {
 
 			skybox->draw(skyShader, camera);
 		}
-		
+
 		if (world->getIsDebugRenderingEnabled()) {
 
 			rmt_ScopedCPUSample(PhysicsRender, 0);
 			rmt_ScopedOpenGLSample(PhysicsRenderGPU);
 
+			static unsigned int VAO = -1, VBO;
+
+			if (VAO == -1) {
+				glGenVertexArrays(1, &VAO);
+				glBindVertexArray(VAO);
+
+				glObjectLabelBuild(GL_VERTEX_ARRAY, VAO, "VAO", "Debug");
+
+				glGenBuffers(1, &VBO);
+				glBindBuffer(GL_ARRAY_BUFFER, VBO);
+				glObjectLabelBuild(GL_BUFFER, VBO, "VBO", "Debug");
+
+				glEnableVertexAttribArray(0);
+				glVertexAttribPointer(0, 3, GL_FLOAT, false,
+					4 * sizeof(float), nullptr);
+			}
+
 			{
-				int verticesCount = debugRenderer.getNbTriangles() * 9;
+				int verticesCount = debugRenderer.getNbTriangles() * 12;
 				if (verticesCount > 0) {
-					float* vertices = new float[verticesCount];
-					for (int i = 0; i < debugRenderer.getNbTriangles(); i++) {
-						DebugRenderer::DebugTriangle t = debugRenderer.getTriangles()[i];
-						vertices[i * 9] = t.point1.x;
-						vertices[i * 9 + 1] = t.point1.y;
-						vertices[i * 9 + 2] = t.point1.z;
-
-						vertices[i * 9 + 3] = t.point2.x;
-						vertices[i * 9 + 4] = t.point2.y;
-						vertices[i * 9 + 5] = t.point2.z;
-
-						vertices[i * 9 + 6] = t.point3.x;
-						vertices[i * 9 + 7] = t.point3.y;
-						vertices[i * 9 + 8] = t.point3.z;
-					}
-
-					static unsigned int VAO = -1, VBO;
-
-					if (VAO == -1) {
-						glGenVertexArrays(1, &VAO);
-						glBindVertexArray(VAO);
-
-						glObjectLabelBuild(GL_VERTEX_ARRAY, VAO, "VAO", "Debug");
-
-						glGenBuffers(1, &VBO);
-						glBindBuffer(GL_ARRAY_BUFFER, VBO);
-						glObjectLabelBuild(GL_BUFFER, VBO, "VBO", "Debug");
-						glBufferData(GL_ARRAY_BUFFER, verticesCount * sizeof(float), vertices, GL_DYNAMIC_DRAW);
-						glEnableVertexAttribArray(0);
-						glVertexAttribPointer(0, 3, GL_FLOAT, false,
-							3 * sizeof(float), (void*)0);
-					}
-					else {
-						glBindVertexArray(VAO);
-						glBindBuffer(GL_ARRAY_BUFFER, VBO);
-						glBufferData(GL_ARRAY_BUFFER, verticesCount * sizeof(float), vertices, GL_DYNAMIC_DRAW);
-					}
+					glBindVertexArray(VAO);
+					glBindBuffer(GL_ARRAY_BUFFER, VBO);
+					glBufferData(GL_ARRAY_BUFFER, verticesCount * sizeof(float), debugRenderer.getTrianglesArray(), GL_DYNAMIC_DRAW);
 
 					debugShader->bind();
 					debugShader->upload("proj", camera->getPerspective());
 					debugShader->upload("view", camera->getView());
 					glDrawArrays(GL_TRIANGLES, 0, verticesCount);
-					delete[] vertices;
 				}
 			}
 		}
@@ -494,8 +496,23 @@ int main() {
 				if (ImGui::Checkbox("Debug render", &physicsDebugRender)) {
 					world->setIsDebugRenderingEnabled(physicsDebugRender);
 				}
+				if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+					ImGui::BeginTooltip();
+					ImGui::Text("Physics debug colliders render");
+					ImGui::EndTooltip();
+				}
 				ImGui::Checkbox("Cast shadows", &castShadows);
+				if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+					ImGui::BeginTooltip();
+					ImGui::Text("WIP");
+					ImGui::EndTooltip();
+				}
 				ImGui::Checkbox("SSAO", &show_ssao);
+				if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+					ImGui::BeginTooltip();
+					ImGui::Text("WIP", ip);
+					ImGui::EndTooltip();
+				}
 				ImGui::Checkbox("Show minimap", &show_minimap);
 				if (show_minimap) {
 					ImGui::Image((void*)(intptr_t)minimap->map, ImVec2(512, 512), ImVec2(0, 1), ImVec2(1, 0));
@@ -513,7 +530,17 @@ int main() {
 					ImGui::BeginDisabled();
 				}
 				ImGui::InputText("IP", ip, 16, ImGuiInputTextFlags_NoHorizontalScroll | ImGuiInputTextFlags_CharsScientific);
+				if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+					ImGui::BeginTooltip();
+					ImGui::Text("IPv4 address\nFormat: XXX.XXX.XXX.XXX\nDont use \"localhost\"\nInstead use: 127.0.0.1");
+					ImGui::EndTooltip();
+				}
 				ImGui::InputText("Nickname", nickname, 32, ImGuiInputTextFlags_NoHorizontalScroll);
+				if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+					ImGui::BeginTooltip();
+					ImGui::Text("Dont use \"Server\"\nand reserved nicknames");
+					ImGui::EndTooltip();
+				}
 				if (client->isConnected()) {
 					ImGui::EndDisabled();
 				}
@@ -524,7 +551,7 @@ int main() {
 
 				if (ImGui::Button(client->isConnected() ? "Disconnect" : "Connect", ImVec2(270, 20))) {
 					if (!client->isConnected()) {
-						client->connectToHost(ip, 23403);
+						client->connectToHost(ip, NETWORKING_PORT);
 						if (client->isConnected()) {
 							client->sendHandshake(nickname);
 						}
@@ -532,6 +559,11 @@ int main() {
 					else {
 						client->disconnectFromHost();
 					}
+				}
+				if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+					ImGui::BeginTooltip();
+					ImGui::Text("Connnect to %s:%d\nMay take up\nto 3 seconds", ip, NETWORKING_PORT);
+					ImGui::EndTooltip();
 				}
 
 				if (!std::regex_match(ip, ip_regex) && !client->isConnected()) {
@@ -551,9 +583,11 @@ int main() {
 
 					rmt_ScopedCPUSample(HUD_DebugOverlay, 0);
 
-					ImGui::Text("https://github.com/kewldan/");
-					ImGui::Text("Version: 58");
-					ImGui::Text("");
+					ImGui::Text("Shooter game by kewldan (CR63)");
+					if (ImGui::IsItemClicked()) {
+						::ShellExecuteA(NULL, "open", "https://github.com/kewldan/", NULL, NULL, SW_SHOWDEFAULT);
+					}
+					ImGui::NewLine();
 
 					int b;
 					glGetIntegerv(GL_CONTEXT_PROFILE_MASK, &b);
@@ -562,17 +596,15 @@ int main() {
 					glGetIntegerv(GL_MAJOR_VERSION, &major);
 					glGetIntegerv(GL_MINOR_VERSION, &minor);
 					ImGui::Text("OpenGL: %d.%d (%s)", major, minor, b == GL_CONTEXT_CORE_PROFILE_BIT ? "CORE" : "COMPABILITY");
-					ImGui::Text("GPU: %s", (const char*)glGetString(GL_RENDERER));
 
-					int VRAM_CURRENT, VRAM_TOTAL;
+					static const char* renderer = (const char*)glGetString(GL_RENDERER);
+					ImGui::Text("GPU: %s", renderer);
+
+					static int VRAM_CURRENT, VRAM_TOTAL;
 					glGetIntegerv(GL_GPU_MEMORY_INFO_CURRENT_AVAILABLE_VIDMEM_NVX, &VRAM_CURRENT);
 					glGetIntegerv(GL_GPU_MEMORY_INFO_TOTAL_AVAILABLE_MEMORY_NVX, &VRAM_TOTAL);
 
 					ImGui::Text("VRAM: %.0f / %.0f (%.1f%%)", (VRAM_TOTAL - VRAM_CURRENT) / 1024.f, VRAM_TOTAL / 1024.f, 100.f / (VRAM_TOTAL / (float)(VRAM_TOTAL - VRAM_CURRENT)));
-
-					int max_texture_size;
-					glGetIntegerv(GL_MAX_TEXTURE_SIZE, &max_texture_size);
-					ImGui::Text("Max texture size: %d", max_texture_size);
 
 					ImGui::Text("Screen: %dx%d", window->width, window->height);
 					ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
@@ -625,10 +657,10 @@ int main() {
 						ImGui::Text("");
 						ImGui::Text("Name: %s", "AK-47");
 						ImGui::Text("Ammo: %d / %d", 17, 30);
-				}
+					}
 					ImGui::End();
 					ImGui::PopStyleVar();
-			}
+				}
 
 				if (console_open) {
 					Chat::i->Draw();
@@ -639,11 +671,10 @@ int main() {
 					}
 					memset(Chat::i->buffer, 0, 256);
 				}
-		}
+			}
 			hud->end();
+		}
 	}
-}
-
 	physicsCommon.destroyPhysicsWorld(world);
 
 #ifdef RMT_PROFILER

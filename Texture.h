@@ -1,7 +1,7 @@
 #ifndef SHOOTERGAME_TEXTURE_H
 #define SHOOTERGAME_TEXTURE_H
 
-#include "glad/gl.h"
+#include "glad/glad.h"
 #include <string>
 #include "plog/Log.h"
 

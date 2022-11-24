@@ -1,7 +1,7 @@
 #ifndef OPENGL_MESH_H
 #define OPENGL_MESH_H
 
-#include "glad/gl.h"
+#include "glad/glad.h"
 #include <vector>
 #include "plog/Log.h"
 #include "Texture.h"

@@ -5,6 +5,7 @@ project(ShooterGame)
 
 # Enables profiler in browser
 set(PROFILER_ENABLE 0)
+set(NETWORKING_PORT 23403)
 
 # ########
 
@@ -40,10 +41,12 @@ else()
     set(PROFILER_SOURCES )
 endif()
 
+add_definitions(-DNETWORKING_PORT=${NETWORKING_PORT})
+
 ##########
 
 add_executable(${PROJECT_NAME}
-        ${LIBRARIES_PATH}/glad/src/gl.c
+        ${LIBRARIES_PATH}/glad/src/glad.c
         ${PROFILER_SOURCES}
         ${IMGUI_SOURCES}
 

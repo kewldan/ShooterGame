@@ -1,7 +1,7 @@
 #ifndef OPENGL_SHADER_H
 #define OPENGL_SHADER_H
 
-#include "glad/gl.h"
+#include "glad/glad.h"
 #include "Camera.h"
 #include "Model.h"
 #include <string>
@@ -10,6 +10,11 @@
 #include <iostream>
 #include <map>
 #include <plog/Log.h>
+#ifdef RMT_PROFILER
+#include "Remotery.h"
+#else
+#define rmt_ScopedCPUSample(n, n1)
+#endif
 
 class UniformBlock {
 	unsigned int offset;

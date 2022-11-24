@@ -140,7 +140,7 @@ GLint Shader::getUniformLocation(const char* name) const {
 	}
 	GLint value = glGetUniformLocation(program, name);
 	if (value == -1) {
-		PLOGE << "Uniform location in shader not found > " << name;
+		PLOGE << "Uniform location in shader [" << filename << "] not found > " << name;
 	}
 	uniforms->put(name, value);
 	return value;

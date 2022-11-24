@@ -3,6 +3,11 @@
 
 #include "Shader.h"
 #include <random>
+#ifdef RMT_PROFILER
+#include "Remotery.h"
+#else
+#define rmt_ScopedCPUSample(n, n1)
+#endif
 
 class SSAO {
 	int w, h;

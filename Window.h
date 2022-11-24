@@ -3,7 +3,7 @@
 
 #include <cstdlib>
 #include <iostream>
-#include "glad/gl.h"
+#include "glad/glad.h"
 
 #define GLFW_INCLUDE_NONE
 

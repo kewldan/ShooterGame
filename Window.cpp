@@ -19,8 +19,8 @@ Window::Window(int w, int h, const char* title) {
 	ratio = 1;
 
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-	glfwWindowHint(GLFW_SAMPLES, 0);
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 	window = glfwCreateWindow(w, h, title, nullptr, nullptr);
 	if (!window) {
@@ -31,10 +31,9 @@ Window::Window(int w, int h, const char* title) {
 	glfwMakeContextCurrent(window);
 
 	if (!glfwInitialized) {
-		PLOG_INFO << "GLAD loaded";
-		int version = gladLoadGL(glfwGetProcAddress);
-		PLOGI << "GL " << GLAD_VERSION_MAJOR(version) << '.' << GLAD_VERSION_MINOR(version);
+		gladLoadGLLoader((GLADloadproc)glfwGetProcAddress);
 		glfwInitialized = true;
+		PLOGI << "GLAD loaded";
 	}
 
 	glEnable(GL_DEPTH_TEST);

@@ -1,7 +1,7 @@
 #ifndef SHOOTERGAME_SHADOWSCASTER_H
 #define SHOOTERGAME_SHADOWSCASTER_H
 
-#include "glad/gl.h"
+#include "glad/glad.h"
 #include "Shader.h"
 
 class ShadowsCaster {
