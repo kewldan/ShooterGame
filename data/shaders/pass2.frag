@@ -9,6 +9,7 @@ uniform sampler2D gPosition;
 uniform sampler2D gNormal;
 uniform sampler2D gAlbedoSpec;
 uniform sampler2D ssao;
+uniform sampler2D shadowMap;
 
 struct Light {
     vec3 Position;
@@ -22,8 +23,42 @@ struct Light {
 const int NR_LIGHTS = 32;
 uniform int nbLights;
 uniform Light lights[NR_LIGHTS];
-uniform vec3 viewPos;
-uniform int SSAO;
+uniform vec3 viewPos, lightPos;
+uniform int SSAO, CastShadows;
+uniform mat4 lightSpaceMat;
+
+float ShadowCalculation(vec3 in_normal, vec3 in_mvPos, vec4 in_fragPosLightSpace)
+{
+    vec3 projCoords = in_fragPosLightSpace.xyz / in_fragPosLightSpace.w;
+    projCoords = projCoords * 0.5 + 0.5;
+    float closestDepth = texture(shadowMap, projCoords.xy).r; 
+    // get depth of current fragment from light's perspective
+    float currentDepth = projCoords.z;
+    // calculate bias (based on depth map resolution and slope)
+    vec3 normal = normalize(in_normal);
+    vec3 lightDir = normalize(lightPos - in_mvPos);
+    //float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
+    // check whether current frag pos is in shadow
+    float bias = 0.02;
+    
+    // PCF
+    float shadow = 0.0;
+    vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
+    for(int x = -1; x <= 1; ++x)
+    {
+        for(int y = -1; y <= 1; ++y)
+        {
+            float pcfDepth = texture(shadowMap, projCoords.xy + vec2(x, y) * texelSize).r; 
+            shadow += currentDepth - bias > pcfDepth  ? 1.0 : 0.0;        
+        }    
+    }
+    shadow /= 9.0;
+    
+    if(projCoords.z > 1.0)
+        shadow = 0.0;
+        
+    return shadow;
+}
 
 void main()
 {             
@@ -34,6 +69,9 @@ void main()
     float AmbientOcclusion = SSAO == 1 ? texture(ssao, vertex.texCoord).r : 1;
     
     vec3 lighting  = Diffuse * 0.4 * AmbientOcclusion;
+    if(CastShadows == 1){
+        lighting *= 1.0 - ShadowCalculation(Normal, FragPos, lightSpaceMat * vec4(FragPos, 1));
+    }
     vec3 viewDir  = normalize(viewPos - FragPos);
     for(int i = 0; i < nbLights && i < NR_LIGHTS; ++i)
     {

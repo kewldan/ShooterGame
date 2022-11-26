@@ -1,6 +1,6 @@
 #include "ShadowsCaster.h"
 
-ShadowsCaster::ShadowsCaster(int width, int height, const char* shaderName, glm::vec3 position) {
+ShadowsCaster::ShadowsCaster(int width, int height, const char* shaderName, glm::vec3 position, float distance) {
 	w = width;
 	h = height;
 	glGenFramebuffers(1, &FBO);
@@ -23,20 +23,23 @@ ShadowsCaster::ShadowsCaster(int width, int height, const char* shaderName, glm:
 	glReadBuffer(GL_NONE);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+	proj = glm::ortho(-distance, distance, -distance, distance, 5.f, 50.f);
+
 	shader = new Shader(shaderName);
 	this->position = position;
 }
 
-Shader* ShadowsCaster::begin(glm::vec3 cam, float distance) {
-	glm::mat4 lightProjection = glm::ortho(-1.0f * distance, 1.0f * distance, -1.0f * distance, 1.0f * distance, 0.1f, 100.f);
-	glm::mat4 lightView = glm::lookAt(position+cam,
-		cam,
-		glm::vec3(0, 1, 0));
+Shader* ShadowsCaster::begin(glm::vec3 cam) {
+	const static glm::vec2 rotation = glm::vec2(1.1f, 0.4f);
 
+	view = glm::mat4(1);
+	view = glm::rotate(view, rotation.x, glm::vec3(1, 0, 0));
+	view = glm::rotate(view, rotation.y, glm::vec3(0, 1, 0));
+	view = glm::translate(view, -glm::vec3(cam.x + 5, 20 + cam.y, cam.z - 2));
 
-	lightSpaceMatrix = lightProjection * lightView;
+	lightSpaceMatrix = proj * view;
 
-	glCullFace(GL_FRONT);
+	glDisable(GL_CULL_FACE);
 	glViewport(0, 0, w, h);
 	glBindFramebuffer(GL_FRAMEBUFFER, FBO);
 	glClear(GL_DEPTH_BUFFER_BIT);
@@ -46,7 +49,7 @@ Shader* ShadowsCaster::begin(glm::vec3 cam, float distance) {
 }
 
 void ShadowsCaster::end() {
-	glCullFace(GL_BACK);
+	glEnable(GL_CULL_FACE);
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 

@@ -1,17 +1,8 @@
 #version 330
 
-in VertexData {
-    vec3 normal;
-    vec3 position;
-} vertex;
-
 out vec4 fragColor;
 
 void main()
 {
-    float dt = dot(normalize(vec3(-3.5, 10, -1.5)),vertex.normal);
-    float diffuse = max((dt + 1) * 0.5, 0.2);
-    vec3 color = diffuse * vec3(1, 0.1, 0.2);
-
-    fragColor = vec4(color, 1);
+    fragColor = vec4(1, 0.2, 0.2, 1);
 }

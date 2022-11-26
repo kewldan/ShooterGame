@@ -96,7 +96,7 @@ const std::regex ip_regex("(^((25[0-5]|(2[0-4]|1\\d|[1-9]|)\\d)\\.?\\b){4}$)");
 
 Chat* Chat::i = nullptr;
 
-bool hasRifle = true, vsync, physicsDebugRender, console_open, castShadows, show_minimap = true, show_ssao;
+bool hasRifle = true, vsync, physicsDebugRender, console_open, castShadows = true, show_minimap = true, show_ssao;
 
 struct Enemy {
 	int id;
@@ -212,7 +212,7 @@ int main() {
 
 	debugShader = new Shader("./data/shaders/debug");
 	skyShader = new Shader("./data/shaders/sky");
-	shadows = new ShadowsCaster(4096, 4096, "./data/shaders/depth", lightPos);
+	shadows = new ShadowsCaster(4096, 4096, "./data/shaders/depth", lightPos, 25.f);
 
 	map = new Model("./data/meshes/dust.obj", world, &physicsCommon, true);
 	sniperRifle = new Model("./data/meshes/G17.obj", world, &physicsCommon);
@@ -358,7 +358,7 @@ int main() {
 		if (castShadows) {
 			rmt_ScopedCPUSample(Shadows, 0);
 			rmt_ScopedOpenGLSample(ShadowsGPU);
-			Shader* depth = shadows->begin(camera->position, 25);
+			Shader* depth = shadows->begin(camera->position);
 			depth->draw(sniperRifle);
 			depth->draw(map);
 			depth->draw(player);
@@ -428,8 +428,13 @@ int main() {
 			rmt_ScopedCPUSample(Render, 0);
 			rmt_ScopedOpenGLSample(RenderGPU);
 
-			Shader* s = gBuffer->beginLightingPass(lights, camera->position, ssao->ssaoColorBufferBlur);
-			s->upload("SSAO", show_ssao ? 1 : 0);
+			Shader* s = gBuffer->beginLightingPass(lights, camera->position, ssao->ssaoColorBufferBlur, shadows->getMap());
+			s->upload("SSAO", show_ssao);
+			s->upload("CastShadows", castShadows);
+			if (castShadows) {
+				s->upload("lightPos", lightPos);
+				s->upload("lightSpaceMat", shadows->getLightSpaceMatrix());
+			}
 			gBuffer->endLightingPass();
 		}
 
@@ -504,7 +509,7 @@ int main() {
 				ImGui::Checkbox("Cast shadows", &castShadows);
 				if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
 					ImGui::BeginTooltip();
-					ImGui::Text("WIP");
+					ImGui::Text("May cause visual problems");
 					ImGui::EndTooltip();
 				}
 				ImGui::Checkbox("SSAO", &show_ssao);
@@ -583,18 +588,20 @@ int main() {
 
 					rmt_ScopedCPUSample(HUD_DebugOverlay, 0);
 
-					ImGui::Text("Shooter game by kewldan (CR63)");
+					ImGui::Text("Shooter game by kewldan (CR65)");
 					if (ImGui::IsItemClicked()) {
 						::ShellExecuteA(NULL, "open", "https://github.com/kewldan/", NULL, NULL, SW_SHOWDEFAULT);
 					}
 					ImGui::NewLine();
 
-					int b;
-					glGetIntegerv(GL_CONTEXT_PROFILE_MASK, &b);
+					static int b = -1, major, minor;
 
-					int major, minor;
-					glGetIntegerv(GL_MAJOR_VERSION, &major);
-					glGetIntegerv(GL_MINOR_VERSION, &minor);
+					if (b == -1) {
+						glGetIntegerv(GL_CONTEXT_PROFILE_MASK, &b);
+						glGetIntegerv(GL_MAJOR_VERSION, &major);
+						glGetIntegerv(GL_MINOR_VERSION, &minor);
+					}
+
 					ImGui::Text("OpenGL: %d.%d (%s)", major, minor, b == GL_CONTEXT_CORE_PROFILE_BIT ? "CORE" : "COMPABILITY");
 
 					static const char* renderer = (const char*)glGetString(GL_RENDERER);
@@ -653,10 +660,10 @@ int main() {
 						ImGuiWindowFlags_NoFocusOnAppearing |
 						ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove |
 						ImGuiWindowFlags_NoInputs)) {
-						ImGui::Text("Health: %d / %d", 80, 100);
-						ImGui::Text("");
-						ImGui::Text("Name: %s", "AK-47");
-						ImGui::Text("Ammo: %d / %d", 17, 30);
+						ImGui::Text("Health: %d / %d", 100, 100);
+						ImGui::NewLine();
+						ImGui::Text("Name: %s", "Glock 17");
+						ImGui::Text("Ammo: %d / %d", 17, 17);
 					}
 					ImGui::End();
 					ImGui::PopStyleVar();

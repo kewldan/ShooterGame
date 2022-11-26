@@ -116,7 +116,7 @@ char* getLightString(unsigned int i, const char* field) {
 	return n;
 }
 
-Shader* GBuffer::beginLightingPass(std::vector<Light>* lights, glm::vec3 camera_pos, unsigned int ssao)
+Shader* GBuffer::beginLightingPass(std::vector<Light>* lights, glm::vec3 camera_pos, unsigned int ssao, unsigned int shadowMap)
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	lShader->bind();
@@ -129,11 +129,14 @@ Shader* GBuffer::beginLightingPass(std::vector<Light>* lights, glm::vec3 camera_
 	glBindTexture(GL_TEXTURE_2D, gAlbedo);
 	glActiveTexture(GL_TEXTURE3);
 	glBindTexture(GL_TEXTURE_2D, ssao);
+	glActiveTexture(GL_TEXTURE4);
+	glBindTexture(GL_TEXTURE_2D, shadowMap);
 
 	lShader->upload("gPosition", 0);
 	lShader->upload("gNormal", 1);
 	lShader->upload("gAlbedoSpec", 2);
 	lShader->upload("ssao", 3);
+	lShader->upload("shadowMap", 4);
 	lShader->upload("viewPos", camera_pos);
 	lShader->upload("nbLights", (int) lights->size());
 

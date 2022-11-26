@@ -8,13 +8,13 @@ class ShadowsCaster {
 	unsigned int map, FBO;
 	int w, h;
 	Shader* shader;
-	glm::mat4 lightSpaceMatrix;
+	glm::mat4 lightSpaceMatrix, proj, view;
 	glm::vec3 position;
 public:
-	ShadowsCaster(int width, int height, const char* shaderName, glm::vec3 position);
+	ShadowsCaster(int width, int height, const char* shaderName, glm::vec3 position, float distance);
 	~ShadowsCaster();
 
-	Shader* begin(glm::vec3 cam, float distance);
+	Shader* begin(glm::vec3 cam);
 
 	void end();
 

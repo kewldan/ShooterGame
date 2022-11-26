@@ -20,7 +20,7 @@ public:
 	Shader* beginGeometryPass(Camera* camera);
 	void endGeometryPass();
 
-	Shader* beginLightingPass(std::vector<Light>* lights, glm::vec3 camera_pos, unsigned int ssao);
+	Shader* beginLightingPass(std::vector<Light>* lights, glm::vec3 camera_pos, unsigned int ssao, unsigned int shadowMap);
 	void endLightingPass();
 };
 

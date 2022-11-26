@@ -4,7 +4,7 @@ Minimap::Minimap(const char* shaderName, int width, int height, glm::vec3* posit
 {
 	w = width;
 	h = height;
-	
+
 	glGenTextures(1, &map);
 	glBindTexture(GL_TEXTURE_2D, map);
 	glObjectLabelStr(GL_TEXTURE, map, "Texture [Minimap]");
@@ -38,15 +38,15 @@ Minimap::~Minimap()
 Shader* Minimap::begin(float rotation_y)
 {
 	{
-		rmt_ScopedCPUSample(Minimap_Preparing, 0)
-			glm::mat4 proj = glm::ortho(-100.f, 100.f, -100.f, 100.f, 0.1f, 300.f);
+		rmt_ScopedCPUSample(Minimap_Preparing, 0);
+		glm::mat4 proj = glm::ortho(-100.f, 100.f, -100.f, 100.f, 0.1f, 300.f);
 
 		glm::vec2 rotation = glm::vec2(1.57f, rotation_y);
 
 		glm::mat4 view = glm::mat4(1);
 		view = glm::rotate(view, rotation.x, glm::vec3(1, 0, 0));
 		view = glm::rotate(view, rotation.y, glm::vec3(0, 1, 0));
-		view = glm::translate(view, -glm::vec3((*pos).x, 20 + (*pos).y, (*pos).z));
+		view = glm::translate(view, -glm::vec3((*pos).x, 40 + (*pos).y, (*pos).z));
 		shader->bind();
 		shader->upload("proj", proj);
 		shader->upload("view", view);
@@ -56,7 +56,7 @@ Shader* Minimap::begin(float rotation_y)
 	glBindFramebuffer(GL_FRAMEBUFFER, FBO);
 	glClearColor(0.5, 0.8, 1, 0);
 	glClear(GL_COLOR_BUFFER_BIT);
-	
+
 	return shader;
 }
 
