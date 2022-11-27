@@ -15,11 +15,15 @@ Shader::Shader(const char* filename) {
 	geometry = -1;
 	fragment = -1;
 	blockIndex = 0;
+
+	long long geom_time, vert_time, frag_time;
 	
 	char* path = new char[128];
 	strcpy(path, filename);
 	strcat(path, ".vert");
+
 	if (std::filesystem::exists(path)) {
+		vert_time = std::filesystem::last_write_time(path).time_since_epoch().count();
 		std::ifstream in(path);
 		std::string contents((std::istreambuf_iterator<char>(in)),
 			std::istreambuf_iterator<char>());
@@ -47,9 +51,11 @@ Shader::Shader(const char* filename) {
 			PLOG_WARNING << "Vertex shader found, but not attached";
 		}
 	}
+
 	path[strlen(path) - 5] = 0;
 	strcat(path, ".frag");
 	if (std::filesystem::exists(path)) {
+		frag_time = std::filesystem::last_write_time(path).time_since_epoch().count();
 		std::ifstream in(path);
 		std::string contents((std::istreambuf_iterator<char>(in)),
 			std::istreambuf_iterator<char>());
@@ -79,7 +85,9 @@ Shader::Shader(const char* filename) {
 	}
 	path[strlen(path) - 5] = 0;
 	strcat(path, ".geom");
+
 	if (std::filesystem::exists(path)) {
+		geom_time = std::filesystem::last_write_time(path).time_since_epoch().count();
 		std::ifstream in(path);
 		std::string contents((std::istreambuf_iterator<char>(in)),
 			std::istreambuf_iterator<char>());
@@ -107,9 +115,30 @@ Shader::Shader(const char* filename) {
 			PLOG_WARNING << "Geometry shader found, but not attached";
 		}
 	}
-
+	
 	glLinkProgram(program);
 	glObjectLabelBuild(GL_PROGRAM, program, "Program", filename);
+
+	int length;
+	glGetProgramiv(program, GL_PROGRAM_BINARY_LENGTH, &length);
+	if (length > 0) {
+		char* binary = new char[length + sizeof(long long) * 3 + sizeof(unsigned int)];
+		unsigned int format;
+		glGetProgramBinary(program, length, &length, &format, binary + sizeof(long long) * 3 + sizeof(unsigned int));
+
+		memcpy(binary, &vert_time, sizeof(long long));
+		memcpy(binary + sizeof(long long), &geom_time, sizeof(long long));
+		memcpy(binary + sizeof(long long) * 2, &frag_time, sizeof(long long));
+		memcpy(binary + sizeof(long long) * 3, &format, sizeof(unsigned int));
+
+		std::ofstream fout;
+		path[strlen(path) - 5] = 0;
+		strcat(path, ".cache");
+		fout.open(path, std::ios::binary | std::ios::out);
+		fout.write(binary, length + sizeof(long long) * 3 + sizeof(unsigned int));
+		fout.close();
+	}
+
 	if(shaderParts == 0){
 		PLOGW << "Empty shader [" << filename << "] linked";
 	}
