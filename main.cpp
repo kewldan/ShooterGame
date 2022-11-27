@@ -588,7 +588,7 @@ int main() {
 
 					rmt_ScopedCPUSample(HUD_DebugOverlay, 0);
 
-					ImGui::Text("Shooter game by kewldan (CR65)");
+					ImGui::Text("Shooter game by kewldan (CR69)");
 					if (ImGui::IsItemClicked()) {
 						::ShellExecuteA(NULL, "open", "https://github.com/kewldan/", NULL, NULL, SW_SHOWDEFAULT);
 					}
