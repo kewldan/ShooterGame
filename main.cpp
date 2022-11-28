@@ -33,7 +33,6 @@
 #include "GBuffer.h"
 #include "SSAO.h"
 
-
 #ifndef NDEBUG
 void GLAPIENTRY MessageCallback(GLenum source,
 	GLenum type,
@@ -67,6 +66,11 @@ public:
 	int id;
 };
 
+void TextCentered(const char* text) {
+	ImGui::SetCursorPosX((ImGui::GetWindowSize().x - ImGui::CalcTextSize(text).x) * 0.5f);
+	ImGui::Text(text);
+}
+
 Window* window;
 PhysicsCommon physicsCommon;
 PhysicsWorld* world;
@@ -89,6 +93,7 @@ std::map<int, char*> nicknames = std::map<int, char*>();
 GBuffer* gBuffer;
 std::vector<Light>* lights;
 std::mutex coutMutex;
+std::thread cpl_thread;
 SSAO* ssao;
 
 const glm::vec3 lightPos(-3.5f, 10.f, -1.5f);
@@ -96,7 +101,7 @@ const std::regex ip_regex("(^((25[0-5]|(2[0-4]|1\\d|[1-9]|)\\d)\\.?\\b){4}$)");
 
 Chat* Chat::i = nullptr;
 
-bool hasRifle = true, vsync, physicsDebugRender, console_open, castShadows = true, show_minimap = true, show_ssao;
+bool hasRifle = true, vsync, physicsDebugRender, console_open, castShadows, show_minimap, show_ssao, show_debugMenu, lockMouse;
 
 struct Enemy {
 	int id;
@@ -134,18 +139,21 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 
 			hasRifle ^= 1;
 		}
-		if (key == GLFW_KEY_BACKSPACE) {
+		else if (key == GLFW_KEY_BACKSPACE) {
 			player->rb->setTransform(Transform::identity());
+			player->rb->setLinearVelocity(Vector3::zero());
 		}
-		if (key == GLFW_KEY_ESCAPE) {
-			exit(0);
+		else if (key == GLFW_KEY_ESCAPE) {
+			lockMouse ^= 1;
 		}
-		if (key == GLFW_KEY_GRAVE_ACCENT) {
+		else if (key == GLFW_KEY_GRAVE_ACCENT) {
 			console_open ^= 1;
+		}
+		else if (key == GLFW_KEY_F3) {
+			show_debugMenu ^= 1;
 		}
 	}
 };
-
 
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 {
@@ -176,6 +184,69 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 		}
 	}
 };
+
+void cpl_func() {
+	while (client->isConnected()) {
+		BasicPacket* packet = client->recivePacket();
+		if (packet != nullptr) {
+			if (packet->type == ServerPacketTypes::UPDATE) {
+				enemies_count = packet->payload[0];
+
+				for (int i = enemies_count; i < enemies.size(); i++) {
+					enemies[i]->rb->setTransform(Transform(Vector3(-9999, -9999, -9999), Quaternion::identity()));
+				}
+
+				Enemy* e = new Enemy();
+				for (int i = 0; i < enemies_count && i < enemies.size(); i++) {
+					memcpy(e, packet->payload + 1 + i * sizeof(Enemy), sizeof(Enemy));
+
+					EnemyModel* model = enemies[i];
+					model->id = e->id;
+					model->rb->setTransform(Transform(Vector3(e->x, e->y, e->z), Quaternion::identity()));
+				}
+				delete e;
+			}
+			else if (packet->type == ServerPacketTypes::HANDSHAKE) {
+				memcpy(&client->my_id, packet->payload, 4);
+			}
+			else if (packet->type == ServerPacketTypes::MESSAGE) {
+				char sender_length, message_length;
+
+				memcpy(&sender_length, packet->payload, 1);
+				char* sender = new char[sender_length + 1];
+				memcpy(sender, packet->payload + 1, sender_length);
+				sender[sender_length] = 0;
+
+				memcpy(&message_length, packet->payload + 1 + sender_length, 1);
+				char* message = new char[message_length + 1];
+				memcpy(message, packet->payload + 2 + sender_length, message_length);
+				message[message_length] = 0;
+
+				Chat::i->AddLog("[chat] [%s] %s", sender, message);
+			}
+			else if (packet->type == ServerPacketTypes::KICK) {
+				char* reason = new char[packet->length + 1];
+				memcpy(reason, packet->payload, packet->length);
+				reason[packet->length] = 0;
+
+				Chat::i->AddLog("[error] You kicked from server. Reason: %s\n", reason);
+			}
+			else if (packet->type == ServerPacketTypes::PLAYER_INFO) {
+				char* nickname = new char[packet->length - 4 + 1];
+				memcpy(nickname, packet->payload + 4, packet->length);
+				nickname[packet->length - 4] = 0;
+
+				int id = 0;
+				memcpy(&id, packet->payload, 4);
+
+				nicknames[id] = nickname;
+			}
+		}
+		else {
+			break;
+		}
+	}
+}
 
 int main() {
 	std::remove("latest.log");
@@ -245,7 +316,7 @@ int main() {
 	hud = new HUD(window);
 	Chat::i = new Chat();
 
-	camera = new Camera(&window->width, &window->height, &window->ratio);
+	camera = new Camera(window);
 
 	minimap = new Minimap("./data/shaders/map", 512, 512, &camera->position, 60);
 
@@ -256,10 +327,10 @@ int main() {
 	lights = new std::vector<Light>();
 
 	client = new Client();
-	nickname = new char[64];
+	nickname = new char[33];
 	ip = new char[16];
-	DWORD username_len = 64;
-	GetUserName(nickname, &username_len);
+	DWORD username_len = 32;
+	GetUserNameA(nickname, &username_len);
 
 	strcpy(ip, "127.0.0.1");
 	static bool windowResized = false;
@@ -273,7 +344,7 @@ int main() {
 
 				{
 					rmt_ScopedCPUSample(CameraIOEvents, 0);
-					camera->pollEvents(window, player->rb);
+					camera->pollEvents(player->rb, lockMouse);
 				}
 
 				if (hasRifle) {
@@ -288,64 +359,6 @@ int main() {
 					Vector3 pos = player->rb->getTransform().getPosition();
 					client->sendUpdate(pos.x, pos.y, pos.z, camera->rotation.x, camera->rotation.y);
 					lastUpdate = glfwGetTime();
-				}
-
-				while (client->getAvailbale() > 4) {
-					BasicPacket* packet = client->recivePacket();
-					if (packet != nullptr) {
-						if (packet->type == ServerPacketTypes::UPDATE) {
-							enemies_count = packet->payload[0];
-
-							for (int i = enemies_count; i < enemies.size(); i++) {
-								enemies[i]->rb->setTransform(Transform(Vector3(-9999, -9999, -9999), Quaternion::identity()));
-							}
-
-							Enemy* e = new Enemy();
-							for (int i = 0; i < enemies_count && i < enemies.size(); i++) {
-								memcpy(e, packet->payload + 1 + i * sizeof(Enemy), sizeof(Enemy));
-
-								EnemyModel* model = enemies[i];
-								model->id = e->id;
-								model->rb->setTransform(Transform(Vector3(e->x, e->y, e->z), Quaternion::identity()));
-							}
-							delete e;
-						}
-						else if (packet->type == ServerPacketTypes::HANDSHAKE) {
-							memcpy(&client->my_id, packet->payload, 4);
-						}
-						else if (packet->type == ServerPacketTypes::MESSAGE) {
-							char sender_length, message_length;
-
-							memcpy(&sender_length, packet->payload, 1);
-							char* sender = new char[sender_length + 1];
-							memcpy(sender, packet->payload + 1, sender_length);
-							sender[sender_length] = 0;
-
-							memcpy(&message_length, packet->payload + 1 + sender_length, 1);
-							char* message = new char[message_length + 1];
-							memcpy(message, packet->payload + 2 + sender_length, message_length);
-							message[message_length] = 0;
-
-							Chat::i->AddLog("[chat] [%s] %s", sender, message);
-						}
-						else if (packet->type == ServerPacketTypes::KICK) {
-							char* reason = new char[packet->length + 1];
-							memcpy(reason, packet->payload, packet->length);
-							reason[packet->length] = 0;
-
-							Chat::i->AddLog("[error] You kicked from server. Reason: %s\n", reason);
-						}
-						else if (packet->type == ServerPacketTypes::PLAYER_INFO) {
-							char* nickname = new char[packet->length - 4 + 1];
-							memcpy(nickname, packet->payload + 4, packet->length);
-							nickname[packet->length - 4] = 0;
-
-							int id = 0;
-							memcpy(&id, packet->payload, 4);
-
-							nicknames[id] = nickname;
-						}
-					}
 				}
 			}
 			{
@@ -489,7 +502,7 @@ int main() {
 			rmt_ScopedOpenGLSample(HUDRenderGPU);
 
 			hud->begin();
-			ImGui::SetNextWindowPos(ImVec2(20, 170), ImGuiCond_Once);
+			ImGui::SetNextWindowPos(ImVec2(15, 200), ImGuiCond_Once);
 
 			if (ImGui::Begin("Debug", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
 				rmt_ScopedCPUSample(HUD_Configuration, 0);
@@ -525,7 +538,7 @@ int main() {
 			}
 			ImGui::End();
 
-			ImGui::SetNextWindowPos(ImVec2(300, 20), ImGuiCond_Once);
+			ImGui::SetNextWindowPos(ImVec2(300, 15), ImGuiCond_Once);
 
 			if (ImGui::Begin("Menu", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
 
@@ -537,20 +550,17 @@ int main() {
 				ImGui::InputText("IP", ip, 16, ImGuiInputTextFlags_NoHorizontalScroll | ImGuiInputTextFlags_CharsScientific);
 				if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
 					ImGui::BeginTooltip();
-					ImGui::Text("IPv4 address\nFormat: XXX.XXX.XXX.XXX\nDont use \"localhost\"\nInstead use: 127.0.0.1");
+					ImGui::Text("IPv4 address\nFormat: XXX.XXX.XXX.XXX");
 					ImGui::EndTooltip();
 				}
 				ImGui::InputText("Nickname", nickname, 32, ImGuiInputTextFlags_NoHorizontalScroll);
-				if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-					ImGui::BeginTooltip();
-					ImGui::Text("Dont use \"Server\"\nand reserved nicknames");
-					ImGui::EndTooltip();
-				}
 				if (client->isConnected()) {
 					ImGui::EndDisabled();
 				}
 
-				if (!std::regex_match(ip, ip_regex) && !client->isConnected()) {
+				bool canConnect = std::regex_match(ip, ip_regex) && strcmp(nickname, "Server") != 0;
+
+				if (!canConnect && !client->isConnected()) {
 					ImGui::BeginDisabled();
 				}
 
@@ -558,6 +568,7 @@ int main() {
 					if (!client->isConnected()) {
 						client->connectToHost(ip, NETWORKING_PORT);
 						if (client->isConnected()) {
+							cpl_thread = std::thread(cpl_func);
 							client->sendHandshake(nickname);
 						}
 					}
@@ -567,11 +578,19 @@ int main() {
 				}
 				if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
 					ImGui::BeginTooltip();
-					ImGui::Text("Connnect to %s:%d\nMay take up\nto 3 seconds", ip, NETWORKING_PORT);
+					if (!std::regex_match(ip, ip_regex)) {
+						ImGui::Text("Incorrect IP address");
+					}
+					else if(strcmp(nickname, "Server") == 0) {
+						ImGui::Text("Incorrect nickname");
+					}
+					else {
+						ImGui::Text("Connnect to %s:%d", ip, NETWORKING_PORT);
+					}
 					ImGui::EndTooltip();
 				}
 
-				if (!std::regex_match(ip, ip_regex) && !client->isConnected()) {
+				if (!canConnect && !client->isConnected()) {
 					ImGui::EndDisabled();
 				}
 			}
@@ -579,70 +598,46 @@ int main() {
 
 			{
 				ImGuiIO& io = ImGui::GetIO();
-				ImGui::SetNextWindowPos(ImVec2(15, 15), ImGuiCond_Once);
-				ImGui::SetNextWindowBgAlpha(0.35f);
-				if (ImGui::Begin("##Debug overlay", NULL, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
-					ImGuiWindowFlags_NoSavedSettings |
-					ImGuiWindowFlags_NoFocusOnAppearing |
-					ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove)) {
+				if (show_debugMenu) {
+					ImGui::SetNextWindowPos(ImVec2(15, 15), ImGuiCond_Once);
+					ImGui::SetNextWindowBgAlpha(0.35f);
 
-					rmt_ScopedCPUSample(HUD_DebugOverlay, 0);
+					if (ImGui::Begin("##Debug overlay", NULL, ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
+						ImGuiWindowFlags_NoSavedSettings |
+						ImGuiWindowFlags_NoFocusOnAppearing |
+						ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove)) {
 
-					ImGui::Text("Shooter game by kewldan (CR69)");
-					if (ImGui::IsItemClicked()) {
-						::ShellExecuteA(NULL, "open", "https://github.com/kewldan/", NULL, NULL, SW_SHOWDEFAULT);
-					}
-					ImGui::NewLine();
+						rmt_ScopedCPUSample(HUD_DebugOverlay, 0);
 
-					static int b = -1, major, minor;
-
-					if (b == -1) {
-						glGetIntegerv(GL_CONTEXT_PROFILE_MASK, &b);
-						glGetIntegerv(GL_MAJOR_VERSION, &major);
-						glGetIntegerv(GL_MINOR_VERSION, &minor);
-					}
-
-					ImGui::Text("OpenGL: %d.%d (%s)", major, minor, b == GL_CONTEXT_CORE_PROFILE_BIT ? "CORE" : "COMPABILITY");
-
-					static const char* renderer = (const char*)glGetString(GL_RENDERER);
-					ImGui::Text("GPU: %s", renderer);
-
-					static int VRAM_CURRENT, VRAM_TOTAL;
-					glGetIntegerv(GL_GPU_MEMORY_INFO_CURRENT_AVAILABLE_VIDMEM_NVX, &VRAM_CURRENT);
-					glGetIntegerv(GL_GPU_MEMORY_INFO_TOTAL_AVAILABLE_MEMORY_NVX, &VRAM_TOTAL);
-
-					ImGui::Text("VRAM: %.0f / %.0f (%.1f%%)", (VRAM_TOTAL - VRAM_CURRENT) / 1024.f, VRAM_TOTAL / 1024.f, 100.f / (VRAM_TOTAL / (float)(VRAM_TOTAL - VRAM_CURRENT)));
-
-					ImGui::Text("Screen: %dx%d", window->width, window->height);
-					ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
-					ImGui::Text("Position: X: %.1f, Y: %.1f, Z: %.1f", camera->position.x, camera->position.y,
-						camera->position.z);
-					ImGui::Text("Rotation: X: %.1f, Y: %.1f", camera->rotation.x, camera->rotation.y);
-
-					if (client->isConnected()) {
-						ImGui::Text("ID: %d", client->my_id);
-						if (enemies_count > 0) {
-							ImGui::Text("Player list (K/D):");
-							for (int i = 0; i < enemies_count; i++) {
-								if (nicknames.contains(enemies[i]->id)) {
-									if (strlen(nicknames[enemies[i]->id]) > 0) {
-										ImGui::Text("%d. %s (0/0)", i + 1, nicknames[enemies[i]->id]);
-									}
-									else {
-										ImGui::Text("%d. Unknown (0/0)", i + 1);
-									}
-								}
-								else {
-									client->sendPlayerRequest(enemies[i]->id);
-									nicknames[enemies[i]->id] = new char[1];
-									nicknames[enemies[i]->id][0] = 0;
-									ImGui::Text("%d. Unknown (0/0)", i + 1);
-								}
-							}
+						ImGui::Text("Shooter game by kewldan (CR70)");
+						if (ImGui::IsItemClicked()) {
+							::ShellExecuteA(NULL, "open", "https://github.com/kewldan/", NULL, NULL, SW_SHOWDEFAULT);
 						}
+						ImGui::NewLine();
+
+						ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
+
+						ImGui::NewLine();
+						ImGui::Text("Position: X: %.1f, Y: %.1f, Z: %.1f", camera->position.x, camera->position.y,
+							camera->position.z);
+						ImGui::Text("Facing: %.1f / %.1f", camera->rotation.x, camera->rotation.y);
+
+
+						static int major, minor;
+						static const char* renderer = (const char*)glGetString(GL_RENDERER);
+
+						if (major == 0) {
+							glGetIntegerv(GL_MAJOR_VERSION, &major);
+							glGetIntegerv(GL_MINOR_VERSION, &minor);
+						}
+
+						ImGui::NewLine();
+						ImGui::Text("OpenGL: %d.%d", major, minor);
+
+						ImGui::Text(renderer);
 					}
+					ImGui::End();
 				}
-				ImGui::End();
 
 				const ImGuiViewport* viewport = ImGui::GetMainViewport();
 				{
@@ -667,6 +662,52 @@ int main() {
 					}
 					ImGui::End();
 					ImGui::PopStyleVar();
+				}
+
+
+				if(window->isKeyPressed(GLFW_KEY_TAB)){
+					rmt_ScopedCPUSample(HUD_ServerInfo, 0);
+					ImGui::SetNextWindowPos({
+						viewport->WorkSize.x / 2,
+						viewport->WorkSize.y / 2
+						}, ImGuiCond_Always, { 0.5f, 0.5f });
+					ImGui::SetNextWindowBgAlpha(0.35f);
+					ImGui::SetNextWindowSize(ImVec2(400, 300), ImGuiCond_Once);
+
+					if (ImGui::Begin("##Server info", NULL,
+						ImGuiWindowFlags_NoDecoration |
+						ImGuiWindowFlags_NoSavedSettings |
+						ImGuiWindowFlags_NoFocusOnAppearing |
+						ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove |
+						ImGuiWindowFlags_NoInputs)) {
+						if (client->isConnected()) {
+							TextCentered("Online");
+							ImGui::Text("ID: %d", client->my_id);
+							if (enemies_count > 0) {
+								ImGui::Text("Player list (K/D):");
+								for (int i = 0; i < enemies_count; i++) {
+									if (nicknames.contains(enemies[i]->id)) {
+										if (strlen(nicknames[enemies[i]->id]) > 0) {
+											ImGui::Text("%d. %s (0/0)", i + 1, nicknames[enemies[i]->id]);
+										}
+										else {
+											ImGui::Text("%d. Unknown (0/0)", i + 1);
+										}
+									}
+									else {
+										client->sendPlayerRequest(enemies[i]->id);
+										nicknames[enemies[i]->id] = new char[1];
+										nicknames[enemies[i]->id][0] = 0;
+										ImGui::Text("%d. Unknown (0/0)", i + 1);
+									}
+								}
+							}
+						}
+						else {
+							TextCentered("Offline");
+						}
+					}
+					ImGui::End();
 				}
 
 				if (console_open) {

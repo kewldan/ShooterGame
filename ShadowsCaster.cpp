@@ -26,6 +26,7 @@ ShadowsCaster::ShadowsCaster(int width, int height, const char* shaderName, glm:
 	proj = glm::ortho(-distance, distance, -distance, distance, 5.f, 50.f);
 
 	shader = new Shader(shaderName);
+	shader->needTexture = false;
 	this->position = position;
 }
 

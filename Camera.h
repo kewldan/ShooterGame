@@ -10,9 +10,7 @@ using namespace reactphysics3d;
 
 class Camera {
 	glm::mat4 orthographic, perspective, view;
-	int* width;
-	int* height;
-	float* ratio;
+	Window* window;
 	
 public:
 	glm::vec3 position;
@@ -20,9 +18,9 @@ public:
 	float speed = 1;
 	int hFov = 70;
 
-	Camera(int* widthPtr, int* heightPtr, float* ratioPtr);
+	Camera(Window* window);
 
-	void pollEvents(Window* window, RigidBody* player);
+	void pollEvents(RigidBody* player, bool lockCursor);
 
 	glm::mat4& getView();
 	glm::mat4& getViewRotationOnly();

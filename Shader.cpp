@@ -15,6 +15,7 @@ Shader::Shader(const char* filename) {
 	geometry = -1;
 	fragment = -1;
 	blockIndex = 0;
+	needTexture = true;
 
 	long long geom_time, vert_time, frag_time;
 	
@@ -224,7 +225,7 @@ void Shader::uploadMat4(const char* name, float* value) const
 void Shader::draw(Model* model) const {
 	uploadMat4("mvp", model->getMVP());
 	for (int i = 0; i < model->nbMeshes; i++) {
-		if (model->meshes[i].hasTexture()) {
+		if (needTexture && model->meshes[i].hasTexture()) {
 			model->meshes[i].texture->bind();
 			upload("hasTexture", 1);
 		}

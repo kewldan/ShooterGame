@@ -2,13 +2,11 @@
 
 #include <cmath>
 
-Camera::Camera(int* widthPtr, int* heightPtr, float* ratioPtr) {
+Camera::Camera(Window* window) {
 	position = glm::vec3(0);
 	rotation = glm::vec2(0);
 
-	width = widthPtr;
-	height = heightPtr;
-	ratio = ratioPtr;
+	this->window = window;
 }
 
 glm::mat4& Camera::getView() {
@@ -30,19 +28,19 @@ glm::mat4& Camera::getViewRotationOnly()
 }
 
 const glm::mat4& Camera::getOrthographic() {
-	orthographic = glm::ortho(0, *width, *height, 0);
+	orthographic = glm::ortho(0, window->width, window->height, 0);
 	return orthographic;
 }
 
 const glm::mat4& Camera::getPerspective() {
 	float hfovRad = (float)hFov * 3.1415f / 180;
-	float vfovRad = 2.f * std::atan(std::tan(hfovRad / 2) * *ratio);
-	perspective = glm::perspective(vfovRad, *ratio, 0.001f, 500.f);
+	float vfovRad = 2.f * std::atan(std::tan(hfovRad / 2) * window->ratio);
+	perspective = glm::perspective(vfovRad, window->ratio, 0.1f, 300.f);
 	return perspective;
 }
 
-void Camera::pollEvents(Window* window, RigidBody* player) {
-	if (window->isKeyPressed(GLFW_KEY_Q)) {
+void Camera::pollEvents(RigidBody* player, bool lockCursor) {
+	if (lockCursor) {
 		int x, y;
 		window->getCursorPosition(&x, &y);
 		window->setCursorPosition(window->width / 2, window->height / 2);
@@ -54,7 +52,6 @@ void Camera::pollEvents(Window* window, RigidBody* player) {
 		window->hideCursor();
 	}
 	else {
-		;
 		window->showCursor();
 	}
 

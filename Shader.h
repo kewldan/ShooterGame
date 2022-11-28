@@ -53,6 +53,8 @@ class Shader {
 	int getAttribLocation(const char* name) const;
 
 public:
+	bool needTexture;
+
 	Shader(const char* filename);
 	~Shader();
 
