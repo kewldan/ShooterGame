@@ -254,6 +254,7 @@ int main() {
 
 	window = new Window();
 	window->setVsync(vsync);
+	window->setTitle("Shooter game");
 
 	glfwSetKeyCallback(window->getId(), key_callback);
 	glfwSetMouseButtonCallback(window->getId(), mouse_button_callback);
@@ -281,16 +282,16 @@ int main() {
 	PLOGI << "Profiler initialized";
 #endif
 
-	debugShader = new Shader("./data/shaders/debug");
-	skyShader = new Shader("./data/shaders/sky");
-	shadows = new ShadowsCaster(4096, 4096, "./data/shaders/depth", lightPos, 25.f);
+	debugShader = new Shader("debug");
+	skyShader = new Shader("sky");
+	shadows = new ShadowsCaster(4096, 4096, "depth", lightPos, 25.f);
 
-	map = new Model("./data/meshes/dust.obj", world, &physicsCommon, true);
-	sniperRifle = new Model("./data/meshes/G17.obj", world, &physicsCommon);
+	map = new Model("dust.obj", world, &physicsCommon, true);
+	sniperRifle = new Model("G17.obj", world, &physicsCommon);
 	sniperRifle->rb->setType(BodyType::STATIC);
 
 	int nb = -1;
-	MeshData* data = Model::loadMesh("./data/meshes/player.obj", &nb);
+	MeshData* data = Model::loadMesh("player.obj", &nb);
 
 	CapsuleShape* playerShape = physicsCommon.createCapsuleShape(1.f, 2.5f);
 
@@ -318,11 +319,11 @@ int main() {
 
 	camera = new Camera(window);
 
-	minimap = new Minimap("./data/shaders/map", 512, 512, &camera->position, 60);
+	minimap = new Minimap("map", 512, 512, &camera->position, 60);
 
-	gBuffer = new GBuffer("./data/shaders/pass1", "./data/shaders/pass2", window->width, window->height);
+	gBuffer = new GBuffer("pass1", "pass2", window->width, window->height);
 
-	ssao = new SSAO("./data/shaders/ssao", "./data/shaders/ssaoBlur", window->width, window->height);
+	ssao = new SSAO("ssao", "ssaoBlur", window->width, window->height);
 
 	lights = new std::vector<Light>();
 
@@ -508,25 +509,26 @@ int main() {
 				rmt_ScopedCPUSample(HUD_Configuration, 0);
 
 				ImGui::SliderFloat("Camera speed", &camera->speed, 0.1f, 10.f, "%.1f");
+				ImGui::SliderFloat("Camera sentivity", &camera->sentivity, 0.1f, 4.f, "%.1f");
 				if (ImGui::Checkbox("VSync", &vsync)) {
 					window->setVsync(vsync);
 				}
 				if (ImGui::Checkbox("Debug render", &physicsDebugRender)) {
 					world->setIsDebugRenderingEnabled(physicsDebugRender);
 				}
-				if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+				if (ImGui::IsItemHovered()) {
 					ImGui::BeginTooltip();
 					ImGui::Text("Physics debug colliders render");
 					ImGui::EndTooltip();
 				}
 				ImGui::Checkbox("Cast shadows", &castShadows);
-				if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+				if (ImGui::IsItemHovered()) {
 					ImGui::BeginTooltip();
 					ImGui::Text("May cause visual problems");
 					ImGui::EndTooltip();
 				}
 				ImGui::Checkbox("SSAO", &show_ssao);
-				if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+				if (ImGui::IsItemHovered()) {
 					ImGui::BeginTooltip();
 					ImGui::Text("WIP", ip);
 					ImGui::EndTooltip();
@@ -598,6 +600,7 @@ int main() {
 
 			{
 				ImGuiIO& io = ImGui::GetIO();
+				io.IniFilename = 0;
 				if (show_debugMenu) {
 					ImGui::SetNextWindowPos(ImVec2(15, 15), ImGuiCond_Once);
 					ImGui::SetNextWindowBgAlpha(0.35f);
@@ -624,11 +627,12 @@ int main() {
 
 
 						static int major, minor;
-						static const char* renderer = (const char*)glGetString(GL_RENDERER);
+						static const char* renderer;
 
-						if (major == 0) {
+						if (renderer == nullptr) {
 							glGetIntegerv(GL_MAJOR_VERSION, &major);
 							glGetIntegerv(GL_MINOR_VERSION, &minor);
+							renderer = (const char*)glGetString(GL_RENDERER);
 						}
 
 						ImGui::NewLine();

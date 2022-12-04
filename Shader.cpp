@@ -20,9 +20,39 @@ Shader::Shader(const char* filename) {
 	long long geom_time, vert_time, frag_time;
 	
 	char* path = new char[128];
-	strcpy(path, filename);
-	strcat(path, ".vert");
+	strcpy(path, "./data/shaders/");
+	strcat(path, filename);
+	strcat(path, ".cache");
+	if (std::filesystem::exists(path)) {
+		std::ifstream in(path);
 
+		in.seekg(0, std::ios::end);
+		size_t l = in.tellg();
+		in.seekg(0, std::ios::beg);
+		char* cache = new char[l];
+		in.read(cache, l);
+
+		long long v, g, f;
+		unsigned int format;
+		int length;
+		memcpy(&v, cache, sizeof(long long));
+		memcpy(&g, cache + sizeof(long long), sizeof(long long));
+		memcpy(&f, cache + sizeof(long long) * 2, sizeof(long long));
+		memcpy(&format, cache + sizeof(long long) * 3, sizeof(int));
+		memcpy(&length, cache + sizeof(long long) * 3 + sizeof(int), sizeof(int));
+
+		PLOGD << "From cache (Length: " << length << ")";
+
+		glProgramBinary(program, format, cache + sizeof(long long) * 3 + sizeof(int) * 2, length);
+
+		GLint valid;
+		glGetProgramiv(program, GL_VALIDATE_STATUS, &valid);
+		PLOGI << "Shader [" << filename << "] loaded (" << valid << ")";
+		return;
+	}
+
+	path[strlen(path) - 6] = 0;
+	strcat(path, ".vert");
 	if (std::filesystem::exists(path)) {
 		vert_time = std::filesystem::last_write_time(path).time_since_epoch().count();
 		std::ifstream in(path);
@@ -84,9 +114,9 @@ Shader::Shader(const char* filename) {
 			PLOG_WARNING << "Fragment shader found, but not attached";
 		}
 	}
+
 	path[strlen(path) - 5] = 0;
 	strcat(path, ".geom");
-
 	if (std::filesystem::exists(path)) {
 		geom_time = std::filesystem::last_write_time(path).time_since_epoch().count();
 		std::ifstream in(path);
@@ -123,21 +153,24 @@ Shader::Shader(const char* filename) {
 	int length;
 	glGetProgramiv(program, GL_PROGRAM_BINARY_LENGTH, &length);
 	if (length > 0) {
-		char* binary = new char[length + sizeof(long long) * 3 + sizeof(unsigned int)];
+		char* binary = new char[length + sizeof(long long) * 3 + sizeof(int) * 2];
 		unsigned int format;
-		glGetProgramBinary(program, length, &length, &format, binary + sizeof(long long) * 3 + sizeof(unsigned int));
+		glGetProgramBinary(program, length, &length, &format, binary + sizeof(long long) * 3 + sizeof(int) * 2);
 
 		memcpy(binary, &vert_time, sizeof(long long));
 		memcpy(binary + sizeof(long long), &geom_time, sizeof(long long));
 		memcpy(binary + sizeof(long long) * 2, &frag_time, sizeof(long long));
-		memcpy(binary + sizeof(long long) * 3, &format, sizeof(unsigned int));
+		memcpy(binary + sizeof(long long) * 3, &format, sizeof(int));
+		memcpy(binary + sizeof(long long) * 3 + sizeof(int), &length, sizeof(int));
 
 		std::ofstream fout;
 		path[strlen(path) - 5] = 0;
 		strcat(path, ".cache");
 		fout.open(path, std::ios::binary | std::ios::out);
-		fout.write(binary, length + sizeof(long long) * 3 + sizeof(unsigned int));
+		fout.write(binary, length + sizeof(long long) * 3 + sizeof(int) * 2);
 		fout.close();
+
+		PLOGD << "Shader cached (Length: " << length << ")";
 	}
 
 	if(shaderParts == 0){

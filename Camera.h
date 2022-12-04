@@ -15,7 +15,7 @@ class Camera {
 public:
 	glm::vec3 position;
 	glm::vec2 rotation;
-	float speed = 1;
+	float speed = 1, sentivity = 1;
 	int hFov = 70;
 
 	Camera(Window* window);

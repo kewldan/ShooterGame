@@ -50,6 +50,11 @@ bool Window::getVsync() const {
 	return vsync;
 }
 
+void Window::setTitle(const char* title)
+{
+	glfwSetWindowTitle(window, title);
+}
+
 static void error_callback(int error, const char* description) {
 	PLOG_ERROR << "[GLFW] " << error << " | " << description;
 }

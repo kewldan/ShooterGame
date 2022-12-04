@@ -39,6 +39,8 @@ const glm::mat4& Camera::getPerspective() {
 	return perspective;
 }
 
+constexpr auto PI2 = 6.2831f;
+
 void Camera::pollEvents(RigidBody* player, bool lockCursor) {
 	if (lockCursor) {
 		int x, y;
@@ -46,9 +48,18 @@ void Camera::pollEvents(RigidBody* player, bool lockCursor) {
 		window->setCursorPosition(window->width / 2, window->height / 2);
 		int px = window->width / 2 - x;
 		int py = window->height / 2 - y;
-		rotation.x -= (float)py * 0.001f;
+		rotation.x -= (float)py * 0.001f * sentivity;
 		rotation.x = std::max(-1.5f, std::min(rotation.x, 1.5f));
-		rotation.y -= (float)px * 0.001f;
+		rotation.y -= (float)px * 0.001f * sentivity;
+
+		//fmod faster version
+		if (rotation.y >= PI2) {
+			rotation.y -= PI2;
+		}
+		if (rotation.y <= -PI2) {
+			rotation.y += PI2;
+		}
+
 		window->hideCursor();
 	}
 	else {

@@ -35,6 +35,8 @@ public:
 
 	[[nodiscard]] bool getVsync() const;
 
+	void setTitle(const char* title);
+
 	void reset() const;
 
 	GLFWwindow* getId();

@@ -2,9 +2,10 @@
 
 Model::Model(const char* filename, PhysicsWorld* world, PhysicsCommon* common, bool createConcaveCollider, char* label) {
 	int nb = -2;
-	MeshData* meshesData = loadMesh(filename, &nb);
 	char* f = new char[256];
 	strcpy(f, filename);
+
+	MeshData* meshesData = loadMesh(f, &nb);
 	new (this) Model(meshesData, nb, world, common, createConcaveCollider, label != nullptr ? label : f);
 }
 
@@ -17,10 +18,14 @@ Model::Model(MeshData* data, int nb, PhysicsWorld* world, PhysicsCommon* common,
 		meshes[i].addParameter(1, 2);
 		meshes[i].addParameter(2, 3);
 		if (strlen(data[i].texturePath) > 0) {
-			char* path = new char[256];
-			strcpy(path, ".\\data\\textures\\");
-			strcat(path, data[i].texturePath);
-			meshes[i].texture = new Texture(path);
+			int nameIndex = 0;
+			for (int j = strlen(data[i].texturePath) - 1; j > 0; j--) {
+				if (data[i].texturePath[j] == '/' || data[i].texturePath[j] == '\\') {
+					nameIndex = j;
+					break;
+				}
+			}
+			meshes[i].texture = new Texture(data[i].texturePath + nameIndex + 1);
 		}
 	}
 	nbMeshes = nb;
@@ -49,8 +54,11 @@ Model::Model(MeshData* data, int nb, PhysicsWorld* world, PhysicsCommon* common,
 
 MeshData* Model::loadMesh(const char* filename, int* len)
 {
+	char* f = new char[256];
+	strcpy(f, "./data/meshes/");
+	strcat(f, filename);
 	Assimp::Importer importer;
-	const aiScene* scene = importer.ReadFile(filename, aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices);
+	const aiScene* scene = importer.ReadFile(f, aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices);
 
 	const char* error = aiGetErrorString();
 	if (strlen(error) > 0) {
@@ -59,7 +67,7 @@ MeshData* Model::loadMesh(const char* filename, int* len)
 
 	if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) // if is Not Zero
 	{
-		PLOGE << "Failed to load " << filename;
+		PLOGE << "Failed to load " << f;
 		return nullptr;
 	}
 
