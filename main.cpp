@@ -110,40 +110,43 @@ struct Enemy {
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
 	if (action == GLFW_PRESS) {
-		if (key == GLFW_KEY_E) {
-			if (hasRifle) {
-				sniperRifle->rb->setType(BodyType::DYNAMIC);
-				BoxShape* sniperShape = physicsCommon.createBoxShape(Vector3(0.17f, 0.75f, 1.07f));
-				Transform colliderOffset = Transform(Vector3(0, -0.34f, 0.13f), Quaternion::identity());
-				sniperRifle->rb->addCollider(sniperShape, colliderOffset);
-				sniperRifle->rb->setMass(1);
-				Vector3 position(
-					camera->position.x + std::cos(camera->rotation.y - 1.57f) * 2,
-					camera->position.y,
-					camera->position.z + std::sin(camera->rotation.y - 1.57f) * 2
-				);
-				sniperRifle->rb->setTransform(Transform(position, Quaternion::identity()));
-				sniperRifle->rb->setLinearVelocity(Vector3::zero());
-				sniperRifle->rb->setAngularVelocity(Vector3::zero());
-				sniperRifle->rb->applyWorldForceAtCenterOfMass(
-					Vector3(
-						std::cos(camera->rotation.y - 1.57f) * 200,
-						300,
-						std::sin(camera->rotation.y - 1.57f) * 200)
-				);
-			}
-			else {
-				sniperRifle->rb->removeCollider(sniperRifle->rb->getCollider(0));
-				sniperRifle->rb->setType(BodyType::STATIC);
-			}
+		if (lockMouse) {
+			if (key == GLFW_KEY_E) {
+				if (hasRifle) {
+					sniperRifle->rb->setType(BodyType::DYNAMIC);
+					BoxShape* sniperShape = physicsCommon.createBoxShape(Vector3(0.17f, 0.75f, 1.07f));
+					Transform colliderOffset = Transform(Vector3(0, -0.34f, 0.13f), Quaternion::identity());
+					sniperRifle->rb->addCollider(sniperShape, colliderOffset);
+					sniperRifle->rb->setMass(1);
+					Vector3 position(
+						camera->position.x + std::cos(camera->rotation.y - 1.57f) * 2,
+						camera->position.y,
+						camera->position.z + std::sin(camera->rotation.y - 1.57f) * 2
+					);
+					sniperRifle->rb->setTransform(Transform(position, Quaternion::identity()));
+					sniperRifle->rb->setLinearVelocity(Vector3::zero());
+					sniperRifle->rb->setAngularVelocity(Vector3::zero());
+					sniperRifle->rb->applyWorldForceAtCenterOfMass(
+						Vector3(
+							std::cos(camera->rotation.y - 1.57f) * 200,
+							300,
+							std::sin(camera->rotation.y - 1.57f) * 200)
+					);
+				}
+				else {
+					sniperRifle->rb->removeCollider(sniperRifle->rb->getCollider(0));
+					sniperRifle->rb->setType(BodyType::STATIC);
+				}
 
-			hasRifle ^= 1;
+				hasRifle ^= 1;
+			}
+			else if (key == GLFW_KEY_BACKSPACE) {
+				player->rb->setTransform(Transform::identity());
+				player->rb->setLinearVelocity(Vector3::zero());
+			}
 		}
-		else if (key == GLFW_KEY_BACKSPACE) {
-			player->rb->setTransform(Transform::identity());
-			player->rb->setLinearVelocity(Vector3::zero());
-		}
-		else if (key == GLFW_KEY_ESCAPE) {
+
+	    if (key == GLFW_KEY_ESCAPE) {
 			lockMouse ^= 1;
 		}
 		else if (key == GLFW_KEY_GRAVE_ACCENT) {
@@ -157,29 +160,31 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 {
-	if (button == GLFW_MOUSE_BUTTON_RIGHT) {
-		if (action >= GLFW_PRESS) {
-			camera->hFov = 25;
+	if (lockMouse) {
+		if (button == GLFW_MOUSE_BUTTON_RIGHT) {
+			if (action >= GLFW_PRESS) {
+				camera->hFov = 25;
+			}
+			else {
+				camera->hFov = 60;
+			}
 		}
-		else {
-			camera->hFov = 60;
-		}
-	}
-	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
-		Vector3 startPoint = player->rb->getTransform().getPosition();
-		Vector3 endPoint(
-			startPoint.x + std::cos(camera->rotation.y - 1.57f) * 50.f,
-			startPoint.y + std::sin(camera->rotation.x) * 10.f,
-			startPoint.z + std::sin(camera->rotation.y - 1.57f) * 50.f
-		);
-		Ray ray(startPoint, endPoint);
-		RaycastInfo raycastInfo;
+		if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+			Vector3 startPoint = player->rb->getTransform().getPosition();
+			Vector3 endPoint(
+				startPoint.x + std::cos(camera->rotation.y - 1.57f) * 50.f,
+				startPoint.y + std::sin(camera->rotation.x) * 10.f,
+				startPoint.z + std::sin(camera->rotation.y - 1.57f) * 50.f
+			);
+			Ray ray(startPoint, endPoint);
+			RaycastInfo raycastInfo;
 
-		for (int i = 0; i < enemies_count; i++) {
-			EnemyModel* enemy = enemies[i];
-			bool hit = enemy->rb->raycast(ray, raycastInfo);
-			if (hit) {
-				enemy->rb->applyWorldForceAtWorldPosition(raycastInfo.worldNormal * -200, raycastInfo.worldPoint);
+			for (int i = 0; i < enemies_count; i++) {
+				EnemyModel* enemy = enemies[i];
+				bool hit = enemy->rb->raycast(ray, raycastInfo);
+				if (hit) {
+					enemy->rb->applyWorldForceAtWorldPosition(raycastInfo.worldNormal * -200, raycastInfo.worldPoint);
+				}
 			}
 		}
 	}
@@ -583,7 +588,7 @@ int main() {
 					if (!std::regex_match(ip, ip_regex)) {
 						ImGui::Text("Incorrect IP address");
 					}
-					else if(strcmp(nickname, "Server") == 0) {
+					else if (strcmp(nickname, "Server") == 0) {
 						ImGui::Text("Incorrect nickname");
 					}
 					else {
@@ -669,7 +674,7 @@ int main() {
 				}
 
 
-				if(window->isKeyPressed(GLFW_KEY_TAB)){
+				if (window->isKeyPressed(GLFW_KEY_TAB)) {
 					rmt_ScopedCPUSample(HUD_ServerInfo, 0);
 					ImGui::SetNextWindowPos({
 						viewport->WorkSize.x / 2,

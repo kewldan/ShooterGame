@@ -17,49 +17,98 @@ Shader::Shader(const char* filename) {
 	blockIndex = 0;
 	needTexture = true;
 
-	long long geom_time, vert_time, frag_time;
-	
+	size_t vertexHash, geometryHash, fragmentHash;
+
+	std::ifstream in;
+	std::string vertexSource, geometrySource, fragmentSource;
+
 	char* path = new char[128];
 	strcpy(path, "./data/shaders/");
 	strcat(path, filename);
 	strcat(path, ".cache");
 	if (std::filesystem::exists(path)) {
-		std::ifstream in(path);
+		std::ifstream infile(path, std::ios_base::binary);
+		std::vector<char> buffer((std::istreambuf_iterator<char>(infile)),
+			std::istreambuf_iterator<char>());
 
-		in.seekg(0, std::ios::end);
-		size_t l = in.tellg();
-		in.seekg(0, std::ios::beg);
-		char* cache = new char[l];
-		in.read(cache, l);
-
-		long long v, g, f;
 		unsigned int format;
 		int length;
-		memcpy(&v, cache, sizeof(long long));
-		memcpy(&g, cache + sizeof(long long), sizeof(long long));
-		memcpy(&f, cache + sizeof(long long) * 2, sizeof(long long));
-		memcpy(&format, cache + sizeof(long long) * 3, sizeof(int));
-		memcpy(&length, cache + sizeof(long long) * 3 + sizeof(int), sizeof(int));
 
-		PLOGD << "From cache (Length: " << length << ")";
+#ifndef NDEBUG
+		size_t v, g, f;
+		memcpy(&v, buffer.data(), 8);
+		memcpy(&g, buffer.data() + 8, 8);
+		memcpy(&f, buffer.data() + 16, 8);
+		path[strlen(path) - 6] = 0;
+		strcat(path, ".vert");
+		if (std::filesystem::exists(path)) {
+			in = std::ifstream(path);
+			vertexSource = std::string((std::istreambuf_iterator<char>(in)),
+				std::istreambuf_iterator<char>());
 
-		glProgramBinary(program, format, cache + sizeof(long long) * 3 + sizeof(int) * 2, length);
+			vertexHash = std::hash<std::string>{}(vertexSource);
 
-		GLint valid;
-		glGetProgramiv(program, GL_VALIDATE_STATUS, &valid);
-		PLOGI << "Shader [" << filename << "] loaded (" << valid << ")";
+			if (vertexHash != v) {
+				goto load_shader;
+			}
+		}
+		path[strlen(path) - 5] = 0;
+		strcat(path, ".geom");
+		if (std::filesystem::exists(path)) {
+			in = std::ifstream(path);
+			geometrySource = std::string((std::istreambuf_iterator<char>(in)),
+				std::istreambuf_iterator<char>());
+
+			geometryHash = std::hash<std::string>{}(geometrySource);
+
+			if (geometryHash != g) {
+				goto load_shader;
+			}
+		}
+		path[strlen(path) - 5] = 0;
+		strcat(path, ".frag");
+		if (std::filesystem::exists(path)) {
+			in = std::ifstream(path);
+			fragmentSource = std::string((std::istreambuf_iterator<char>(in)),
+				std::istreambuf_iterator<char>());
+
+			fragmentHash = std::hash<std::string>{}(fragmentSource);
+
+			if (fragmentHash != f) {
+				goto load_shader;
+			}
+		}
+#endif
+
+		memcpy(&format, buffer.data() + 24, 4);
+		memcpy(&length, buffer.data() + 28, 4);
+
+		glProgramBinary(program, format, buffer.data() + 32, length);
+
+		PLOGI << "Shader [" << filename << "] loaded";
 		return;
 	}
 
+load_shader:
+
+	PLOGW << "Shader [" << filename << "] being recompiled";
+
+#ifndef NDEBUG
+	path[strlen(path) - 5] = 0;
+#else
 	path[strlen(path) - 6] = 0;
+#endif
 	strcat(path, ".vert");
 	if (std::filesystem::exists(path)) {
-		vert_time = std::filesystem::last_write_time(path).time_since_epoch().count();
-		std::ifstream in(path);
-		std::string contents((std::istreambuf_iterator<char>(in)),
-			std::istreambuf_iterator<char>());
+		if (vertexSource.empty()) {
+			in = std::ifstream(path);
+			vertexSource = std::string((std::istreambuf_iterator<char>(in)),
+				std::istreambuf_iterator<char>());
+		}
+		vertexHash = std::hash<std::string>{}(vertexSource);
+
 		vertex = glCreateShader(GL_VERTEX_SHADER);
-		const char* shader_source = contents.c_str();
+		const char* shader_source = vertexSource.c_str();
 		glShaderSource(vertex, 1, &shader_source, nullptr);
 		glCompileShader(vertex);
 
@@ -86,12 +135,15 @@ Shader::Shader(const char* filename) {
 	path[strlen(path) - 5] = 0;
 	strcat(path, ".frag");
 	if (std::filesystem::exists(path)) {
-		frag_time = std::filesystem::last_write_time(path).time_since_epoch().count();
-		std::ifstream in(path);
-		std::string contents((std::istreambuf_iterator<char>(in)),
-			std::istreambuf_iterator<char>());
+		if (fragmentSource.empty()) {
+			in = std::ifstream(path);
+			fragmentSource = std::string((std::istreambuf_iterator<char>(in)),
+				std::istreambuf_iterator<char>());
+		}
+		fragmentHash = std::hash<std::string>{}(fragmentSource);
+
 		fragment = glCreateShader(GL_FRAGMENT_SHADER);
-		const char* shader_source = contents.c_str();
+		const char* shader_source = fragmentSource.c_str();
 		glShaderSource(fragment, 1, &shader_source, nullptr);
 		glCompileShader(fragment);
 
@@ -118,12 +170,15 @@ Shader::Shader(const char* filename) {
 	path[strlen(path) - 5] = 0;
 	strcat(path, ".geom");
 	if (std::filesystem::exists(path)) {
-		geom_time = std::filesystem::last_write_time(path).time_since_epoch().count();
-		std::ifstream in(path);
-		std::string contents((std::istreambuf_iterator<char>(in)),
-			std::istreambuf_iterator<char>());
+		if (geometrySource.empty()) {
+			in = std::ifstream(path);
+			geometrySource = std::string((std::istreambuf_iterator<char>(in)),
+				std::istreambuf_iterator<char>());
+		}
+		geometryHash = std::hash<std::string>{}(geometrySource);
+
 		geometry = glCreateShader(GL_GEOMETRY_SHADER);
-		const char* shader_source = contents.c_str();
+		const char* shader_source = geometrySource.c_str();
 		glShaderSource(geometry, 1, &shader_source, nullptr);
 		glCompileShader(geometry);
 
@@ -146,34 +201,32 @@ Shader::Shader(const char* filename) {
 			PLOG_WARNING << "Geometry shader found, but not attached";
 		}
 	}
-	
+
 	glLinkProgram(program);
 	glObjectLabelBuild(GL_PROGRAM, program, "Program", filename);
 
 	int length;
 	glGetProgramiv(program, GL_PROGRAM_BINARY_LENGTH, &length);
 	if (length > 0) {
-		char* binary = new char[length + sizeof(long long) * 3 + sizeof(int) * 2];
+		char* binary = new char[length + 32];
 		unsigned int format;
-		glGetProgramBinary(program, length, &length, &format, binary + sizeof(long long) * 3 + sizeof(int) * 2);
+		glGetProgramBinary(program, length, &length, &format, binary + 32);
 
-		memcpy(binary, &vert_time, sizeof(long long));
-		memcpy(binary + sizeof(long long), &geom_time, sizeof(long long));
-		memcpy(binary + sizeof(long long) * 2, &frag_time, sizeof(long long));
-		memcpy(binary + sizeof(long long) * 3, &format, sizeof(int));
-		memcpy(binary + sizeof(long long) * 3 + sizeof(int), &length, sizeof(int));
+		memcpy(binary, &vertexHash, 8);
+		memcpy(binary + 8, &geometryHash, 8);
+		memcpy(binary + 16, &fragmentHash, 8);
+		memcpy(binary + 24, &format, 4);
+		memcpy(binary + 28, &length, 4);
 
 		std::ofstream fout;
 		path[strlen(path) - 5] = 0;
 		strcat(path, ".cache");
 		fout.open(path, std::ios::binary | std::ios::out);
-		fout.write(binary, length + sizeof(long long) * 3 + sizeof(int) * 2);
+		fout.write(binary, length + 32);
 		fout.close();
-
-		PLOGD << "Shader cached (Length: " << length << ")";
 	}
 
-	if(shaderParts == 0){
+	if (shaderParts == 0) {
 		PLOGW << "Empty shader [" << filename << "] linked";
 	}
 	else {
