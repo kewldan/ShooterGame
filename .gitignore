@@ -15,5 +15,6 @@
 *.zip
 *.dll
 /libraries
+/blender
 *.cache
 /out
