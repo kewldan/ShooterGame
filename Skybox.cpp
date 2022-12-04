@@ -15,12 +15,13 @@ Skybox::Skybox(const char* filename)
 
     int width, height, nrChannels;
     char* path = new char[256];
-    strcpy(path, filename);
+    strcpy(path, "./data/textures/");
+	strcat(path, filename);
+	char n[2];
+	n[1] = 0;
     for (unsigned int i = 0; i < 6; i++)
     {
-        char* n = new char[2];
-        itoa(i, n, 10);
-        n[1] = 0;
+		n[0] = 0x30 + i;
         strcat(path, n);
         strcat(path, ".jpg");
         unsigned char* data = stbi_load(path, &width, &height, &nrChannels, 0);

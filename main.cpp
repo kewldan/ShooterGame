@@ -317,7 +317,7 @@ int main() {
 
 	delete[] data;
 
-	skybox = new Skybox("data/textures/sky");
+	skybox = new Skybox("sky");
 
 	hud = new HUD(window);
 	Chat::i = new Chat();
@@ -617,7 +617,7 @@ int main() {
 
 						rmt_ScopedCPUSample(HUD_DebugOverlay, 0);
 
-						ImGui::Text("Shooter game by kewldan (CR70)");
+						ImGui::Text("Shooter game by kewldan (CR75)");
 						if (ImGui::IsItemClicked()) {
 							::ShellExecuteA(NULL, "open", "https://github.com/kewldan/", NULL, NULL, SW_SHOWDEFAULT);
 						}
