@@ -26,6 +26,7 @@ Shader::Shader(const char* filename) {
 	strcpy(path, "./data/shaders/");
 	strcat(path, filename);
 	strcat(path, ".cache");
+#ifdef USE_SHADER_CACHE
 	if (std::filesystem::exists(path)) {
 		std::ifstream infile(path, std::ios_base::binary);
 		std::vector<char> buffer((std::istreambuf_iterator<char>(infile)),
@@ -91,13 +92,17 @@ Shader::Shader(const char* filename) {
 
 load_shader:
 
-	PLOGW << "Shader [" << filename << "] being recompiled";
-
 #ifndef NDEBUG
 	path[strlen(path) - 5] = 0;
 #else
 	path[strlen(path) - 6] = 0;
 #endif
+#else
+	path[strlen(path) - 6] = 0;
+#endif
+
+	PLOGW << "Shader [" << filename << "] being recompiled";
+	
 	strcat(path, ".vert");
 	if (std::filesystem::exists(path)) {
 		if (vertexSource.empty()) {

@@ -67,7 +67,7 @@ BasicPacket* Client::recivePacket()
 	char* packet_header_buffer = new char[4];
 	int n = recv(clientSocket, packet_header_buffer, 4, 0);
 	if (n == 4) {
-		BasicPacket *packet = new BasicPacket();
+		BasicPacket* packet = new BasicPacket();
 		memcpy(&packet->length, packet_header_buffer, n);
 		memcpy(&packet->type, packet_header_buffer + 2, n);
 
@@ -144,10 +144,11 @@ void Client::sendMessage(char* message)
 {
 	BasicPacket* packet = new BasicPacket();
 	packet->type = ClientPacketTypes::MESSAGE;
-	packet->length = strlen(message);
+	packet->length = strlen(message) + 1;
 	packet->payload = new char[packet->length];
 
-	memcpy(packet->payload, message, strlen(message));
+	packet->payload[0] = strlen(message);
+	memcpy(packet->payload + 1, message, strlen(message));
 
 	sendPacket(packet);
 }
@@ -156,9 +157,9 @@ void Client::sendPlayerRequest(int id)
 {
 	BasicPacket* packet = new BasicPacket();
 	packet->type = ClientPacketTypes::GET_PLAYER;
-	packet->length = 4;
+	packet->length = sizeof(int);
 	packet->payload = new char[packet->length];
 
-	memcpy(packet->payload, &id, 4);
+	memcpy(packet->payload, &id, sizeof(int));
 	sendPacket(packet);
 }

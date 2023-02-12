@@ -60,6 +60,13 @@ void GLAPIENTRY MessageCallback(GLenum source,
 #endif
 
 
+struct WeaponModel : public Model {
+	using Model::Model;
+public:
+	int firerate;
+};
+
+
 class EnemyModel : public Model {
 	using Model::Model;
 public:
@@ -183,7 +190,14 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 				EnemyModel* enemy = enemies[i];
 				bool hit = enemy->rb->raycast(ray, raycastInfo);
 				if (hit) {
-					enemy->rb->applyWorldForceAtWorldPosition(raycastInfo.worldNormal * -200, raycastInfo.worldPoint);
+					char* nickname = new char[33];
+					if (nicknames.contains(enemy->id)) {
+						nickname = nicknames[enemy->id];
+					}
+					else {
+						strcpy(nickname, "Unknown");
+					}
+					Chat::i->AddLog("Player hit %s (Distance: %dm)", nickname, (raycastInfo.worldPoint - startPoint).length());
 				}
 			}
 		}
@@ -722,6 +736,8 @@ int main() {
 				if (console_open) {
 					Chat::i->Draw();
 				}
+
+
 				if (strlen(Chat::i->buffer) > 0) {
 					if (client->isConnected()) {
 						client->sendMessage(Chat::i->buffer);

@@ -6,6 +6,7 @@ project(ShooterGame)
 # Enables profiler in browser
 set(PROFILER_ENABLE 0)
 set(NETWORKING_PORT 23403)
+set(SHADER_CACHE 0)
 
 # ########
 
@@ -39,6 +40,10 @@ if(${PROFILER_ENABLE} EQUAL 1)
     add_definitions(-DRMT_PROFILER)
 else()
     set(PROFILER_SOURCES )
+endif()
+
+if(${SHADER_CACHE} EQUAL 1)
+    add_definitions(-DUSE_SHADER_CACHE)
 endif()
 
 add_definitions(-DNETWORKING_PORT=${NETWORKING_PORT})
