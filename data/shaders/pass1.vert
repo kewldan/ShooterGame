@@ -7,18 +7,18 @@ out vec3 FragPos;
 out vec2 TexCoords;
 out vec3 Normal;
 
-uniform mat4 mvp;
-uniform mat4 view;
-uniform mat4 proj;
+uniform mat4 mvp; //Model matrix
+uniform mat4 view; //View (camera transformations)
+uniform mat4 proj; //Projection (Only for screen)
 
 void main()
 {
-    vec4 worldPos = mvp * vec4(aPos, 1.0);
+    vec4 worldPos = view * mvp * vec4(aPos, 1.0);
     FragPos = worldPos.xyz; 
     TexCoords = aTexCoords;
     
     mat3 normalMatrix = transpose(inverse(mat3(view * mvp)));
     Normal = normalMatrix * aNormal;
 
-    gl_Position = proj * view * worldPos;
+    gl_Position = proj * worldPos;
 }

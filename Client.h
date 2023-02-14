@@ -50,7 +50,7 @@ public:
 	void sendHandshake(char* nickname);
 	void sendUpdate(float x, float y, float z, float rx, float ry);
 	void sendMessage(char* message);
-	void sendPlayerRequest(int id);
+	void sendPlayerRequest(unsigned int id);
 };
 
 #endif

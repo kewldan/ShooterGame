@@ -20,6 +20,8 @@ SSAO::SSAO(const char* ssaoShaderPath, const char* ssaoBlurShaderPath, int width
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, w, h, 0, GL_RED, GL_FLOAT, NULL);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, ssaoColorBuffer, 0);
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
 		PLOGE << "SSAO Framebuffer not complete!";
@@ -60,12 +62,12 @@ SSAO::SSAO(const char* ssaoShaderPath, const char* ssaoBlurShaderPath, int width
 	// ----------------------
 	for (unsigned int i = 0; i < 16; i++)
 	{
-		noise[i] = glm::vec3(randomFloats(generator) * 2.0 - 1.0, randomFloats(generator) * 2.0 - 1.0, 0.0f);
+		noise[i] = glm::normalize(glm::vec3(randomFloats(generator) * 2.0 - 1.0, randomFloats(generator) * 2.0 - 1.0, 0.0f));
 	}
 	glGenTextures(1, &noiseTexture);
 	glBindTexture(GL_TEXTURE_2D, noiseTexture);
 	glObjectLabelBuild(GL_TEXTURE, noiseTexture, "Texture", "SSAO noise");
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, 4, 4, 0, GL_RGB, GL_FLOAT, noise);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA16F, 4, 4, 0, GL_RGB, GL_FLOAT, noise);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
@@ -94,6 +96,9 @@ SSAO::SSAO(const char* ssaoShaderPath, const char* ssaoBlurShaderPath, int width
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
 	glEnableVertexAttribArray(1);
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+
+	radius = 0.5f;
+	bias = 0.075f;
 }
 
 void SSAO::renderSSAOTexture(unsigned int gPosition, unsigned int gNormal, Camera* camera)
@@ -110,6 +115,8 @@ void SSAO::renderSSAOTexture(unsigned int gPosition, unsigned int gNormal, Camer
 		ssaoShader->upload("gNormal", 1);
 		ssaoShader->upload("texNoise", 2);
 		ssaoShader->upload("noiseScale", glm::vec2(w / 4.f, h / 4.f));
+		ssaoShader->upload("radius", radius);
+		ssaoShader->upload("bias", bias);
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_2D, gPosition);
 		glActiveTexture(GL_TEXTURE1);

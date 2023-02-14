@@ -22,6 +22,7 @@ class SSAO {
 	glm::vec3 noise[16];
 	UniformBlock* samplesBlock;
 public:
+	float radius, bias;
 	unsigned int ssaoColorBufferBlur;
 	SSAO(const char* ssaoShaderPath, const char* ssaoBlurShaderPath, int width, int height);
 	void renderSSAOTexture(unsigned int gPosition, unsigned int gNormal, Camera* camera);

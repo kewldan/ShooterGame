@@ -5,6 +5,8 @@
 Camera::Camera(Window* window) {
 	position = glm::vec3(0);
 	rotation = glm::vec2(0);
+	view = glm::mat4(1);
+	orthographic = glm::mat4(1);
 
 	this->window = window;
 }
@@ -34,8 +36,8 @@ const glm::mat4& Camera::getOrthographic() {
 
 const glm::mat4& Camera::getPerspective() {
 	float hfovRad = (float)hFov * 3.1415f / 180;
-	float vfovRad = 2.f * std::atan(std::tan(hfovRad / 2) * window->ratio);
-	perspective = glm::perspective(vfovRad, window->ratio, 0.1f, 300.f);
+	float vfovRad = 2.f * std::atan(std::tan(hfovRad / 2) * window->width / (float) window->height);
+	perspective = glm::perspective(vfovRad, window->width / (float) window->height, 0.1f, 300.f);
 	return perspective;
 }
 

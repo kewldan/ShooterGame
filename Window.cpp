@@ -16,7 +16,6 @@ Window::Window(int w, int h, const char* title) {
 	vsync = false;
 	width = w;
 	height = h;
-	ratio = 1;
 
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -83,7 +82,6 @@ bool Window::update(bool* resized) {
 
 	int lw = width, lh = height;
 	glfwGetFramebufferSize(window, &width, &height);
-	ratio = (float)width / (float)height;
 	*resized = (lw != width || lh != height);
 
 	return !glfwWindowShouldClose(window);

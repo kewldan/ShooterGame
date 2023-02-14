@@ -22,7 +22,6 @@ class Window {
 	bool vsync;
 public:
 	int width, height;
-	float ratio;
 	Window();
 
 	Window(int w, int h);

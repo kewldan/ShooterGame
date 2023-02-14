@@ -70,7 +70,7 @@ public:
 class EnemyModel : public Model {
 	using Model::Model;
 public:
-	int id;
+	unsigned int id;
 };
 
 void TextCentered(const char* text) {
@@ -111,7 +111,7 @@ Chat* Chat::i = nullptr;
 bool hasRifle = true, vsync, physicsDebugRender, console_open, castShadows, show_minimap, show_ssao, show_debugMenu, lockMouse;
 
 struct Enemy {
-	int id;
+	unsigned int id;
 	float x, y, z, rx, ry;
 };
 
@@ -153,7 +153,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 			}
 		}
 
-	    if (key == GLFW_KEY_ESCAPE) {
+		if (key == GLFW_KEY_ESCAPE) {
 			lockMouse ^= 1;
 		}
 		else if (key == GLFW_KEY_GRAVE_ACCENT) {
@@ -208,6 +208,7 @@ void cpl_func() {
 	while (client->isConnected()) {
 		BasicPacket* packet = client->recivePacket();
 		if (packet != nullptr) {
+
 			if (packet->type == ServerPacketTypes::UPDATE) {
 				enemies_count = packet->payload[0];
 
@@ -259,6 +260,9 @@ void cpl_func() {
 				memcpy(&id, packet->payload, 4);
 
 				nicknames[id] = nickname;
+			}
+			else {
+				PLOGW << "Unknown packet type: " << packet->type;
 			}
 		}
 		else {
@@ -524,98 +528,120 @@ int main() {
 			hud->begin();
 			ImGui::SetNextWindowPos(ImVec2(15, 200), ImGuiCond_Once);
 
-			if (ImGui::Begin("Debug", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
+			if (ImGui::Begin("Settings", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
 				rmt_ScopedCPUSample(HUD_Configuration, 0);
 
-				ImGui::SliderFloat("Camera speed", &camera->speed, 0.1f, 10.f, "%.1f");
-				ImGui::SliderFloat("Camera sentivity", &camera->sentivity, 0.1f, 4.f, "%.1f");
-				if (ImGui::Checkbox("VSync", &vsync)) {
-					window->setVsync(vsync);
+				{
+					if (client->isConnected()) {
+						ImGui::BeginDisabled();
+					}
+					ImGui::InputText("IP", ip, 16, ImGuiInputTextFlags_NoHorizontalScroll | ImGuiInputTextFlags_CharsScientific);
+					if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+						ImGui::BeginTooltip();
+						ImGui::Text("IPv4 address\nFormat: XXX.XXX.XXX.XXX");
+						ImGui::EndTooltip();
+					}
+					ImGui::InputText("Nickname", nickname, 32, ImGuiInputTextFlags_NoHorizontalScroll);
+					if (client->isConnected()) {
+						ImGui::EndDisabled();
+					}
+
+					bool canConnect = std::regex_match(ip, ip_regex) && strcmp(nickname, "Server") != 0;
+
+					if (!canConnect && !client->isConnected()) {
+						ImGui::BeginDisabled();
+					}
+
+					if (ImGui::Button(client->isConnected() ? "Disconnect" : "Connect", ImVec2(270, 20))) {
+						if (!client->isConnected()) {
+							client->connectToHost(ip, NETWORKING_PORT);
+							if (client->isConnected()) {
+								cpl_thread = std::thread(cpl_func);
+								cpl_thread.detach();
+								client->sendHandshake(nickname);
+							}
+						}
+						else {
+							client->disconnectFromHost();
+						}
+					}
+					if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+						ImGui::BeginTooltip();
+						if (!std::regex_match(ip, ip_regex)) {
+							ImGui::Text("Incorrect IP address");
+						}
+						else if (strcmp(nickname, "Server") == 0) {
+							ImGui::Text("Incorrect nickname");
+						}
+						else {
+							ImGui::Text("Connnect to %s:%d", ip, NETWORKING_PORT);
+						}
+						ImGui::EndTooltip();
+					}
+
+					if (!canConnect && !client->isConnected()) {
+						ImGui::EndDisabled();
+					}
 				}
-				if (ImGui::Checkbox("Debug render", &physicsDebugRender)) {
-					world->setIsDebugRenderingEnabled(physicsDebugRender);
+
+				if (ImGui::TreeNode("Debug")) {
+					ImGui::SliderFloat("Speed", &camera->speed, 0.1f, 10.f, "%.1f");
+					if (ImGui::Checkbox("Debug render", &physicsDebugRender)) {
+						world->setIsDebugRenderingEnabled(physicsDebugRender);
+					}
+					if (ImGui::IsItemHovered()) {
+						ImGui::BeginTooltip();
+						ImGui::Text("Physics debug colliders render");
+						ImGui::EndTooltip();
+					}
+					ImGui::TreePop();
 				}
-				if (ImGui::IsItemHovered()) {
-					ImGui::BeginTooltip();
-					ImGui::Text("Physics debug colliders render");
-					ImGui::EndTooltip();
+				if (ImGui::TreeNode("General")) {
+					ImGui::SliderFloat("Sentivity", &camera->sentivity, 0.1f, 4.f, "%.1f");
+					ImGui::Checkbox("Show minimap", &show_minimap);
+					if (show_minimap) {
+						ImGui::Image((void*)(intptr_t)minimap->map, ImVec2(512, 512), ImVec2(0, 1), ImVec2(1, 0));
+					}
+					ImGui::TreePop();
 				}
-				ImGui::Checkbox("Cast shadows", &castShadows);
-				if (ImGui::IsItemHovered()) {
-					ImGui::BeginTooltip();
-					ImGui::Text("May cause visual problems");
-					ImGui::EndTooltip();
-				}
-				ImGui::Checkbox("SSAO", &show_ssao);
-				if (ImGui::IsItemHovered()) {
-					ImGui::BeginTooltip();
-					ImGui::Text("WIP", ip);
-					ImGui::EndTooltip();
-				}
-				ImGui::Checkbox("Show minimap", &show_minimap);
-				if (show_minimap) {
-					ImGui::Image((void*)(intptr_t)minimap->map, ImVec2(512, 512), ImVec2(0, 1), ImVec2(1, 0));
+				if (ImGui::TreeNode("Graphics")) {
+					if (ImGui::Checkbox("VSync", &vsync)) {
+						window->setVsync(vsync);
+					}
+					static int ssaoLevel = 0;
+					if (ImGui::Combo("SSAO level", &ssaoLevel, "None\0Low\0Medium\0High")) {
+						show_ssao = ssaoLevel > 0;
+						if (ssaoLevel == 1) {
+							ssao->bias = 0.3f;
+							ssao->radius = 0.5f;
+						}
+						else if(ssaoLevel == 2){
+							ssao->bias = 0.1f;
+							ssao->radius = 1.f;
+						}
+						else if (ssaoLevel == 3) {
+							ssao->bias = 0.02f;
+							ssao->radius = 2.f;
+						}
+					}
+					if (ImGui::IsItemHovered()) {
+						ImGui::BeginTooltip();
+						ImGui::Text("May cause perfomance issues", ip);
+						ImGui::EndTooltip();
+					}
+					
+					ImGui::Checkbox("Cast shadows", &castShadows);
+					if (ImGui::IsItemHovered()) {
+						ImGui::BeginTooltip();
+						ImGui::Text("WIP");
+						ImGui::EndTooltip();
+					}
+					ImGui::TreePop();
 				}
 			}
 			ImGui::End();
 
 			ImGui::SetNextWindowPos(ImVec2(300, 15), ImGuiCond_Once);
-
-			if (ImGui::Begin("Menu", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
-
-				rmt_ScopedCPUSample(HUD_Menu, 0);
-
-				if (client->isConnected()) {
-					ImGui::BeginDisabled();
-				}
-				ImGui::InputText("IP", ip, 16, ImGuiInputTextFlags_NoHorizontalScroll | ImGuiInputTextFlags_CharsScientific);
-				if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-					ImGui::BeginTooltip();
-					ImGui::Text("IPv4 address\nFormat: XXX.XXX.XXX.XXX");
-					ImGui::EndTooltip();
-				}
-				ImGui::InputText("Nickname", nickname, 32, ImGuiInputTextFlags_NoHorizontalScroll);
-				if (client->isConnected()) {
-					ImGui::EndDisabled();
-				}
-
-				bool canConnect = std::regex_match(ip, ip_regex) && strcmp(nickname, "Server") != 0;
-
-				if (!canConnect && !client->isConnected()) {
-					ImGui::BeginDisabled();
-				}
-
-				if (ImGui::Button(client->isConnected() ? "Disconnect" : "Connect", ImVec2(270, 20))) {
-					if (!client->isConnected()) {
-						client->connectToHost(ip, NETWORKING_PORT);
-						if (client->isConnected()) {
-							cpl_thread = std::thread(cpl_func);
-							client->sendHandshake(nickname);
-						}
-					}
-					else {
-						client->disconnectFromHost();
-					}
-				}
-				if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-					ImGui::BeginTooltip();
-					if (!std::regex_match(ip, ip_regex)) {
-						ImGui::Text("Incorrect IP address");
-					}
-					else if (strcmp(nickname, "Server") == 0) {
-						ImGui::Text("Incorrect nickname");
-					}
-					else {
-						ImGui::Text("Connnect to %s:%d", ip, NETWORKING_PORT);
-					}
-					ImGui::EndTooltip();
-				}
-
-				if (!canConnect && !client->isConnected()) {
-					ImGui::EndDisabled();
-				}
-			}
-			ImGui::End();
 
 			{
 				ImGuiIO& io = ImGui::GetIO();
@@ -631,7 +657,7 @@ int main() {
 
 						rmt_ScopedCPUSample(HUD_DebugOverlay, 0);
 
-						ImGui::Text("Shooter game by kewldan (CR75)");
+						ImGui::Text("Shooter game by kewldan (CRXX)");
 						if (ImGui::IsItemClicked()) {
 							::ShellExecuteA(NULL, "open", "https://github.com/kewldan/", NULL, NULL, SW_SHOWDEFAULT);
 						}
@@ -704,10 +730,10 @@ int main() {
 						ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove |
 						ImGuiWindowFlags_NoInputs)) {
 						if (client->isConnected()) {
-							TextCentered("Online");
+							TextCentered("Online (TCP/IP)");
 							ImGui::Text("ID: %d", client->my_id);
 							if (enemies_count > 0) {
-								ImGui::Text("Player list (K/D):");
+								ImGui::Text("Players (K/D):");
 								for (int i = 0; i < enemies_count; i++) {
 									if (nicknames.contains(enemies[i]->id)) {
 										if (strlen(nicknames[enemies[i]->id]) > 0) {

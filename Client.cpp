@@ -91,14 +91,13 @@ BasicPacket* Client::recivePacket()
 
 void Client::sendPacket(BasicPacket* packet)
 {
-	uint16_t packet_length = packet->length + 2;
-	char* data = new char[packet_length + 2];
+	char* data = new char[packet->length + 4];
 
-	memcpy(data, &packet_length, 2); //Service information
+	memcpy(data, &packet->length, 2); //Service information
 	memcpy(data + 2, &packet->type, 2);
 	memcpy(data + 4, packet->payload, packet->length);
 
-	sendBytes(data, packet_length + 2);
+	sendBytes(data, packet->length + 4);
 }
 
 bool Client::isConnected()
@@ -153,13 +152,13 @@ void Client::sendMessage(char* message)
 	sendPacket(packet);
 }
 
-void Client::sendPlayerRequest(int id)
+void Client::sendPlayerRequest(unsigned int id)
 {
 	BasicPacket* packet = new BasicPacket();
 	packet->type = ClientPacketTypes::GET_PLAYER;
-	packet->length = sizeof(int);
+	packet->length = 4;
 	packet->payload = new char[packet->length];
 
-	memcpy(packet->payload, &id, sizeof(int));
+	memcpy(packet->payload, &id, 4);
 	sendPacket(packet);
 }
