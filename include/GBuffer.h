@@ -1,0 +1,24 @@
+#pragma once
+
+#include "Shader.h"
+
+struct Light {
+	glm::vec3 pos;
+	glm::vec3 color;
+};
+
+class GBuffer {
+	int w, h;
+	Engine::Shader* gShader, * lShader;
+public:
+	unsigned int FBO, gPosition, gNormal, gAlbedo, rboDepth, VAO, VBO;
+	GBuffer(const char* gShaderPath, const char* lShaderPath, int width, int height);
+
+	void resize(int nw, int nh);
+
+    Engine::Shader* beginGeometryPass(Engine::Camera* camera);
+	static void endGeometryPass();
+
+    Engine::Shader* beginLightingPass(std::vector<Light>* lights, glm::vec3 camera_pos, unsigned int ssao, unsigned int shadowMap);
+	void endLightingPass() const;
+};

@@ -4,7 +4,6 @@
 .gitignore
 *.log
 *.exe
-*.log
 *.bin
 *.pdb
 *.ilk
@@ -18,3 +17,4 @@
 /blender
 *.cache
 /out
+/build

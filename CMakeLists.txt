@@ -1,80 +1,67 @@
 cmake_minimum_required(VERSION 3.23)
 project(ShooterGame)
 
-# Settings
-
-# Enables profiler in browser
-set(PROFILER_ENABLE 0)
 set(NETWORKING_PORT 23403)
-set(SHADER_CACHE 0)
-
-# ########
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
-
-set(LIBRARIES_PATH ${CMAKE_CURRENT_SOURCE_DIR}/libraries)
+set(LIBRARIES_PATH "E:/Projects/libraries")
 
 include(${LIBRARIES_PATH}/imgui/import.cmake)
 
-include_directories(${LIBRARIES_PATH}/glad/include)
-include_directories(${LIBRARIES_PATH}/stb/include)
-include_directories(${LIBRARIES_PATH}/plog/include)
-include_directories(${LIBRARIES_PATH}/glfw/include)
-include_directories(${LIBRARIES_PATH}/glm/include)
-include_directories(${LIBRARIES_PATH}/ReactPhysics3D/include)
-include_directories(${LIBRARIES_PATH}/imgui)
+include_directories(
+        ${PROJECT_SOURCE_DIR}/include
 
-find_package(assimp REQUIRED)
+        ${LIBRARIES_PATH}/glad/debug/include
+        ${LIBRARIES_PATH}/stb/include
+        ${LIBRARIES_PATH}/plog/include
+        ${LIBRARIES_PATH}/glfw/include
+        ${LIBRARIES_PATH}/glm/include
+        ${LIBRARIES_PATH}/zlib/
+        ${LIBRARIES_PATH}/ReactPhysics3D/include
+        ${LIBRARIES_PATH}/assimp/include
+        ${LIBRARIES_PATH}/imgui
+        ${LIBRARIES_PATH}/engine/include
+)
 
-link_directories("E:\\dev\\vcpkg\\installed\\x64-windows\\lib")
-link_directories(${CMAKE_CURRENT_SOURCE_DIR}/libraries/ReactPhysics3D/lib)
-link_directories(${CMAKE_CURRENT_SOURCE_DIR}/libraries/glfw/lib-vc2022)
-
+link_directories(${LIBRARIES_PATH}/ReactPhysics3D/lib)
+link_directories(${LIBRARIES_PATH}/glfw/lib-vc2022)
+link_directories(${LIBRARIES_PATH}/engine/lib)
+link_directories(${LIBRARIES_PATH}/zlib/lib)
+link_directories(${LIBRARIES_PATH}/assimp/lib)
 
 # Settings
-
-if(${PROFILER_ENABLE} EQUAL 1)
-    include_directories(${LIBRARIES_PATH}/profiler/include)
-    set(PROFILER_SOURCES libraries/profiler/include/Remotery.c libraries/profiler/include/Remotery.h)
-    add_definitions(-DRMT_PROFILER)
-else()
-    set(PROFILER_SOURCES )
-endif()
-
-if(${SHADER_CACHE} EQUAL 1)
-    add_definitions(-DUSE_SHADER_CACHE)
-endif()
 
 add_definitions(-DNETWORKING_PORT=${NETWORKING_PORT})
 
 ##########
 
+file(GLOB PROJECT_SRCS
+        "include/*.h" "src/*.cpp"
+        )
+
 add_executable(${PROJECT_NAME}
-        ${LIBRARIES_PATH}/glad/src/glad.c
-        ${PROFILER_SOURCES}
+        ${LIBRARIES_PATH}/glad/debug/src/glad.c
         ${IMGUI_SOURCES}
+        ${ENGINE_SRCS}
+       ${PROJECT_SRCS})
 
-        main.cpp
-        Shader.cpp Shader.h
-        Window.cpp Window.h
-        MyMesh.cpp MyMesh.h
-        Model.cpp Model.h
-        Camera.cpp Camera.h
-        Texture.cpp Texture.h
-        ShadowsCaster.cpp ShadowsCaster.h
-        HUD.cpp HUD.h
-        Client.cpp Client.h
-        Chat.cpp Chat.h
-        Skybox.h Skybox.cpp
-        Minimap.h Minimap.cpp
-        GBuffer.h GBuffer.cpp
- "SSAO.cpp" "SSAO.h")
+target_link_libraries(${PROJECT_NAME}
+        debug zlibstaticd
+        optimized zlibstatic)
 
-set(GAME_LIBRARIES glfw3 opengl32 gdi32 Ws2_32 assimp::assimp)
+target_link_libraries(
+        ${PROJECT_NAME}
+        debug engined
+        optimized engine
+)
 
-if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-    target_link_libraries(${PROJECT_NAME} ${GAME_LIBRARIES} reactphysics3dd)
-else()
-    target_link_libraries(${PROJECT_NAME} ${GAME_LIBRARIES} reactphysics3d)
-endif()
+target_link_libraries(
+        ${PROJECT_NAME}
+        debug reactphysics3dd
+        optimized reactphysics3d
+)
+
+target_link_libraries(
+        ${PROJECT_NAME} glfw3 opengl32 Ws2_32 assimp-vc143-mtd
+)
