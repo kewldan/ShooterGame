@@ -1,6 +1,6 @@
 #include "MyMesh.h"
 
-MyMesh::MyMesh(std::vector<float>* vertices, std::vector<int>* indices, unsigned int vertexSize, char* label)
+MyMesh::MyMesh(std::vector<float>* vertices, std::vector<int>* indices, unsigned int vertexSize)
 {
 	VAO = -1;
 	VBO = -1;
@@ -38,11 +38,7 @@ void MyMesh::addParameter(int location, int size, bool normalized) {
 	vertexOffset += sizeof(float) * size;
 }
 
-bool MyMesh::hasTexture()
+bool MyMesh::hasTexture() const
 {
 	return texture != nullptr;
-}
-
-void MyMesh::addParameter(int location, int size) {
-	addParameter(location, size, GL_FALSE);
 }

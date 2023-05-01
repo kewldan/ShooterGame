@@ -1,9 +1,7 @@
 #include "GBuffer.h"
 
-GBuffer::GBuffer(const char* gShaderPath, const char* lShaderPath, int width, int height)
+GBuffer::GBuffer(const char* gShaderPath, const char* lShaderPath, int width, int height, unsigned int ssao, unsigned int shadowMap) : w(width), h(height), ssao(ssao), shadow(shadowMap)
 {
-	w = width;
-	h = height;
 	glGenFramebuffers(1, &FBO);
 	glBindFramebuffer(GL_FRAMEBUFFER, FBO);
 
@@ -46,7 +44,7 @@ GBuffer::GBuffer(const char* gShaderPath, const char* lShaderPath, int width, in
 	gShader = new Engine::Shader(gShaderPath, true);
 	lShader = new Engine::Shader(lShaderPath, true);
 
-	float quadVertices[] = {
+	static const float quadVertices[] = {
 		// positions        // texture Coords
 		-1.0f,  1.0f, 0.0f, 0.0f, 1.0f,
 		-1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
@@ -84,7 +82,7 @@ void GBuffer::resize(int nw, int nh)
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-Engine::Shader* GBuffer::beginGeometryPass(Engine::Camera* camera)
+void GBuffer::geometryPass(Engine::Camera* camera, const std::function<void(Engine::Shader *)> &useFunction)
 {
 	glViewport(0, 0, w, h);
 	glBindFramebuffer(GL_FRAMEBUFFER, FBO);
@@ -93,26 +91,13 @@ Engine::Shader* GBuffer::beginGeometryPass(Engine::Camera* camera)
 	gShader->bind();
 	gShader->upload("proj", camera->getPerspective());
 	gShader->upload("view", camera->getView());
-	return gShader;
+
+    useFunction(gShader);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void GBuffer::endGeometryPass()
-{
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-}
-
-char* getLightString(unsigned int i, const char* field) {
-	char* n = new char[256];
-	strcpy_s(n, 256,"lights[");
-	char* iBuffer = new char[4];
-	_itoa_s(i, iBuffer, 256, 10);
-	strcat_s(n, 256,iBuffer);
-	strcat_s(n, 256,"].");
-	strcat_s(n, 256,field);
-	return n;
-}
-
-Engine::Shader* GBuffer::beginLightingPass(std::vector<Light>* lights, glm::vec3 camera_pos, unsigned int ssao, unsigned int shadowMap)
+void GBuffer::lightingPass(std::vector<Light>* lights, Engine::Camera* camera, const std::function<void(Engine::Shader *)> &useFunction)
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	lShader->bind();
@@ -126,40 +111,56 @@ Engine::Shader* GBuffer::beginLightingPass(std::vector<Light>* lights, glm::vec3
 	glActiveTexture(GL_TEXTURE3);
 	glBindTexture(GL_TEXTURE_2D, ssao);
 	glActiveTexture(GL_TEXTURE4);
-	glBindTexture(GL_TEXTURE_2D, shadowMap);
+	glBindTexture(GL_TEXTURE_2D, shadow);
 
 	lShader->upload("gPosition", 0);
 	lShader->upload("gNormal", 1);
 	lShader->upload("gAlbedoSpec", 2);
 	lShader->upload("ssao", 3);
 	lShader->upload("shadowMap", 4);
-	lShader->upload("viewPos", camera_pos);
+	lShader->upload("viewPos", camera->position);
 	lShader->upload("nbLights", (int) lights->size());
 
-	for (unsigned int i = 0; i < lights->size() && i < 32; i++)
+    static char *buf, *iBuf;
+    if(buf == nullptr){
+        buf = new char[96];
+        strcpy_s(buf, 96, "lights[");
+        iBuf = new char[4];
+    }
+	for (int i = 0; i < lights->size() && i < 32; i++)
 	{
 		Light light = lights->at(i);
-		lShader->upload(getLightString(i, "Position"), light.pos);
-		lShader->upload(getLightString(i, "Color"), light.color);
+        _itoa_s(i, iBuf, 4, 10);
+
+        strcat_s(buf, 96, iBuf);
+        strcat_s(buf, 96, "].Position");
+		lShader->upload(buf, light.pos);
+
+        buf[strlen(buf) - 8] = 0;
+        strcat_s(buf, 96, "Color");
+		lShader->upload(buf, light.color);
 
 		const float linear = 0.7f;
 		const float quadratic = 1.8f;
-		lShader->upload(getLightString(i, "Linear"), linear);
-		lShader->upload(getLightString(i, "Quadratic"), quadratic);
+
+        buf[strlen(buf) - 5] = 0;
+        strcat_s(buf, 96, "Linear");
+		lShader->upload(buf, linear);
+
+        buf[strlen(buf) - 6] = 0;
+        strcat_s(buf, 96, "Quadratic");
+		lShader->upload(buf, quadratic);
+
+        buf[strlen(buf) - 9 - 2 - strlen(iBuf)] = 0;
 	}
-	return lShader;
-}
+	useFunction(lShader);
 
-void GBuffer::endLightingPass() const
-{
-	glBindVertexArray(VAO);
-	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+    glBindVertexArray(VAO);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-	glBindFramebuffer(GL_READ_FRAMEBUFFER, FBO);
-	glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); // write to default framebuffer
-	// blit to default framebuffer. Note that this may or may not work as the internal formats of both the FBO and default framebuffer have to match.
-	// the internal formats are implementation defined. This works on all of my systems, but if it doesn't on yours you'll likely have to write to the 		
-	// depth buffer in another shader stage (or somehow see to match the default framebuffer's internal format with the FBO's internal format).
-	glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, FBO);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+
+    glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }

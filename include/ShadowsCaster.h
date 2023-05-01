@@ -1,5 +1,4 @@
-#ifndef SHOOTERGAME_SHADOWSCASTER_H
-#define SHOOTERGAME_SHADOWSCASTER_H
+#pragma once
 
 #include "glad/glad.h"
 #include "Shader.h"
@@ -22,6 +21,3 @@ public:
 
 	unsigned int getMap() const;
 };
-
-
-#endif //SHOOTERGAME_SHADOWSCASTER_H

@@ -5,10 +5,6 @@
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
 #include <plog/Log.h>
-#include <assimp/Importer.hpp>
-#include <assimp/scene.h>
-#include <assimp/postprocess.h>
-#include <assimp/cimport.h>
 #include <Shader.h>
 
 using namespace reactphysics3d;
@@ -29,8 +25,8 @@ public:
 	int nbMeshes{};
 	RigidBody* rb{};
 
-	Model(const char* filename, PhysicsWorld* world, PhysicsCommon* common, bool createConcaveCollider = false, char* label = nullptr);
-	Model(MeshData* data, int nb, PhysicsWorld* world, PhysicsCommon* common, bool createConcaveCollider = false, char* label = nullptr);
+	Model(const char* filename, PhysicsWorld* world, PhysicsCommon* common, bool createConcaveCollider = false);
+	Model(MeshData* data, int nb, PhysicsWorld* world, PhysicsCommon* common, bool createConcaveCollider = false);
 
 	static MeshData* loadMesh(const char* filename, int* len);
 

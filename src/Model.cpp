@@ -1,25 +1,26 @@
 #include "Model.h"
+#include "OBJ_Loader.h"
 
-Model::Model(const char* filename, PhysicsWorld* world, PhysicsCommon* common, bool createConcaveCollider, char* label) {
+Model::Model(const char* filename, PhysicsWorld* world, PhysicsCommon* common, bool createConcaveCollider) {
 	int nb = -2;
-	char* f = new char[256];
-	strcpy_s(f, 256,filename);
+	char* f = new char[128];
+	strcpy_s(f, 128,filename);
 
 	MeshData* meshesData = loadMesh(f, &nb);
-	new (this) Model(meshesData, nb, world, common, createConcaveCollider, label != nullptr ? label : f);
+	new (this) Model(meshesData, nb, world, common, createConcaveCollider);
 }
 
-Model::Model(MeshData* data, int nb, PhysicsWorld* world, PhysicsCommon* common, bool createConcaveCollider, char* label)
+Model::Model(MeshData* data, int nb, PhysicsWorld* world, PhysicsCommon* common, bool createConcaveCollider)
 {
 	meshes = (MyMesh*)calloc(nb, sizeof(MyMesh));
 	for (int i = 0; i < nb; i++) {
-		meshes[i] = MyMesh(data[i].output, data[i].indices, 8, label);
+		meshes[i] = MyMesh(data[i].output, data[i].indices, 8);
 		meshes[i].addParameter(0, 3);
 		meshes[i].addParameter(1, 2);
 		meshes[i].addParameter(2, 3);
 		if (strlen(data[i].texturePath) > 0) {
 			int nameIndex = 0;
-			for (int j = strlen(data[i].texturePath) - 1; j > 0; j--) {
+			for (int j = (int) strlen(data[i].texturePath) - 1; j > 0; j--) {
 				if (data[i].texturePath[j] == '/' || data[i].texturePath[j] == '\\') {
 					nameIndex = j;
 					break;
@@ -54,79 +55,50 @@ Model::Model(MeshData* data, int nb, PhysicsWorld* world, PhysicsCommon* common,
 
 MeshData* Model::loadMesh(const char* filename, int* len)
 {
-	char* f = new char[256];
-	strcpy_s(f, 256, "./data/meshes/");
-	strcat_s(f, 256, filename);
-	Assimp::Importer importer;
-	const aiScene* scene = importer.ReadFile(f, aiProcess_FlipUVs | aiProcess_JoinIdenticalVertices);
+	static char* f = new char[128];
+	strcpy_s(f, 128, "./data/meshes/");
+	strcat_s(f, 128, filename);
+    objl::Loader loader;
 
-	const char* error = aiGetErrorString();
-	if (strlen(error) > 0) {
-		PLOGE << error;
-	}
+    if(loader.LoadFile(f)){
+        *len = loader.LoadedMeshes.size();
+        auto* data = new MeshData[*len];
+        for (int i = 0; i < *len; i++) {
+            const auto& curMesh = loader.LoadedMeshes[i];
+            for (const auto & vertex : curMesh.Vertices)
+            {
+                data[i].vertices->push_back(vertex.Position.X);
+                data[i].vertices->push_back(vertex.Position.Y);
+                data[i].vertices->push_back(vertex.Position.Z);
 
-	if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) // if is Not Zero
-	{
-		PLOGE << "Failed to load " << f;
-		return nullptr;
-	}
+                data[i].normals->push_back(vertex.Normal.X);
+                data[i].normals->push_back(vertex.Normal.Y);
+                data[i].normals->push_back(vertex.Normal.Z);
 
-	aiNode* root = scene->mRootNode;
-	aiNode* child = root->mChildren[0];
+                data[i].output->push_back(vertex.Position.X);
+                data[i].output->push_back(vertex.Position.Y);
+                data[i].output->push_back(vertex.Position.Z);
 
-	auto* data = new MeshData[child->mNumMeshes];
-	for (unsigned int j = 0; j < child->mNumMeshes; j++) {
-		aiMesh* mesh = scene->mMeshes[child->mMeshes[j]];
-		data[j] = MeshData();
-		aiMaterial* material = scene->mMaterials[mesh->mMaterialIndex];
-		if (material->GetTextureCount(aiTextureType_DIFFUSE) > 0) {
-			aiString str;
-			material->GetTexture(aiTextureType_DIFFUSE, 0, &str);
-			strcpy(data[j].texturePath, str.C_Str());
-		}
-		for (unsigned int i = 0; i < mesh->mNumVertices; i++)
-		{
-			data[j].vertices->push_back(mesh->mVertices[i].x);
-			data[j].vertices->push_back(mesh->mVertices[i].y);
-			data[j].vertices->push_back(mesh->mVertices[i].z);
+                data[i].output->push_back(vertex.TextureCoordinate.X);
+                data[i].output->push_back(1 - vertex.TextureCoordinate.Y);
 
-			data[j].output->push_back(mesh->mVertices[i].x);
-			data[j].output->push_back(mesh->mVertices[i].y);
-			data[j].output->push_back(mesh->mVertices[i].z);
+                data[i].output->push_back(vertex.Normal.X);
+                data[i].output->push_back(vertex.Normal.Y);
+                data[i].output->push_back(vertex.Normal.Z);
+            }
 
-			if (mesh->mTextureCoords[0])
-			{
-				data[j].output->push_back(mesh->mTextureCoords[0][i].x);
-				data[j].output->push_back(mesh->mTextureCoords[0][i].y);
-			}
-			else {
-				data[j].output->push_back(0);
-				data[j].output->push_back(0);
-			}
+            for (const auto& index : curMesh.Indices)
+            {
+                data[i].indices->push_back(index);
+            }
 
-			data[j].output->push_back(mesh->mNormals[i].x);
-			data[j].output->push_back(mesh->mNormals[i].y);
-			data[j].output->push_back(mesh->mNormals[i].z);
-
-			data[j].normals->push_back(mesh->mNormals[i].x);
-			data[j].normals->push_back(mesh->mNormals[i].y);
-			data[j].normals->push_back(mesh->mNormals[i].z);
-		}
-
-		for (unsigned int i = 0; i < mesh->mNumFaces; i++)
-		{
-			aiFace face = mesh->mFaces[i];
-
-			data[j].indices->push_back(face.mIndices[0]);
-			data[j].indices->push_back(face.mIndices[1]);
-			data[j].indices->push_back(face.mIndices[2]);
-		}
-	}
-
-	*len = child->mNumMeshes;
-
-	PLOGI << "Model [" << filename << "] loaded " << child->mNumMeshes << " meshes";
-	return data;
+            strcpy_s(data[i].texturePath, 128, curMesh.MeshMaterial.map_Kd.c_str());
+        }
+        PLOGI << "Model [" << filename << "] loaded " << *len << " meshes";
+        return data;
+    }else{
+        return nullptr;
+    }
 }
 
 float* Model::getMVP() {
@@ -135,7 +107,7 @@ float* Model::getMVP() {
 }
 
 void Model::draw(Engine::Shader *shader) {
-    shader->uploadMat4("mvp", mvp);
+    shader->uploadMat4("mvp", getMVP());
     for (int i = 0; i < nbMeshes; i++) {
         if (meshes[i].hasTexture()) {
             meshes[i].texture->bind();
@@ -153,8 +125,7 @@ MeshData::MeshData() {
 	output = new std::vector<float>();
 	normals = new std::vector<float>();
 	indices = new std::vector<int>();
-	texturePath = new char[256];
-	strcpy_s(texturePath, 256,"");
+    texturePath = new char[128];
 }
 
 MeshData::~MeshData() {

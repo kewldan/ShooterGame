@@ -1,9 +1,7 @@
-#ifndef OPENGL_MESH_H
-#define OPENGL_MESH_H
+#pragma once
 
 #include "glad/glad.h"
 #include <vector>
-#include "plog/Log.h"
 #include "Texture.h"
 
 class MyMesh {
@@ -13,16 +11,11 @@ class MyMesh {
 public:
     Engine::Texture* texture;
 	int indicesCount, stride;
-	MyMesh(std::vector<float>* vertices, std::vector<int>* indices, unsigned int vertexSize, char* label = nullptr);
+	MyMesh(std::vector<float>* vertices, std::vector<int>* indices, unsigned int vertexSize);
 
 	void draw() const;
 
-	void addParameter(int location, int size);
+	void addParameter(int location, int size, bool normalized = GL_FALSE);
 
-	void addParameter(int location, int size, bool normalized);
-
-	bool hasTexture();
+	[[nodiscard]] bool hasTexture() const;
 };
-
-
-#endif //OPENGL_MESH_H

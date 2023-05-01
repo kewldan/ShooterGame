@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Shader.h"
+#include <functional>
 
 class Minimap {
 	int w, h, altitude;
@@ -10,6 +11,5 @@ public:
 	unsigned int FBO{}, map{};
 	Minimap(const char* shaderName, int width, int height, glm::vec3* position, int altitude);
 	~Minimap();
-    Engine::Shader* begin(float rotation_y);
-	static void end();
+    void pass(float rotation_y, const std::function<void(Engine::Shader *)> &useFunction);
 };

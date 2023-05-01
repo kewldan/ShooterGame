@@ -19,7 +19,7 @@ include_directories(
         ${LIBRARIES_PATH}/glm/include
         ${LIBRARIES_PATH}/zlib/
         ${LIBRARIES_PATH}/ReactPhysics3D/include
-        ${LIBRARIES_PATH}/assimp/include
+        ${LIBRARIES_PATH}/objl
         ${LIBRARIES_PATH}/imgui
         ${LIBRARIES_PATH}/engine/include
 )
@@ -28,7 +28,6 @@ link_directories(${LIBRARIES_PATH}/ReactPhysics3D/lib)
 link_directories(${LIBRARIES_PATH}/glfw/lib-vc2022)
 link_directories(${LIBRARIES_PATH}/engine/lib)
 link_directories(${LIBRARIES_PATH}/zlib/lib)
-link_directories(${LIBRARIES_PATH}/assimp/lib)
 
 # Settings
 
@@ -42,6 +41,7 @@ file(GLOB PROJECT_SRCS
 
 add_executable(${PROJECT_NAME}
         ${LIBRARIES_PATH}/glad/debug/src/glad.c
+        ${LIBRARIES_PATH}/objl
         ${IMGUI_SOURCES}
         ${ENGINE_SRCS}
        ${PROJECT_SRCS})
@@ -63,5 +63,5 @@ target_link_libraries(
 )
 
 target_link_libraries(
-        ${PROJECT_NAME} glfw3 opengl32 Ws2_32 assimp-vc143-mtd
+        ${PROJECT_NAME} glfw3 opengl32 Ws2_32
 )

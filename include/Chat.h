@@ -1,5 +1,4 @@
-#ifndef SHOOTERGAME_CHAT_H
-#define SHOOTERGAME_CHAT_H
+#pragma once
 
 #include <iostream>
 #include <vector>
@@ -27,5 +26,3 @@ public:
 	char* buffer;
 	static Chat* i;
 };
-
-#endif

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Shader.h"
+#include <functional>
 
 struct Light {
 	glm::vec3 pos;
@@ -9,16 +10,15 @@ struct Light {
 
 class GBuffer {
 	int w, h;
+    unsigned int ssao, shadow;
 	Engine::Shader* gShader, * lShader;
 public:
 	unsigned int FBO, gPosition, gNormal, gAlbedo, rboDepth, VAO, VBO;
-	GBuffer(const char* gShaderPath, const char* lShaderPath, int width, int height);
+	GBuffer(const char* gShaderPath, const char* lShaderPath, int width, int height, unsigned int ssao, unsigned int shadowMap);
 
 	void resize(int nw, int nh);
 
-    Engine::Shader* beginGeometryPass(Engine::Camera* camera);
-	static void endGeometryPass();
+    void geometryPass(Engine::Camera* camera, const std::function<void(Engine::Shader *)> &useFunction);
 
-    Engine::Shader* beginLightingPass(std::vector<Light>* lights, glm::vec3 camera_pos, unsigned int ssao, unsigned int shadowMap);
-	void endLightingPass() const;
+    void lightingPass(std::vector<Light>* lights, Engine::Camera* camera, const std::function<void(Engine::Shader *)> &useFunction);
 };

@@ -1,5 +1,4 @@
-#ifndef SHOOTERGAME_CLIENT_H
-#define SHOOTERGAME_CLIENT_H
+#pragma once
 
 #include <iostream>
 #include "plog/Log.h"
@@ -52,5 +51,3 @@ public:
 	void sendMessage(char* message);
 	void sendPlayerRequest(unsigned int id);
 };
-
-#endif

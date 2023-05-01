@@ -77,35 +77,18 @@ void key_callback(GLFWwindow *w, int key, int scancode, int action, int mods) {
 
         if (key == GLFW_KEY_ESCAPE) {
             lockMouse ^= 1;
+            if(lockMouse){
+                input->hideCursor();
+            }else{
+                input->showCursor();
+            }
         } else if (key == GLFW_KEY_GRAVE_ACCENT) {
             console_open ^= 1;
         } else if (key == GLFW_KEY_F3) {
             show_debugMenu ^= 1;
         }
     }
-};
-
-void mouse_button_callback(GLFWwindow *w, int button, int action, int mods) {
-    if (lockMouse) {
-        if (button == GLFW_MOUSE_BUTTON_RIGHT) {
-            if (action >= GLFW_PRESS) {
-                camera->setFov(25.f);
-            } else {
-                camera->setFov(60.f);
-            }
-        }
-        if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
-            Vector3 startPoint = player->rb->getTransform().getPosition();
-            Vector3 endPoint(
-                    startPoint.x + std::cos(camera->rotation.y - 1.57f) * 50.f,
-                    startPoint.y + std::sin(camera->rotation.x) * 10.f,
-                    startPoint.z + std::sin(camera->rotation.y - 1.57f) * 50.f
-            );
-            Ray ray(startPoint, endPoint);
-            RaycastInfo raycastInfo;
-        }
-    }
-};
+}
 
 void cpl_func() {
     while (client->isConnected()) {
@@ -158,9 +141,9 @@ int main() {
     Engine::Window::setVsync(vsync);
     input = new Engine::Input(window->getId());
     camera = new Engine::Camera(window);
+    camera->setFov(60.f);
 
     glfwSetKeyCallback(window->getId(), key_callback);
-    glfwSetMouseButtonCallback(window->getId(), mouse_button_callback);
 
     Engine::HUD::init(window);
 
@@ -197,9 +180,9 @@ int main() {
 
     minimap = new Minimap("map", 512, 512, &camera->position, 60);
 
-    gBuffer = new GBuffer("pass1", "pass2", window->width, window->height);
-
     ssao = new SSAO("ssao", "ssaoBlur", window->width, window->height);
+
+    gBuffer = new GBuffer("pass1", "pass2", window->width, window->height, ssao->ssaoColorBufferBlur, shadows->getMap());
 
     lights = new std::vector<Light>();
 
@@ -213,6 +196,8 @@ int main() {
     do {
         input->update();
         camera->update();
+        camera->updateView();
+
         if (lockMouse) {
             glm::vec2 p = glm::vec2(window->width / 2, window->height / 2) - input->getCursorPosition();
             input->setCursorPosition(glm::vec2(window->width / 2, window->height / 2));
@@ -228,10 +213,24 @@ int main() {
             if (camera->rotation.y <= -6.283f) {
                 camera->rotation.y += 6.283f;
             }
-            input->hideCursor();
-        }
-        else {
-            input->showCursor();
+
+            if (input->isMouseButtonJustPressed(GLFW_MOUSE_BUTTON_RIGHT)) {
+                camera->setFov(25.f);
+            }
+            if(input->isMouseButtonJustReleased(GLFW_MOUSE_BUTTON_RIGHT)){
+                camera->setFov(60.f);
+            }
+
+            if(input->isMouseButtonJustPressed(GLFW_MOUSE_BUTTON_LEFT)){
+                Vector3 startPoint = player->rb->getTransform().getPosition();
+                Vector3 endPoint(
+                        startPoint.x + std::cos(camera->rotation.y - 1.57f) * 50.f,
+                        startPoint.y + std::sin(camera->rotation.x) * 10.f,
+                        startPoint.z + std::sin(camera->rotation.y - 1.57f) * 50.f
+                );
+                Ray ray(startPoint, endPoint);
+                RaycastInfo raycastInfo;
+            }
         }
 
         float crouch = input->isKeyPressed(GLFW_KEY_LEFT_SHIFT) ? 0.8f : 1.5f;
@@ -284,14 +283,11 @@ int main() {
 
         // 2. Minimap pass
         if (show_minimap) {
-            Engine::Shader *mapShader = minimap->begin(camera->rotation.y);
-            mapShader->upload("aTexture", 0);
-            glActiveTexture(GL_TEXTURE0);
-
-            sniperRifle->draw(mapShader);
-            map->draw(mapShader);
-            player->draw(mapShader);
-            Minimap::end();
+            minimap->pass(camera->rotation.y, [](Engine::Shader* shader){
+                sniperRifle->draw(shader);
+                map->draw(shader);
+                player->draw(shader);
+            });
         }
 
         if (window->isResized()) {
@@ -302,16 +298,12 @@ int main() {
         }
 
         // 3. Geometry pass [GBuffer]
-        {
-            Engine::Shader *pass1 = gBuffer->beginGeometryPass(camera);
+        gBuffer->geometryPass(camera, [](Engine::Shader* shader){
             glActiveTexture(GL_TEXTURE0);
-            pass1->upload("aTexture", 0);
+            shader->upload("aTexture", 0);
 
-            map->draw(pass1);
-            //player->draw(pass1);
-
-            GBuffer::endGeometryPass();
-        }
+            map->draw(shader);
+        });
 
         if (show_ssao) {
             // 4. SSAO pass [SSAO]
@@ -324,22 +316,17 @@ int main() {
         window->reset();
 
         // 6. Lighting pass [GBuffer]
-        {
-            Engine::Shader *s = gBuffer->beginLightingPass(lights, camera->position, ssao->ssaoColorBufferBlur,
-                                                           shadows->getMap());
-            s->upload("SSAO", show_ssao);
-            s->upload("CastShadows", castShadows);
+        gBuffer->lightingPass(lights, camera, [](Engine::Shader* shader){
+            shader->upload("SSAO", show_ssao);
+            shader->upload("CastShadows", castShadows);
             if (castShadows) {
-                s->upload("lightPos", lightPos);
-                s->upload("lightSpaceMat", shadows->getLightSpaceMatrix());
+                shader->upload("lightPos", lightPos);
+                shader->upload("lightSpaceMat", shadows->getLightSpaceMatrix());
             }
-            gBuffer->endLightingPass();
-        }
+        });
 
         // 7. Skybox draw
-        {
-            skybox->draw(skyShader, camera);
-        }
+        skybox->draw(skyShader, camera);
 
         if (world->getIsDebugRenderingEnabled()) {
             static unsigned int VAO = -1, VBO;
@@ -492,16 +479,7 @@ int main() {
                                      ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_AlwaysAutoResize |
                                      ImGuiWindowFlags_NoFocusOnAppearing |
                                      ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove)) {
-                        ImGui::Text("Shooter game by kewldan (CRXX)");
-                        if (ImGui::IsItemClicked()) {
-                            ::ShellExecute(nullptr, "open", "https://github.com/kewldan/", nullptr, nullptr,
-                                           SW_SHOWDEFAULT);
-                        }
-                        ImGui::NewLine();
-
                         ImGui::Text("FPS: %.1f", ImGui::GetIO().Framerate);
-
-                        ImGui::NewLine();
                         ImGui::Text("Position: X: %.1f, Y: %.1f, Z: %.1f", camera->position.x, camera->position.y,
                                     camera->position.z);
                         ImGui::Text("Facing: %.1f / %.1f", camera->rotation.x, camera->rotation.y);
@@ -538,7 +516,7 @@ int main() {
                     ImGui::SetNextWindowBgAlpha(0.35f);
                     ImGui::SetNextWindowSize(ImVec2(400, 300), ImGuiCond_Once);
 
-                    if (ImGui::Begin("##Server info", nullptr,
+                    if (ImGui::Begin("##Server", nullptr,
                                      ImGuiWindowFlags_NoDecoration |
                                      ImGuiWindowFlags_NoFocusOnAppearing |
                                      ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove |
@@ -557,7 +535,6 @@ int main() {
                 if (console_open) {
                     Chat::i->Draw();
                 }
-
 
                 if (strlen(Chat::i->buffer) > 0) {
                     if (client->isConnected()) {

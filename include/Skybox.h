@@ -5,7 +5,6 @@
 #include "MyMesh.h"
 #include "Shader.h"
 
-
 class Skybox {
 	int width, height;
 	unsigned int texture;
