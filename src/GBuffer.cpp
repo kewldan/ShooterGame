@@ -41,8 +41,8 @@ GBuffer::GBuffer(const char* gShaderPath, const char* lShaderPath, int width, in
         PLOGE << "Framebuffer not complete!";
     }
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	gShader = new Engine::Shader(gShaderPath, true);
-	lShader = new Engine::Shader(lShaderPath, true);
+	gShader = new Engine::Shader(gShaderPath);
+	lShader = new Engine::Shader(lShaderPath);
 
 	static const float quadVertices[] = {
 		// positions        // texture Coords
@@ -82,14 +82,14 @@ void GBuffer::resize(int nw, int nh)
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void GBuffer::geometryPass(Engine::Camera* camera, const std::function<void(Engine::Shader *)> &useFunction)
+void GBuffer::geometryPass(Engine::Camera3D* camera, const std::function<void(Engine::Shader *)> &useFunction)
 {
 	glViewport(0, 0, w, h);
 	glBindFramebuffer(GL_FRAMEBUFFER, FBO);
 	glClearColor(0, 0, 0, 0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	gShader->bind();
-	gShader->upload("proj", camera->getPerspective());
+	gShader->upload("proj", camera->getProjection());
 	gShader->upload("view", camera->getView());
 
     useFunction(gShader);
@@ -97,7 +97,7 @@ void GBuffer::geometryPass(Engine::Camera* camera, const std::function<void(Engi
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void GBuffer::lightingPass(std::vector<Light>* lights, Engine::Camera* camera, const std::function<void(Engine::Shader *)> &useFunction)
+void GBuffer::lightingPass(std::vector<Light>* lights, Engine::Camera3D* camera, const std::function<void(Engine::Shader *)> &useFunction)
 {
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	lShader->bind();

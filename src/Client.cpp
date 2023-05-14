@@ -67,7 +67,7 @@ BasicPacket* Client::recivePacket()
 	char* packet_header_buffer = new char[4];
 	int n = recv(clientSocket, packet_header_buffer, 4, 0);
 	if (n == 4) {
-		BasicPacket* packet = new BasicPacket();
+		auto* packet = new BasicPacket();
 		memcpy(&packet->length, packet_header_buffer, n);
 		memcpy(&packet->type, packet_header_buffer + 2, n);
 
@@ -100,7 +100,7 @@ void Client::sendPacket(BasicPacket* packet)
 	sendBytes(data, packet->length + 4);
 }
 
-bool Client::isConnected()
+bool Client::isConnected() const
 {
 	return connected;
 }
@@ -116,7 +116,7 @@ unsigned long Client::getAvailbale()
 
 void Client::sendHandshake(char* nickname)
 {
-	BasicPacket* packet = new BasicPacket();
+	auto* packet = new BasicPacket();
 	packet->type = ClientPacketTypes::HANDSHAKE;
 	packet->length = strlen(nickname) + 1;
 	packet->payload = new char[packet->length];
@@ -127,7 +127,7 @@ void Client::sendHandshake(char* nickname)
 
 void Client::sendUpdate(float x, float y, float z, float rx, float ry)
 {
-	BasicPacket* packet = new BasicPacket();
+	auto* packet = new BasicPacket();
 	packet->type = ClientPacketTypes::UPDATE;
 	packet->length = sizeof(float) * 5;
 	packet->payload = new char[packet->length];
@@ -141,7 +141,7 @@ void Client::sendUpdate(float x, float y, float z, float rx, float ry)
 
 void Client::sendMessage(char* message)
 {
-	BasicPacket* packet = new BasicPacket();
+	auto* packet = new BasicPacket();
 	packet->type = ClientPacketTypes::MESSAGE;
 	packet->length = strlen(message) + 1;
 	packet->payload = new char[packet->length];
@@ -154,7 +154,7 @@ void Client::sendMessage(char* message)
 
 void Client::sendPlayerRequest(unsigned int id)
 {
-	BasicPacket* packet = new BasicPacket();
+	auto* packet = new BasicPacket();
 	packet->type = ClientPacketTypes::GET_PLAYER;
 	packet->length = 4;
 	packet->payload = new char[packet->length];

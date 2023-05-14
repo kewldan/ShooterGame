@@ -2,6 +2,7 @@
 
 #include "Shader.h"
 #include <functional>
+#include "Camera3D.h"
 
 struct Light {
 	glm::vec3 pos;
@@ -18,7 +19,7 @@ public:
 
 	void resize(int nw, int nh);
 
-    void geometryPass(Engine::Camera* camera, const std::function<void(Engine::Shader *)> &useFunction);
+    void geometryPass(Engine::Camera3D* camera, const std::function<void(Engine::Shader *)> &useFunction);
 
-    void lightingPass(std::vector<Light>* lights, Engine::Camera* camera, const std::function<void(Engine::Shader *)> &useFunction);
+    void lightingPass(std::vector<Light>* lights, Engine::Camera3D* camera, const std::function<void(Engine::Shader *)> &useFunction);
 };

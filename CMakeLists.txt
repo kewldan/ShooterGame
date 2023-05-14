@@ -17,7 +17,8 @@ include_directories(
         ${LIBRARIES_PATH}/plog/include
         ${LIBRARIES_PATH}/glfw/include
         ${LIBRARIES_PATH}/glm/include
-        ${LIBRARIES_PATH}/zlib/
+        ${LIBRARIES_PATH}/zlib
+        ${LIBRARIES_PATH}/bson
         ${LIBRARIES_PATH}/ReactPhysics3D/include
         ${LIBRARIES_PATH}/objl
         ${LIBRARIES_PATH}/imgui
@@ -39,6 +40,12 @@ file(GLOB PROJECT_SRCS
         "include/*.h" "src/*.cpp"
         )
 
+file(GLOB ENGINE_SRCS
+        "${LIBRARIES_PATH}/engine/include/*.h" "${LIBRARIES_PATH}/engine/src/*.cpp"
+        "${LIBRARIES_PATH}/engine/include/network/*.h" "${LIBRARIES_PATH}/engine/src/network/*.cpp"
+        "${LIBRARIES_PATH}/engine/include/io/*.h" "${LIBRARIES_PATH}/engine/src/io/*.cpp"
+        )
+
 add_executable(${PROJECT_NAME}
         ${LIBRARIES_PATH}/glad/debug/src/glad.c
         ${LIBRARIES_PATH}/objl
@@ -49,12 +56,6 @@ add_executable(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME}
         debug zlibstaticd
         optimized zlibstatic)
-
-target_link_libraries(
-        ${PROJECT_NAME}
-        debug engined
-        optimized engine
-)
 
 target_link_libraries(
         ${PROJECT_NAME}

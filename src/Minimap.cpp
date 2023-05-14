@@ -20,7 +20,7 @@ Minimap::Minimap(const char *shaderName, int width, int height, glm::vec3 *posit
         PLOGE << "Minimap FBO invalid";
     }
 
-    shader = new Engine::Shader(shaderName, true);
+    shader = new Engine::Shader(shaderName);
     this->pos = position;
     this->altitude = altitude;
 }

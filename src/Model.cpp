@@ -26,7 +26,7 @@ Model::Model(MeshData* data, int nb, PhysicsWorld* world, PhysicsCommon* common,
 					break;
 				}
 			}
-			meshes[i].texture = new Engine::Texture(data[i].texturePath + nameIndex + 1, true);
+			meshes[i].texture = new Engine::Texture(data[i].texturePath + nameIndex + 1);
 		}
 	}
 	nbMeshes = nb;

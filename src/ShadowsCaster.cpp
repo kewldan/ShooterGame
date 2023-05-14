@@ -23,7 +23,7 @@ ShadowsCaster::ShadowsCaster(int width, int height, const char* shaderName, glm:
 
 	proj = glm::ortho(-distance, distance, -distance, distance, 5.f, 50.f);
 
-	shader = new Engine::Shader(shaderName, true);
+	shader = new Engine::Shader(shaderName);
 }
 
 Engine::Shader* ShadowsCaster::begin(glm::vec3 cam) {

@@ -95,12 +95,12 @@ Skybox::~Skybox()
     glDeleteTextures(1, &texture);
 }
 
-void Skybox::draw(Engine::Shader* shader, Engine::Camera* camera)
+void Skybox::draw(Engine::Shader* shader, Engine::Camera3D* camera)
 {
 	glDepthFunc(GL_LEQUAL);
 	shader->bind();
-	shader->upload("proj", camera->getPerspective());
-	shader->upload("view", camera->getViewRotationOnly());
+	shader->upload("proj", camera->getProjection());
+	shader->upload("view", camera->getViewRotation());
 	glActiveTexture(GL_TEXTURE0);
 	shader->bind();
 

@@ -23,7 +23,7 @@ void Chat::ClearLog() {
 }
 
 void Chat::AddLog(const char* fmt, ...) {
-	char buf[1024];
+	static char buf[1024];
 	va_list args;
 	va_start(args, fmt);
 	vsnprintf(buf, IM_ARRAYSIZE(buf), fmt, args);
@@ -35,7 +35,7 @@ void Chat::AddLog(const char* fmt, ...) {
 void Chat::Draw() {
 	ImGui::SetNextWindowPos(ImVec2(600, 20), ImGuiCond_Once);
 	ImGui::SetNextWindowSize(ImVec2(300, 200), ImGuiCond_Once);
-	if (!ImGui::Begin("Console", NULL, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings))
+	if (!ImGui::Begin("Console", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings))
 	{
 		ImGui::End();
 		return;

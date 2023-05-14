@@ -68,8 +68,8 @@ SSAO::SSAO(const char* ssaoShaderPath, const char* ssaoBlurShaderPath, int width
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 
-	ssaoShader = new Engine::Shader(ssaoShaderPath, true);
-	ssaoBlurShader = new Engine::Shader(ssaoBlurShaderPath, true);
+	ssaoShader = new Engine::Shader(ssaoShaderPath);
+	ssaoBlurShader = new Engine::Shader(ssaoBlurShaderPath);
 	ssaoShader->bindUniformBlock("SamplesUniform");
 	samplesBlock = new Engine::UniformBlock(24 * sizeof(glm::vec4));
 	samplesBlock->add(24 * sizeof(glm::vec4), kernel);
@@ -96,14 +96,14 @@ SSAO::SSAO(const char* ssaoShaderPath, const char* ssaoBlurShaderPath, int width
 	bias = 0.075f;
 }
 
-void SSAO::renderSSAOTexture(unsigned int gPosition, unsigned int gNormal, Engine::Camera* camera)
+void SSAO::renderSSAOTexture(unsigned int gPosition, unsigned int gNormal, Engine::Camera3D* camera)
 {
     glBindFramebuffer(GL_FRAMEBUFFER, ssaoFBO);
 	glClear(GL_COLOR_BUFFER_BIT);
 
 	{
         ssaoShader->bind();
-		ssaoShader->upload("proj", camera->getPerspective());
+		ssaoShader->upload("proj", camera->getProjection());
 		ssaoShader->upload("gPosition", 0);
 		ssaoShader->upload("gNormal", 1);
 		ssaoShader->upload("texNoise", 2);

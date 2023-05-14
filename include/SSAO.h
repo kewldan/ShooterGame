@@ -2,6 +2,7 @@
 
 #include "Shader.h"
 #include <random>
+#include "Camera3D.h"
 
 class SSAO {
 	int w, h;
@@ -19,7 +20,7 @@ public:
 	float radius, bias;
 	unsigned int ssaoColorBufferBlur;
 	SSAO(const char* ssaoShaderPath, const char* ssaoBlurShaderPath, int width, int height);
-	void renderSSAOTexture(unsigned int gPosition, unsigned int gNormal, Engine::Camera* camera);
+	void renderSSAOTexture(unsigned int gPosition, unsigned int gNormal, Engine::Camera3D* camera);
 	void blurSSAOTexture();
 	void resize(int nw, int nh);
 };

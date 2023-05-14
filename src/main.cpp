@@ -12,7 +12,7 @@
 
 #include <plog/Log.h>
 #include "Model.h"
-#include "Camera.h"
+#include "Camera3D.h"
 #include "Texture.h"
 #include "ShadowsCaster.h"
 #include "Chat.h"
@@ -35,7 +35,7 @@ void TextCentered(const char *text) {
 
 Engine::Window *window;
 Engine::Input *input;
-Engine::Camera *camera;
+Engine::Camera3D *camera;
 
 PhysicsCommon physicsCommon;
 PhysicsWorld *world;
@@ -138,9 +138,9 @@ int main() {
     Engine::Window::init();
 
     window = new Engine::Window(1280, 720, "Shooter game");
-    Engine::Window::setVsync(vsync);
+    window->setVsync(vsync);
     input = new Engine::Input(window->getId());
-    camera = new Engine::Camera(window);
+    camera = new Engine::Camera3D(window);
     camera->setFov(60.f);
 
     glfwSetKeyCallback(window->getId(), key_callback);
@@ -154,8 +154,8 @@ int main() {
     debugRenderer.setIsDebugItemDisplayed(DebugRenderer::DebugItem::COLLISION_SHAPE, true);
     world->setIsDebugRenderingEnabled(false);
 
-    debugShader = new Engine::Shader("debug", true);
-    skyShader = new Engine::Shader("sky", true);
+    debugShader = new Engine::Shader("debug");
+    skyShader = new Engine::Shader("sky");
     shadows = new ShadowsCaster(4096, 4096, "depth", lightPos, 25.f);
 
     map = new Model("dust.obj", world, &physicsCommon, true);
@@ -196,7 +196,6 @@ int main() {
     do {
         input->update();
         camera->update();
-        camera->updateView();
 
         if (lockMouse) {
             glm::vec2 p = glm::vec2(window->width / 2, window->height / 2) - input->getCursorPosition();
@@ -293,8 +292,6 @@ int main() {
         if (window->isResized()) {
             gBuffer->resize(window->width, window->height);
             ssao->resize(window->width, window->height);
-            camera->updateOrthographic();
-            camera->updatePerspective();
         }
 
         // 3. Geometry pass [GBuffer]
@@ -352,7 +349,7 @@ int main() {
                                  GL_DYNAMIC_DRAW);
 
                     debugShader->bind();
-                    debugShader->upload("proj", camera->getPerspective());
+                    debugShader->upload("proj", camera->getProjection());
                     debugShader->upload("view", camera->getView());
                     glDrawArrays(GL_TRIANGLES, 0, verticesCount);
                 }
@@ -435,7 +432,7 @@ int main() {
                 }
                 if (ImGui::TreeNode("Graphics")) {
                     if (ImGui::Checkbox("VSync", &vsync)) {
-                        Engine::Window::setVsync(vsync);
+                        window->setVsync(vsync);
                     }
                     static int ssaoLevel = 3;
                     if (ImGui::Combo("SSAO level", &ssaoLevel, "None\0Low\0Medium\0High")) {
