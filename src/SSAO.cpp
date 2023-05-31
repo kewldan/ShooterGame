@@ -12,7 +12,7 @@ SSAO::SSAO(const char* ssaoShaderPath, const char* ssaoBlurShaderPath, int width
 
 	glGenFramebuffers(1, &ssaoFBO);
 	glBindFramebuffer(GL_FRAMEBUFFER, ssaoFBO);
-	// SSAO color buffer
+	// SSAO color message
 	glGenTextures(1, &ssaoColorBuffer);
 	glBindTexture(GL_TEXTURE_2D, ssaoColorBuffer);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, w, h, 0, GL_RED, GL_FLOAT, NULL);

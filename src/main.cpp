@@ -1,17 +1,9 @@
 #define STB_IMAGE_IMPLEMENTATION
 #define GLFW_INCLUDE_NONE
 
-#include <reactphysics3d/reactphysics3d.h>
-
-#define _WINSOCKAPI_
-#include <Windows.h>
-#include "Shader.h"
-#include <cstdlib>
 #include "Window.h"
 #include <mutex>
 
-#include <plog/Log.h>
-#include "Model.h"
 #include "Camera3D.h"
 #include "Texture.h"
 #include "ShadowsCaster.h"
@@ -19,7 +11,6 @@
 
 #include "imgui.h"
 #include "HUD.h"
-#include "Client.h"
 
 #include <regex>
 #include <Input.h>
@@ -27,112 +18,29 @@
 #include "Minimap.h"
 #include "GBuffer.h"
 #include "SSAO.h"
+#include "World.h"
+#include "GameObject.h"
 
-void TextCentered(const char *text) {
-    ImGui::SetCursorPosX((ImGui::GetWindowSize().x - ImGui::CalcTextSize(text).x) * 0.5f);
-    ImGui::Text("%s", text);
-}
 
 Engine::Window *window;
 Engine::Input *input;
 Engine::Camera3D *camera;
 
-PhysicsCommon physicsCommon;
-PhysicsWorld *world;
-Engine::Shader *debugShader, *skyShader;
-ShadowsCaster *shadows;
-Model *map, *player, *sniperRifle;
+World *world;
 
-Client *client;
-char *nickname, *ip;
-double lastUpdate;
-float sensitivity = 1.f, speed = 5.f;
-Skybox *skybox;
+GameObject *map, *player, *sniperRifle;
+
+float speed = 5.f;
 Minimap *minimap;
 GBuffer *gBuffer;
 std::vector<Light> *lights;
-std::thread cpl_thread;
 SSAO *ssao;
 
 const glm::vec3 lightPos(-3.5f, 10.f, -1.5f);
-const std::regex ip_regex(R"((^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)\.?\b){4}$))");
 
 Chat *Chat::i = nullptr;
 
-bool vsync = true, physicsDebugRender, console_open = false, castShadows, show_minimap = true, show_ssao = true, show_debugMenu = true, lockMouse;
-
-struct Enemy {
-    unsigned int id;
-    float x, y, z, rx, ry;
-};
-
-void key_callback(GLFWwindow *w, int key, int scancode, int action, int mods) {
-    if (action == GLFW_PRESS) {
-        if (lockMouse) {
-            if (key == GLFW_KEY_BACKSPACE) {
-                player->rb->setTransform(Transform::identity());
-                player->rb->setLinearVelocity(Vector3::zero());
-            }
-        }
-
-        if (key == GLFW_KEY_ESCAPE) {
-            lockMouse ^= 1;
-            if(lockMouse){
-                input->hideCursor();
-            }else{
-                input->showCursor();
-            }
-        } else if (key == GLFW_KEY_GRAVE_ACCENT) {
-            console_open ^= 1;
-        } else if (key == GLFW_KEY_F3) {
-            show_debugMenu ^= 1;
-        }
-    }
-}
-
-void cpl_func() {
-    while (client->isConnected()) {
-        BasicPacket *packet = client->recivePacket();
-        if (packet != nullptr) {
-            if (packet->type == ServerPacketTypes::UPDATE) {
-
-            } else if (packet->type == ServerPacketTypes::HANDSHAKE) {
-                memcpy(&client->my_id, packet->payload, 4);
-            } else if (packet->type == ServerPacketTypes::MESSAGE) {
-                char sender_length, message_length;
-
-                memcpy(&sender_length, packet->payload, 1);
-                char *sender = new char[sender_length + 1];
-                memcpy(sender, packet->payload + 1, sender_length);
-                sender[sender_length] = 0;
-
-                memcpy(&message_length, packet->payload + 1 + sender_length, 1);
-                char *message = new char[message_length + 1];
-                memcpy(message, packet->payload + 2 + sender_length, message_length);
-                message[message_length] = 0;
-
-                Chat::i->AddLog("[chat] [%s] %s", sender, message);
-            } else if (packet->type == ServerPacketTypes::KICK) {
-                char *reason = new char[packet->length + 1];
-                memcpy(reason, packet->payload, packet->length);
-                reason[packet->length] = 0;
-
-                Chat::i->AddLog("[error] You kicked from server. Reason: %s\n", reason);
-            } else if (packet->type == ServerPacketTypes::PLAYER_INFO) {
-                char *dst = new char[packet->length - 4 + 1];
-                memcpy(dst, packet->payload + 4, packet->length);
-                dst[packet->length - 4] = 0;
-
-                int id = 0;
-                memcpy(&id, packet->payload, 4);
-            } else {
-                PLOGW << "Unknown packet type: " << packet->type;
-            }
-        } else {
-            break;
-        }
-    }
-}
+bool vsync = true, console_open = false, castShadows, show_minimap = true, show_ssao = true, show_debugMenu = true, lockMouse;
 
 int main() {
     Engine::Window::init();
@@ -140,41 +48,25 @@ int main() {
     window = new Engine::Window(1280, 720, "Shooter game");
     window->setVsync(vsync);
     input = new Engine::Input(window->getId());
+    input->registerCallbacks();
     camera = new Engine::Camera3D(window);
     camera->setFov(60.f);
 
-    glfwSetKeyCallback(window->getId(), key_callback);
+    glEnable(GL_DEPTH_TEST);
 
     Engine::HUD::init(window);
 
-    world = physicsCommon.createPhysicsWorld();
+    world = new World();
 
-    DebugRenderer &debugRenderer = world->getDebugRenderer();
-    debugRenderer.reset();
-    debugRenderer.setIsDebugItemDisplayed(DebugRenderer::DebugItem::COLLISION_SHAPE, true);
-    world->setIsDebugRenderingEnabled(false);
+    auto *skyShader = new Engine::Shader("sky");
+    auto *shadows = new ShadowsCaster(4096, 4096, "depth", lightPos, 25.f);
 
-    debugShader = new Engine::Shader("debug");
-    skyShader = new Engine::Shader("sky");
-    shadows = new ShadowsCaster(4096, 4096, "depth", lightPos, 25.f);
+    map = new GameObject(world->dynamicsWorld, "dust.obj", 0.f, new btBoxShape(btVector3(100.f, 1.f, 100.f)), btVector3(0.f, -10.f, 0.f));
+    sniperRifle = new GameObject(world->dynamicsWorld, "G17.obj", 1.5f, new btBoxShape(btVector3(1.f, 1.f, 1.f)));
+    player = new GameObject(world->dynamicsWorld, "player.obj", 60.f, new btCapsuleShape(1.f, 2.f));
+    player->rb->setAngularFactor(0.f);
 
-    map = new Model("dust.obj", world, &physicsCommon, true);
-    sniperRifle = new Model("G17.obj", world, &physicsCommon);
-    sniperRifle->rb->setType(BodyType::STATIC);
-
-    int nb = -1;
-    MeshData *data = Model::loadMesh("player.obj", &nb);
-
-    CapsuleShape *playerShape = physicsCommon.createCapsuleShape(1.f, 2.5f);
-
-    player = new Model(data, nb, world, &physicsCommon);
-    player->rb->setTransform(Transform(Vector3(0, 20, 0), Quaternion::identity()));
-    player->rb->addCollider(playerShape, Transform(Vector3(0, 1.2f, 0), Quaternion::identity()));
-    player->rb->setAngularLockAxisFactor(Vector3::zero());
-
-    delete[] data;
-
-    skybox = new Skybox("sky");
+    auto *skybox = new Skybox("sky");
 
     Chat::i = new Chat();
 
@@ -182,28 +74,24 @@ int main() {
 
     ssao = new SSAO("ssao", "ssaoBlur", window->width, window->height);
 
-    gBuffer = new GBuffer("pass1", "pass2", window->width, window->height, ssao->ssaoColorBufferBlur, shadows->getMap());
+    gBuffer = new GBuffer("pass1", "pass2", window->width, window->height, ssao->ssaoColorBufferBlur,
+                          shadows->getMap());
 
     lights = new std::vector<Light>();
 
-    client = new Client();
-    nickname = new char[32];
-    DWORD username_len = 32;
-    GetUserNameA(nickname, &username_len);
-
-    ip = new char[16];
-    strcpy_s(ip, 16, "127.0.0.1");
     do {
         input->update();
         camera->update();
+
+        static float sensitivity = 1.f;
 
         if (lockMouse) {
             glm::vec2 p = glm::vec2(window->width / 2, window->height / 2) - input->getCursorPosition();
             input->setCursorPosition(glm::vec2(window->width / 2, window->height / 2));
 
-            camera->rotation.x -= (float)p.y * 0.001f * sensitivity;
+            camera->rotation.x -= (float) p.y * 0.001f * sensitivity;
             camera->rotation.x = std::max(-1.5f, std::min(camera->rotation.x, 1.5f));
-            camera->rotation.y -= (float)p.x * 0.001f * sensitivity;
+            camera->rotation.y -= (float) p.x * 0.001f * sensitivity;
 
             //fmod faster version
             if (camera->rotation.y >= 6.283f) {
@@ -216,30 +104,18 @@ int main() {
             if (input->isMouseButtonJustPressed(GLFW_MOUSE_BUTTON_RIGHT)) {
                 camera->setFov(25.f);
             }
-            if(input->isMouseButtonJustReleased(GLFW_MOUSE_BUTTON_RIGHT)){
+            if (input->isMouseButtonJustReleased(GLFW_MOUSE_BUTTON_RIGHT)) {
                 camera->setFov(60.f);
-            }
-
-            if(input->isMouseButtonJustPressed(GLFW_MOUSE_BUTTON_LEFT)){
-                Vector3 startPoint = player->rb->getTransform().getPosition();
-                Vector3 endPoint(
-                        startPoint.x + std::cos(camera->rotation.y - 1.57f) * 50.f,
-                        startPoint.y + std::sin(camera->rotation.x) * 10.f,
-                        startPoint.z + std::sin(camera->rotation.y - 1.57f) * 50.f
-                );
-                Ray ray(startPoint, endPoint);
-                RaycastInfo raycastInfo;
             }
         }
 
         float crouch = input->isKeyPressed(GLFW_KEY_LEFT_SHIFT) ? 0.8f : 1.5f;
 
-        Vector3 vel = Vector3::zero();
+        glm::vec3 vel(0.f);
         if (input->isKeyPressed(GLFW_KEY_W)) {
             vel.x -= std::cos(camera->rotation.y + 1.57f) * 5.f * speed * crouch;
             vel.z -= std::sin(camera->rotation.y + 1.57f) * 5.f * speed * crouch;
-        }
-        else if (input->isKeyPressed(GLFW_KEY_S)) {
+        } else if (input->isKeyPressed(GLFW_KEY_S)) {
             vel.x += std::cos(camera->rotation.y + 1.57f) * 5.f * speed * crouch;
             vel.z += std::sin(camera->rotation.y + 1.57f) * 5.f * speed * crouch;
         }
@@ -247,28 +123,39 @@ int main() {
         if (input->isKeyPressed(GLFW_KEY_A)) {
             vel.x -= std::cos(camera->rotation.y) * 5.f * speed * crouch;
             vel.z -= std::sin(camera->rotation.y) * 5.f * speed * crouch;
-        }
-        else if (input->isKeyPressed(GLFW_KEY_D)) {
+        } else if (input->isKeyPressed(GLFW_KEY_D)) {
             vel.x += std::cos(camera->rotation.y) * 5.f * speed * crouch;
             vel.z += std::sin(camera->rotation.y) * 5.f * speed * crouch;
         }
-        Vector3 current = player->rb->getLinearVelocity(); //Get current velocity (To save Y Axis velocity)
-        current.x = vel.x;
-        current.z = vel.z;
+        btVector3 current = player->rb->getLinearVelocity(); //Get current velocity (To save Y Axis velocity)
+        current.setX(vel.x);
+        current.setZ(vel.z);
         player->rb->setLinearVelocity(current);
+        if(input->isKeyJustPressed(GLFW_KEY_SPACE)) {
+            player->rb->applyCentralForce(btVector3(0.f, 100.f, 0.f));
+        }
 
-        Vector3 pos = player->rb->getTransform().getPosition();
-        camera->position.x = pos.x;
-        camera->position.y = pos.y + 1.5f;
-        camera->position.z = pos.z;
-
-        if (client->isConnected()) {
-            if (glfwGetTime() - lastUpdate > 0.02f) {
-                Vector3 pos = player->rb->getTransform().getPosition();
-                client->sendUpdate(pos.x, pos.y, pos.z, camera->rotation.x, camera->rotation.y);
-                lastUpdate = glfwGetTime();
+        if(input->isKeyJustPressed(GLFW_KEY_ESCAPE)){
+            lockMouse ^= 1;
+            if (lockMouse) {
+                input->hideCursor();
+            } else {
+                input->showCursor();
             }
         }
+
+        if(input->isKeyJustPressed(GLFW_KEY_BACKSPACE)){
+            btTransform transform;
+            transform.setIdentity();
+            player->rb->setWorldTransform(transform);
+            player->rb->setLinearVelocity(btVector3(0.f, 0.f, 0.f));
+        }
+
+        btVector3 pos = player->rb->getWorldTransform().getOrigin();
+        camera->position.x = pos.x();
+        camera->position.y = pos.y() + 1.5f;
+        camera->position.z = pos.z();
+
         world->update(ImGui::GetIO().DeltaTime);
 
         // 1. Shadows pass TODO: Cascade shadow maps
@@ -282,7 +169,7 @@ int main() {
 
         // 2. Minimap pass
         if (show_minimap) {
-            minimap->pass(camera->rotation.y, [](Engine::Shader* shader){
+            minimap->pass(camera->rotation.y, [](Engine::Shader *shader) {
                 sniperRifle->draw(shader);
                 map->draw(shader);
                 player->draw(shader);
@@ -295,7 +182,7 @@ int main() {
         }
 
         // 3. Geometry pass [GBuffer]
-        gBuffer->geometryPass(camera, [](Engine::Shader* shader){
+        gBuffer->geometryPass(camera, [](Engine::Shader *shader) {
             glActiveTexture(GL_TEXTURE0);
             shader->upload("aTexture", 0);
 
@@ -313,7 +200,7 @@ int main() {
         window->reset();
 
         // 6. Lighting pass [GBuffer]
-        gBuffer->lightingPass(lights, camera, [](Engine::Shader* shader){
+        gBuffer->lightingPass(lights, camera, [&shadows](Engine::Shader *shader) {
             shader->upload("SSAO", show_ssao);
             shader->upload("CastShadows", castShadows);
             if (castShadows) {
@@ -325,101 +212,13 @@ int main() {
         // 7. Skybox draw
         skybox->draw(skyShader, camera);
 
-        if (world->getIsDebugRenderingEnabled()) {
-            static unsigned int VAO = -1, VBO;
-
-            if (VAO == -1) {
-                glGenVertexArrays(1, &VAO);
-                glBindVertexArray(VAO);
-
-                glGenBuffers(1, &VBO);
-                glBindBuffer(GL_ARRAY_BUFFER, VBO);
-
-                glEnableVertexAttribArray(0);
-                glVertexAttribPointer(0, 3, GL_FLOAT, false,
-                                      4 * sizeof(float), nullptr);
-            }
-
-            {
-                unsigned int verticesCount = debugRenderer.getNbTriangles() * 12U;
-                if (verticesCount > 0) {
-                    glBindVertexArray(VAO);
-                    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-                    glBufferData(GL_ARRAY_BUFFER, verticesCount * sizeof(float), debugRenderer.getTrianglesArray(),
-                                 GL_DYNAMIC_DRAW);
-
-                    debugShader->bind();
-                    debugShader->upload("proj", camera->getProjection());
-                    debugShader->upload("view", camera->getView());
-                    glDrawArrays(GL_TRIANGLES, 0, verticesCount);
-                }
-            }
-        }
-
         {
             Engine::HUD::begin();
             ImGui::SetNextWindowPos(ImVec2(15, 200), ImGuiCond_Once);
 
             if (ImGui::Begin("Settings", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-                if (client->isConnected()) {
-                    ImGui::BeginDisabled();
-                }
-                ImGui::InputText("IP", ip, 16,
-                                 ImGuiInputTextFlags_NoHorizontalScroll | ImGuiInputTextFlags_CharsScientific);
-                if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-                    ImGui::BeginTooltip();
-                    ImGui::Text("IPv4 address\nFormat: XXX.XXX.XXX.XXX");
-                    ImGui::EndTooltip();
-                }
-                ImGui::InputText("Nickname", nickname, 32, ImGuiInputTextFlags_NoHorizontalScroll);
-                if (client->isConnected()) {
-                    ImGui::EndDisabled();
-                }
-
-                bool canConnect = std::regex_match(ip, ip_regex) && strcmp(nickname, "Server") != 0;
-
-                if (!canConnect && !client->isConnected()) {
-                    ImGui::BeginDisabled();
-                }
-
-                if (ImGui::Button(client->isConnected() ? "Disconnect" : "Connect", ImVec2(270, 20))) {
-                    if (!client->isConnected()) {
-                        client->connectToHost(ip, NETWORKING_PORT);
-                        if (client->isConnected()) {
-                            cpl_thread = std::thread(cpl_func);
-                            cpl_thread.detach();
-                            client->sendHandshake(nickname);
-                        }
-                    } else {
-                        client->disconnectFromHost();
-                    }
-                }
-                if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-                    ImGui::BeginTooltip();
-                    if (!std::regex_match(ip, ip_regex)) {
-                        ImGui::Text("Incorrect IP address");
-                    } else if (strcmp(nickname, "Server") == 0) {
-                        ImGui::Text("Incorrect nickname");
-                    } else {
-                        ImGui::Text("Connect to %s:%d", ip, NETWORKING_PORT);
-                    }
-                    ImGui::EndTooltip();
-                }
-
-                if (!canConnect && !client->isConnected()) {
-                    ImGui::EndDisabled();
-                }
-
                 if (ImGui::TreeNode("Debug")) {
                     ImGui::SliderFloat("Speed", &speed, 0.1f, 10.f, "%.1f");
-                    if (ImGui::Checkbox("Debug render", &physicsDebugRender)) {
-                        world->setIsDebugRenderingEnabled(physicsDebugRender);
-                    }
-                    if (ImGui::IsItemHovered()) {
-                        ImGui::BeginTooltip();
-                        ImGui::Text("Physics debug colliders render");
-                        ImGui::EndTooltip();
-                    }
                     ImGui::TreePop();
                 }
                 if (ImGui::TreeNode("General")) {
@@ -435,7 +234,7 @@ int main() {
                         window->setVsync(vsync);
                     }
                     static int ssaoLevel = 3;
-                    if (ImGui::Combo("SSAO level", &ssaoLevel, "None\0Low\0Medium\0High")) {
+                    if (ImGui::Combo("SSAO level", &ssaoLevel, "None\0Low\0Medium\0High\0")) {
                         show_ssao = ssaoLevel > 0;
                         if (ssaoLevel == 1) {
                             ssao->bias = 0.2f;
@@ -505,44 +304,16 @@ int main() {
                 ImGui::End();
                 ImGui::PopStyleVar();
 
-                if (input->isKeyPressed(GLFW_KEY_TAB)) {
-                    ImGui::SetNextWindowPos({
-                                                    viewport->WorkSize.x / 2,
-                                                    viewport->WorkSize.y / 2
-                                            }, ImGuiCond_Always, {0.5f, 0.5f});
-                    ImGui::SetNextWindowBgAlpha(0.35f);
-                    ImGui::SetNextWindowSize(ImVec2(400, 300), ImGuiCond_Once);
-
-                    if (ImGui::Begin("##Server", nullptr,
-                                     ImGuiWindowFlags_NoDecoration |
-                                     ImGuiWindowFlags_NoFocusOnAppearing |
-                                     ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove |
-                                     ImGuiWindowFlags_NoInputs)) {
-                        if (client->isConnected()) {
-                            TextCentered("Online (TCP/IP)");
-                            ImGui::Text("ID: %d", client->my_id);
-
-                        } else {
-                            TextCentered("Offline");
-                        }
-                    }
-                    ImGui::End();
-                }
-
                 if (console_open) {
                     Chat::i->Draw();
                 }
 
-                if (strlen(Chat::i->buffer) > 0) {
-                    if (client->isConnected()) {
-                        client->sendMessage(Chat::i->buffer);
-                    }
-                    memset(Chat::i->buffer, 0, 256);
+                if (strlen(Chat::i->message) > 0) {
+                    memset(Chat::i->message, 0, 256);
                 }
             }
             Engine::HUD::end();
         }
     } while (window->update());
-    physicsCommon.destroyPhysicsWorld(world);
     exit(EXIT_SUCCESS);
 }

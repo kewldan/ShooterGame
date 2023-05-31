@@ -2,14 +2,14 @@
 
 #include "glad/glad.h"
 #include "plog/Log.h"
-#include "MyMesh.h"
+#include "Mesh.h"
 #include "Shader.h"
 #include "Camera3D.h"
 
 class Skybox {
 	int width, height;
 	unsigned int texture;
-	MyMesh* mesh;
+	Mesh* mesh;
 public:
 	explicit Skybox(const char* filename);
 	~Skybox();

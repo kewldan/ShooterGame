@@ -3,13 +3,11 @@
 
 Chat::Chat() {
 	ClearLog();
-	memset(InputBuf, 0, sizeof(InputBuf));
-
+    inputBuffer = new char[256];
 	Commands.push_back("?help");
 	AutoScroll = true;
 	ScrollToBottom = false;
-	buffer = new char[256];
-	strcpy_s(buffer, 256, "");
+    message = new char[256];
 }
 
 Chat::~Chat() {
@@ -22,14 +20,14 @@ void Chat::ClearLog() {
 	Items.clear();
 }
 
-void Chat::AddLog(const char* fmt, ...) {
-	static char buf[1024];
+void Chat::print(const char* fmt, ...) {
+	char* buf = new char[1024];
 	va_list args;
 	va_start(args, fmt);
-	vsnprintf(buf, IM_ARRAYSIZE(buf), fmt, args);
-	buf[IM_ARRAYSIZE(buf) - 1] = 0;
+	vsnprintf(buf, 1024, fmt, args);
+	buf[1023] = 0;
 	va_end(args);
-	Items.push_back(strdup(buf));
+	Items.push_back(buf);
 }
 
 void Chat::Draw() {
@@ -58,11 +56,9 @@ void Chat::Draw() {
 		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 1)); // Tighten spacing
 		if (copy_to_clipboard)
 			ImGui::LogToClipboard();
-		for (int i = 0; i < Items.size(); i++)
+		for (auto item : Items)
 		{
-			const char* item = Items[i];
-
-			ImVec4 color;
+				ImVec4 color;
 			bool has_color = false;
 			if (strstr(item, "[error]")) { color = ImVec4(1.0f, 0.4f, 0.4f, 1.0f); has_color = true; }
 			else if (strstr(item, "[success]")) { color = ImVec4(0.2f, 1.f, 0.2f, 1.0f); has_color = true; }
@@ -87,12 +83,11 @@ void Chat::Draw() {
 
 	// Command-line
 	bool reclaim_focus = false;
-	if (ImGui::InputText("##InputCommand", InputBuf, IM_ARRAYSIZE(InputBuf), ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_EscapeClearsAll))
+	if (ImGui::InputText("##InputCommand", inputBuffer, 256, ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_EscapeClearsAll))
 	{
-		char* s = InputBuf;
-		if (s[0])
-			ExecCommand(s);
-		strcpy(s, "");
+		if (inputBuffer[0])
+			ExecCommand(inputBuffer);
+		inputBuffer[0] = 0;
 		reclaim_focus = true;
 	}
 
@@ -105,20 +100,20 @@ void Chat::Draw() {
 
 void Chat::ExecCommand(const char* command_line) {
 	if (command_line[0] == '?') {
-		AddLog("# %s\n", command_line);
+        print("# %s\n", command_line);
 		if (strcmp(command_line, "?help") == 0)
 		{
-			AddLog("Commands:");
-			for (int i = 0; i < Commands.size(); i++)
-				AddLog("- %s", Commands[i]);
+            print("Commands:");
+			for (auto & Command : Commands)
+                print("- %s", Command);
 		}
 		else
 		{
-			AddLog("Unknown command: '%s'\n", command_line);
+            print("Unknown command: '%s'\n", command_line);
 		}
 	}
 	else {
-		strcpy(buffer, command_line);
+		strcpy_s(message, 256, command_line);
 	}
 
 	ScrollToBottom = true;

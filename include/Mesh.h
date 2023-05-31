@@ -4,18 +4,23 @@
 #include <vector>
 #include "Texture.h"
 
-class MyMesh {
-	unsigned int VAO, EBO, VBO;
+class Mesh {
+	unsigned int VAO = -1, EBO = -1, VBO = -1;
 	unsigned long long vertexOffset;
 	
 public:
+    float* data;
+    unsigned int* indices;
     Engine::Texture* texture;
-	int indicesCount, stride;
-	MyMesh(std::vector<float>* vertices, std::vector<int>* indices, unsigned int vertexSize);
+    unsigned int vertexCount, vertexSize;
+    int indicesCount, stride;
+	Mesh(unsigned int vertexCount, unsigned int vertexSize, int indicesCount);
 
 	void draw() const;
 
 	void addParameter(int location, int size, bool normalized = GL_FALSE);
+
+    void upload();
 
 	[[nodiscard]] bool hasTexture() const;
 };
