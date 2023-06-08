@@ -17,7 +17,10 @@ file(GLOB PROJECT_SRCS
 
 add_executable(${PROJECT_NAME}
         ${ENGINE_SRCS}
-       ${PROJECT_SRCS})
+       ${PROJECT_SRCS}
+        ${VCPKG_LIBRARIES_PATH}/include/imcmd_command_palette.cpp
+        ${VCPKG_LIBRARIES_PATH}/include/imcmd_fuzzy_search.cpp
+        )
 
 target_link_libraries(
         ${PROJECT_NAME}

@@ -34,24 +34,26 @@ Minimap::~Minimap() {
 void Minimap::pass(float rotation_y, const std::function<void(Engine::Shader *)> &useFunction) {
     static const glm::mat4 proj = glm::ortho(-100.f, 100.f, -100.f, 100.f, 0.1f, 300.f);
 
-    glm::vec2 rotation = glm::vec2(1.57f, rotation_y);
+    if(visible) {
+        glm::vec2 rotation = glm::vec2(1.57f, rotation_y);
 
-    static glm::mat4 view;
-    view = glm::rotate(glm::mat4(1), rotation.x, glm::vec3(1, 0, 0));
-    view = glm::rotate(view, rotation.y, glm::vec3(0, 1, 0));
-    view = glm::translate(view, -glm::vec3((*pos).x, altitude + (*pos).y, (*pos).z));
-    shader->bind();
-    shader->upload("proj", proj);
-    shader->upload("view", view);
-    shader->upload("aTexture", 0);
-    glActiveTexture(GL_TEXTURE0);
+        static glm::mat4 view;
+        view = glm::rotate(glm::mat4(1), rotation.x, glm::vec3(1, 0, 0));
+        view = glm::rotate(view, rotation.y, glm::vec3(0, 1, 0));
+        view = glm::translate(view, -glm::vec3((*pos).x, altitude + (*pos).y, (*pos).z));
+        shader->bind();
+        shader->upload("proj", proj);
+        shader->upload("view", view);
+        shader->upload("aTexture", 0);
+        glActiveTexture(GL_TEXTURE0);
 
-    glViewport(0, 0, w, h);
-    glBindFramebuffer(GL_FRAMEBUFFER, FBO);
-    glClearColor(0.5, 0.8, 1, 0);
-    glClear(GL_COLOR_BUFFER_BIT);
+        glViewport(0, 0, w, h);
+        glBindFramebuffer(GL_FRAMEBUFFER, FBO);
+        glClearColor(0.5, 0.8, 1, 0);
+        glClear(GL_COLOR_BUFFER_BIT);
 
-    useFunction(shader);
+        useFunction(shader);
 
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    }
 }

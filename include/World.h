@@ -1,6 +1,6 @@
 #pragma once
 
-#include "bullet/btBulletDynamicsCommon.h"
+#include "GameObject.h"
 
 class World {
 private:

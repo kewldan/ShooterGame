@@ -19,7 +19,6 @@
 #include "GBuffer.h"
 #include "SSAO.h"
 #include "World.h"
-#include "GameObject.h"
 
 
 Engine::Window *window;
@@ -38,15 +37,13 @@ SSAO *ssao;
 
 const glm::vec3 lightPos(-3.5f, 10.f, -1.5f);
 
-Chat *Chat::i = nullptr;
-
-bool vsync = true, console_open = false, castShadows, show_minimap = true, show_ssao = true, show_debugMenu = true, lockMouse;
+bool show_debugMenu = true, lockMouse;
 
 int main() {
     Engine::Window::init();
 
     window = new Engine::Window(1280, 720, "Shooter game");
-    window->setVsync(vsync);
+    window->setVsync(true);
     input = new Engine::Input(window->getId());
     input->registerCallbacks();
     camera = new Engine::Camera3D(window);
@@ -61,14 +58,16 @@ int main() {
     auto *skyShader = new Engine::Shader("sky");
     auto *shadows = new ShadowsCaster(4096, 4096, "depth", lightPos, 25.f);
 
-    map = new GameObject(world->dynamicsWorld, "dust.obj", 0.f, new btBoxShape(btVector3(100.f, 1.f, 100.f)), btVector3(0.f, -10.f, 0.f));
+    map = new GameObject(world->dynamicsWorld, "dust.obj", 0.f, new btBoxShape(btVector3(100.f, 1.f, 100.f)),
+                         btVector3(0.f, -10.f, 0.f));
     sniperRifle = new GameObject(world->dynamicsWorld, "G17.obj", 1.5f, new btBoxShape(btVector3(1.f, 1.f, 1.f)));
     player = new GameObject(world->dynamicsWorld, "player.obj", 60.f, new btCapsuleShape(1.f, 2.f));
     player->rb->setAngularFactor(0.f);
+    player->rb->setSleepingThresholds(0.f, 0.f);
 
     auto *skybox = new Skybox("sky");
 
-    Chat::i = new Chat();
+    Chat::init();
 
     minimap = new Minimap("map", 512, 512, &camera->position, 60);
 
@@ -130,12 +129,16 @@ int main() {
         btVector3 current = player->rb->getLinearVelocity(); //Get current velocity (To save Y Axis velocity)
         current.setX(vel.x);
         current.setZ(vel.z);
-        player->rb->setLinearVelocity(current);
-        if(input->isKeyJustPressed(GLFW_KEY_SPACE)) {
+        if (current.length2() > 0.f) {
+            player->rb->setLinearVelocity(current);
+        }
+
+        if (input->isKeyJustPressed(GLFW_KEY_SPACE)) {
+            PLOGI << "Performed";
             player->rb->applyCentralForce(btVector3(0.f, 100.f, 0.f));
         }
 
-        if(input->isKeyJustPressed(GLFW_KEY_ESCAPE)){
+        if (input->isKeyJustPressed(GLFW_KEY_ESCAPE)) {
             lockMouse ^= 1;
             if (lockMouse) {
                 input->hideCursor();
@@ -144,7 +147,11 @@ int main() {
             }
         }
 
-        if(input->isKeyJustPressed(GLFW_KEY_BACKSPACE)){
+        if(input->isKeyPressed(GLFW_KEY_LEFT_CONTROL) && input->isKeyPressed(GLFW_KEY_LEFT_SHIFT) && input->isKeyJustPressed(GLFW_KEY_P)){
+            Engine::HUD::show_command_palette ^= 1;
+        }
+
+        if (input->isKeyJustPressed(GLFW_KEY_BACKSPACE)) {
             btTransform transform;
             transform.setIdentity();
             player->rb->setWorldTransform(transform);
@@ -159,22 +166,18 @@ int main() {
         world->update(ImGui::GetIO().DeltaTime);
 
         // 1. Shadows pass TODO: Cascade shadow maps
-        if (castShadows) {
-            Engine::Shader *depth = shadows->begin(camera->position);
-            sniperRifle->draw(depth);
-            map->draw(depth);
-            player->draw(depth);
-            shadows->end();
-        }
+        shadows->pass(camera->position, [](Engine::Shader *shader) {
+            sniperRifle->draw(shader);
+            map->draw(shader);
+            player->draw(shader);
+        });
 
         // 2. Minimap pass
-        if (show_minimap) {
-            minimap->pass(camera->rotation.y, [](Engine::Shader *shader) {
-                sniperRifle->draw(shader);
-                map->draw(shader);
-                player->draw(shader);
-            });
-        }
+        minimap->pass(camera->rotation.y, [](Engine::Shader *shader) {
+            sniperRifle->draw(shader);
+            map->draw(shader);
+            player->draw(shader);
+        });
 
         if (window->isResized()) {
             gBuffer->resize(window->width, window->height);
@@ -183,28 +186,22 @@ int main() {
 
         // 3. Geometry pass [GBuffer]
         gBuffer->geometryPass(camera, [](Engine::Shader *shader) {
-            glActiveTexture(GL_TEXTURE0);
-            shader->upload("aTexture", 0);
-
             map->draw(shader);
         });
 
-        if (show_ssao) {
-            // 4. SSAO pass [SSAO]
-            ssao->renderSSAOTexture(gBuffer->gPosition, gBuffer->gNormal, camera);
+        // 4. SSAO pass [SSAO]
+        ssao->renderSSAOTexture(gBuffer->gPosition, gBuffer->gNormal, camera);
 
-            // 5. SSAO blur [SSAO]
-            ssao->blurSSAOTexture();
-        }
+        // 5. SSAO blur [SSAO]
+        ssao->blurSSAOTexture();
 
         window->reset();
 
         // 6. Lighting pass [GBuffer]
         gBuffer->lightingPass(lights, camera, [&shadows](Engine::Shader *shader) {
-            shader->upload("SSAO", show_ssao);
-            shader->upload("CastShadows", castShadows);
-            if (castShadows) {
-                shader->upload("lightPos", lightPos);
+            shader->upload("SSAO", ssao->visible);
+            shader->upload("CastShadows", shadows->visible);
+            if (shadows->visible) {
                 shader->upload("lightSpaceMat", shadows->getLightSpaceMatrix());
             }
         });
@@ -223,19 +220,20 @@ int main() {
                 }
                 if (ImGui::TreeNode("General")) {
                     ImGui::SliderFloat("Sensitivity", &sensitivity, 0.1f, 4.f, "%.1f");
-                    ImGui::Checkbox("Show minimap", &show_minimap);
-                    if (show_minimap) {
+                    ImGui::Checkbox("Show minimap", &minimap->visible);
+                    if (minimap->visible) {
                         ImGui::Image((void *) (intptr_t) minimap->map, ImVec2(512, 512), ImVec2(0, 1), ImVec2(1, 0));
                     }
                     ImGui::TreePop();
                 }
                 if (ImGui::TreeNode("Graphics")) {
+                    static bool vsync = false;
                     if (ImGui::Checkbox("VSync", &vsync)) {
                         window->setVsync(vsync);
                     }
                     static int ssaoLevel = 3;
                     if (ImGui::Combo("SSAO level", &ssaoLevel, "None\0Low\0Medium\0High\0")) {
-                        show_ssao = ssaoLevel > 0;
+                        ssao->visible = ssaoLevel > 0;
                         if (ssaoLevel == 1) {
                             ssao->bias = 0.2f;
                             ssao->radius = 0.7f;
@@ -253,7 +251,7 @@ int main() {
                         ImGui::EndTooltip();
                     }
 
-                    ImGui::Checkbox("Cast shadows", &castShadows);
+                    ImGui::Checkbox("Cast shadows", &shadows->visible);
                     if (ImGui::IsItemHovered()) {
                         ImGui::BeginTooltip();
                         ImGui::Text("WIP");
@@ -304,7 +302,7 @@ int main() {
                 ImGui::End();
                 ImGui::PopStyleVar();
 
-                if (console_open) {
+                if (Chat::i->visible) {
                     Chat::i->Draw();
                 }
 

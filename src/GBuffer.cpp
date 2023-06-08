@@ -88,9 +88,12 @@ void GBuffer::geometryPass(Engine::Camera3D* camera, const std::function<void(En
 	glBindFramebuffer(GL_FRAMEBUFFER, FBO);
 	glClearColor(0, 0, 0, 0);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glActiveTexture(GL_TEXTURE0);
 	gShader->bind();
 	gShader->upload("proj", camera->getProjection());
 	gShader->upload("view", camera->getView());
+    gShader->upload("aTexture", 0);
 
     useFunction(gShader);
 

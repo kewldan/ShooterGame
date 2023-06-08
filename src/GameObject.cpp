@@ -6,6 +6,7 @@ GameObject::GameObject(btDynamicsWorld* world, const char* path, float mass, btC
 	meshes = nullptr;
     nbMeshes = 0;
     mvp = new float[16];
+    castShadows = true;
 
     btTransform transform;
     transform.setIdentity();
@@ -17,12 +18,10 @@ GameObject::GameObject(btDynamicsWorld* world, const char* path, float mass, btC
     transform.setOrigin(position);
 
     motionState = new btDefaultMotionState(transform);
-    btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, motionState, shape, localInertia);
+    btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, motionState, collisionShape, localInertia);
     rb = new btRigidBody(rbInfo);
 
     world->addRigidBody(rb);
-
-    rb->setCollisionShape(collisionShape);
 
     if(path) loadMeshes(path);
 }
@@ -81,4 +80,12 @@ void GameObject::loadMeshes(const char *path) {
             meshes[i].addParameter(2, 3);
         }
     }
+}
+
+void GameObject::setCastShadows(bool value) {
+    this->castShadows = value;
+}
+
+bool GameObject::isCastShadows() {
+    return this->castShadows;
 }

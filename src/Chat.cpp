@@ -4,7 +4,6 @@
 Chat::Chat() {
 	ClearLog();
     inputBuffer = new char[256];
-	Commands.push_back("?help");
 	AutoScroll = true;
 	ScrollToBottom = false;
     message = new char[256];
@@ -104,8 +103,7 @@ void Chat::ExecCommand(const char* command_line) {
 		if (strcmp(command_line, "?help") == 0)
 		{
             print("Commands:");
-			for (auto & Command : Commands)
-                print("- %s", Command);
+            print("- help");
 		}
 		else
 		{
@@ -118,3 +116,9 @@ void Chat::ExecCommand(const char* command_line) {
 
 	ScrollToBottom = true;
 }
+
+void Chat::init() {
+    Chat::i = new Chat();
+}
+
+Chat* Chat::i = nullptr;

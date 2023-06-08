@@ -7,7 +7,7 @@ ShadowsCaster::ShadowsCaster(int width, int height, const char* shaderName, glm:
 	glGenTextures(1, &map);
 	glBindTexture(GL_TEXTURE_2D, map);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT,
-		w, h, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+		w, h, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
@@ -26,7 +26,7 @@ ShadowsCaster::ShadowsCaster(int width, int height, const char* shaderName, glm:
 	shader = new Engine::Shader(shaderName);
 }
 
-Engine::Shader* ShadowsCaster::begin(glm::vec3 cam) {
+void ShadowsCaster::pass(glm::vec3 cam, const std::function<void(Engine::Shader *)> &useFunction) {
 	const static glm::vec2 rotation = glm::vec2(1.1f, 0.4f);
 
 	view = glm::mat4(1);
@@ -42,12 +42,11 @@ Engine::Shader* ShadowsCaster::begin(glm::vec3 cam) {
 	glClear(GL_DEPTH_BUFFER_BIT);
 	shader->bind();
 	shader->upload("lightSpaceMatrix", lightSpaceMatrix);
-	return shader;
-}
 
-void ShadowsCaster::end() {
-	glEnable(GL_CULL_FACE);
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    useFunction(shader);
+
+    glEnable(GL_CULL_FACE);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
 glm::mat4 ShadowsCaster::getLightSpaceMatrix() {

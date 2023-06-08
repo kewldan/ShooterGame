@@ -1,6 +1,6 @@
 #include "SSAO.h"
 
-float ourLerp(float a, float b, float f)
+float lerp(float a, float b, float f)
 {
 	return a + f * (b - a);
 }
@@ -49,7 +49,7 @@ SSAO::SSAO(const char* ssaoShaderPath, const char* ssaoBlurShaderPath, int width
 		float scale = i / 24.f;
 
 		// scale samples s.t. they're more aligned to center of kernel
-		scale = ourLerp(0.1f, 1.0f, scale * scale);
+		scale = lerp(0.1f, 1.0f, scale * scale);
 		sample *= scale;
 		kernel[i] = sample;
 	}
@@ -98,53 +98,57 @@ SSAO::SSAO(const char* ssaoShaderPath, const char* ssaoBlurShaderPath, int width
 
 void SSAO::renderSSAOTexture(unsigned int gPosition, unsigned int gNormal, Engine::Camera3D* camera)
 {
-    glBindFramebuffer(GL_FRAMEBUFFER, ssaoFBO);
-	glClear(GL_COLOR_BUFFER_BIT);
+    if(visible) {
+        glBindFramebuffer(GL_FRAMEBUFFER, ssaoFBO);
+        glClear(GL_COLOR_BUFFER_BIT);
 
-	{
-        ssaoShader->bind();
-		ssaoShader->upload("proj", camera->getProjection());
-		ssaoShader->upload("gPosition", 0);
-		ssaoShader->upload("gNormal", 1);
-		ssaoShader->upload("texNoise", 2);
-		ssaoShader->upload("noiseScale", glm::vec2(w / 4.f, h / 4.f));
-		ssaoShader->upload("radius", radius);
-		ssaoShader->upload("bias", bias);
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, gPosition);
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, gNormal);
-		glActiveTexture(GL_TEXTURE2);
-		glBindTexture(GL_TEXTURE_2D, noiseTexture);
-	}
+        {
+            ssaoShader->bind();
+            ssaoShader->upload("proj", camera->getProjection());
+            ssaoShader->upload("gPosition", 0);
+            ssaoShader->upload("gNormal", 1);
+            ssaoShader->upload("texNoise", 2);
+            ssaoShader->upload("noiseScale", glm::vec2(w / 4.f, h / 4.f));
+            ssaoShader->upload("radius", radius);
+            ssaoShader->upload("bias", bias);
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, gPosition);
+            glActiveTexture(GL_TEXTURE1);
+            glBindTexture(GL_TEXTURE_2D, gNormal);
+            glActiveTexture(GL_TEXTURE2);
+            glBindTexture(GL_TEXTURE_2D, noiseTexture);
+        }
 
-	{
-        glBindVertexArray(VAO);
-		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-	}
+        {
+            glBindVertexArray(VAO);
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        }
 
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    }
 }
 
 void SSAO::blurSSAOTexture()
 {
-	glBindFramebuffer(GL_FRAMEBUFFER, ssaoBlurFBO);
-	glClear(GL_COLOR_BUFFER_BIT);
+    if(visible) {
+        glBindFramebuffer(GL_FRAMEBUFFER, ssaoBlurFBO);
+        glClear(GL_COLOR_BUFFER_BIT);
 
-	{
-        ssaoBlurShader->bind();
-		ssaoBlurShader->upload("ssaoInput", 0);
+        {
+            ssaoBlurShader->bind();
+            ssaoBlurShader->upload("ssaoInput", 0);
 
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, ssaoColorBuffer);
-	}
+            glActiveTexture(GL_TEXTURE0);
+            glBindTexture(GL_TEXTURE_2D, ssaoColorBuffer);
+        }
 
-	{
-        glBindVertexArray(VAO);
-		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-	}
+        {
+            glBindVertexArray(VAO);
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        }
 
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    }
 }
 
 void SSAO::resize(int nw, int nh)

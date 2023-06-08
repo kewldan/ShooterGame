@@ -4,6 +4,8 @@
 #include <random>
 #include "Camera3D.h"
 
+float lerp(float a, float b, float f);
+
 class SSAO {
 	int w, h;
 	unsigned int ssaoFBO, ssaoBlurFBO;
@@ -17,6 +19,7 @@ class SSAO {
 	glm::vec3 noise[16];
     Engine::UniformBlock* samplesBlock;
 public:
+    bool visible = true;
 	float radius, bias;
 	unsigned int ssaoColorBufferBlur;
 	SSAO(const char* ssaoShaderPath, const char* ssaoBlurShaderPath, int width, int height);

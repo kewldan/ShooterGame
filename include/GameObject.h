@@ -10,6 +10,7 @@
 class GameObject {
 private:
     float* mvp;
+    bool castShadows;
 public:
 	Mesh* meshes;
     size_t nbMeshes;
@@ -22,4 +23,6 @@ public:
 
     void loadMeshes(const char* path);
     void draw(Engine::Shader *shader);
+    void setCastShadows(bool value);
+    bool isCastShadows();
 };

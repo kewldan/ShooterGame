@@ -8,17 +8,19 @@ class Chat
 {
 	char* inputBuffer;
 	std::vector<char*> Items;
-	std::vector<const char*> Commands;
 	bool AutoScroll;
 	bool ScrollToBottom;
 	void ExecCommand(const char* command_line);
 public:
+    bool visible = true;
 	Chat();
 	~Chat();
 
 	void ClearLog();
 	void print(const char* fmt, ...);
 	void Draw();
+
+    static void init();
 
 	char* message;
 	static Chat* i;

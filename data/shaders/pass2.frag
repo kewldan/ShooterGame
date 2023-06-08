@@ -23,7 +23,7 @@ struct Light {
 const int NR_LIGHTS = 32;
 uniform int nbLights;
 uniform Light lights[NR_LIGHTS];
-uniform vec3 viewPos, lightPos;
+uniform vec3 viewPos;
 uniform int SSAO, CastShadows;
 uniform mat4 lightSpaceMat;
 
@@ -36,7 +36,6 @@ float ShadowCalculation(vec3 in_normal, vec3 in_mvPos, vec4 in_fragPosLightSpace
     float currentDepth = projCoords.z;
     // calculate bias (based on depth map resolution and slope)
     vec3 normal = normalize(in_normal);
-    vec3 lightDir = normalize(lightPos - in_mvPos);
     //float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
     // check whether current frag pos is in shadow
     float bias = 0.02;

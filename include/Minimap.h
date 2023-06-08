@@ -8,6 +8,7 @@ class Minimap {
 	glm::vec3* pos;
     Engine::Shader* shader;
 public:
+    bool visible;
 	unsigned int FBO{}, map{};
 	Minimap(const char* shaderName, int width, int height, glm::vec3* position, int altitude);
 	~Minimap();
