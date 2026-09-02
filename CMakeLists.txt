@@ -18,7 +18,7 @@ else ()
     include(FetchContent)
     FetchContent_Declare(Engine
             GIT_REPOSITORY https://github.com/kewldan/Engine.git
-            GIT_TAG master)
+            GIT_TAG main)
     FetchContent_MakeAvailable(Engine)
 endif ()
 
@@ -31,10 +31,6 @@ find_package(imgui CONFIG REQUIRED)
 find_package(glad CONFIG REQUIRED)
 find_package(plog CONFIG REQUIRED)
 find_package(Stb REQUIRED)
-
-# Engine's headers pull in imgui/glad/plog but its CMakeLists does not export them; make sure
-# every consumer of the Engine target gets them.
-target_link_libraries(Engine PUBLIC imgui::imgui glad::glad plog::plog)
 
 add_executable(${PROJECT_NAME}
         src/Chat.cpp

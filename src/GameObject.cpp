@@ -37,12 +37,15 @@ GameObject::~GameObject() {
 void GameObject::draw(Engine::Shader *shader) {
     rb->getWorldTransform().getOpenGLMatrix(mvp);
     shader->uploadMat4("mvp", mvp);
+    // Depth-only shaders (shadow pass) have no hasTexture uniform; skip the upload there
+    // instead of making the Engine log a "uniform not found" error.
+    const bool wantsTexture = shader->hasUniform("hasTexture");
     for (const auto &mesh: meshes) {
         if (mesh.hasTexture()) {
             mesh.texture->bind();
-            shader->upload("hasTexture", 1);
-        } else {
-            shader->upload("hasTexture", 0);
+        }
+        if (wantsTexture) {
+            shader->upload("hasTexture", mesh.hasTexture() ? 1 : 0);
         }
         mesh.draw();
     }

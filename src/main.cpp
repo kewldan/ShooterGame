@@ -1,5 +1,3 @@
-#define GLFW_INCLUDE_NONE
-
 #include "Window.h"
 
 #include "Camera3D.h"
