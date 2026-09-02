@@ -46,6 +46,7 @@ add_executable(${PROJECT_NAME}
         src/Mesh.cpp
         src/Minimap.cpp
         src/net/Connection.cpp
+        src/net/Multiplayer.cpp
         src/net/NetClient.cpp
         src/net/NetServer.cpp
         src/net/Packet.cpp
@@ -91,8 +92,6 @@ endif ()
 
 if (MSVC)
     target_compile_options(${PROJECT_NAME} PRIVATE /W3 /utf-8)
-    # Chat.cpp uses the portable, bounded strncpy on purpose; silence MSVC's "use strncpy_s" warning.
-    target_compile_definitions(${PROJECT_NAME} PRIVATE _CRT_SECURE_NO_WARNINGS)
 endif ()
 
 # ---------------------------------------------------------------------------

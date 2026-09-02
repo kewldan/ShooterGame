@@ -64,6 +64,8 @@ public:
     float sensitivity = 1.f;
     // Keeps the sights up regardless of the mouse button (screenshots of the aiming view).
     bool forceAim = false;
+    // Between a death and the respawn (multiplayer) the player neither walks nor shoots.
+    bool alive = true;
     // The capsule body with the third-person mesh (player.obj).
     std::unique_ptr<GameObject> body;
 

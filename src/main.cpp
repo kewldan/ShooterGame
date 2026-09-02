@@ -15,6 +15,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
+#include <string>
 #include "Audio.h"
 #include "Effects.h"
 #include "GBuffer.h"
@@ -27,6 +28,7 @@
 #include "Sun.h"
 #include "Weapon.h"
 #include "World.h"
+#include "net/Multiplayer.h"
 
 namespace {
     // Horizontal field of view, degrees (Engine::Camera3D converts it to the vertical one).
@@ -41,6 +43,7 @@ namespace {
     // Scripted test shots (--test-shots): interval and the fan they are spread over.
     constexpr double TEST_SHOT_INTERVAL = 0.35, TEST_SHOT_START = 1.0;
     constexpr float TEST_SHOT_SPREAD = 4.f; // degrees between two shots
+    constexpr double SAY_START = 2.0;       // --say: seconds after start-up (the connection is up by then)
 
     // Optional start state from the command line (see parseArgs): handy for reproducible screenshots.
     struct Options {
@@ -50,15 +53,44 @@ namespace {
         int testShots = 0;            // fire this many shots in a fixed fan after start-up
         bool aim = false;             // keep the sights up
         float tracerLife = -1.f;      // override Effects::tracerLife (seconds) when >= 0
+        MultiplayerConfig net;        // --host / --connect / --name / --simulate-*
+        std::string say;              // a chat line sent shortly after start-up (screenshots of the chat)
+        bool console = false;         // start with the console expanded
     };
 
     // --pos x y z (camera position), --yaw deg, --pitch deg, --novsync,
-    // --test-shots N, --aim, --tracer-life seconds (debugging aids)
+    // --test-shots N, --aim, --tracer-life seconds (debugging aids),
+    // --host [port], --connect ip[:port], --name NAME, --simulate-loss P, --simulate-latency MS (multiplayer),
+    // --say TEXT, --console (chat debugging aids)
     Options parseArgs(int argc, char **argv) {
         Options options;
         for (int i = 1; i < argc; i++) {
             const bool hasThree = i + 3 < argc, hasOne = i + 1 < argc;
-            if (std::strcmp(argv[i], "--pos") == 0 && hasThree) {
+            // A value that does not start with "--" (so that "--host --name X" works without a port).
+            const bool hasValue = hasOne && std::strncmp(argv[i + 1], "--", 2) != 0;
+            if (std::strcmp(argv[i], "--host") == 0) {
+                options.net.host = true;
+                if (hasValue) {
+                    const int port = std::atoi(argv[++i]);
+                    if (port > 0 && port <= 65535) {
+                        options.net.port = static_cast<uint16_t>(port);
+                    } else {
+                        PLOGW << "Bad port [" << argv[i] << "], using " << options.net.port;
+                    }
+                }
+            } else if (std::strcmp(argv[i], "--connect") == 0 && hasValue) {
+                options.net.connect = argv[++i];
+            } else if (std::strcmp(argv[i], "--name") == 0 && hasValue) {
+                options.net.name = argv[++i];
+            } else if (std::strcmp(argv[i], "--simulate-loss") == 0 && hasOne) {
+                options.net.simulateLoss = std::strtof(argv[++i], nullptr);
+            } else if (std::strcmp(argv[i], "--simulate-latency") == 0 && hasOne) {
+                options.net.simulateLatencyMs = std::atoi(argv[++i]);
+            } else if (std::strcmp(argv[i], "--say") == 0 && hasValue) {
+                options.say = argv[++i];
+            } else if (std::strcmp(argv[i], "--console") == 0) {
+                options.console = true;
+            } else if (std::strcmp(argv[i], "--pos") == 0 && hasThree) {
                 options.position = glm::vec3(std::strtof(argv[i + 1], nullptr), std::strtof(argv[i + 2], nullptr),
                                              std::strtof(argv[i + 3], nullptr));
                 i += 3;
@@ -127,6 +159,11 @@ namespace {
     // before Engine::Window::destroy() tears the context down.
     void run(const Options &options) {
         auto window = std::make_unique<Engine::Window>(1280, 720, "Shooter game");
+        if (options.net.host || !options.net.connect.empty()) {
+            // Tells the windows apart when two instances share one desktop.
+            const std::string title = "Shooter game - " + options.net.name + (options.net.host ? " (host)" : "");
+            window->setTitle(title.c_str());
+        }
         window->setVsync(options.vsync);
         auto input = std::make_unique<Engine::Input>(window->getId());
         input->registerCallbacks();
@@ -166,6 +203,10 @@ namespace {
         auto skybox = std::make_unique<Skybox>("sky");
 
         Chat::init();
+        Chat::i->startExpanded = options.console;
+        // Inert without --host/--connect; it owns the remote players and drives the crates on a client.
+        auto multiplayer = std::make_unique<Multiplayer>(options.net, world->dynamicsWorld.get(), *player, targets,
+                                                         glfwGetTime());
 
         auto minimap = std::make_unique<Minimap>("map", 512, 512, &camera->position, 60);
 
@@ -185,6 +226,7 @@ namespace {
         int ssaoLevel = 3;
         int testShotsLeft = options.testShots;
         double nextTestShot = glfwGetTime() + TEST_SHOT_START;
+        double sayAt = options.say.empty() ? -1. : glfwGetTime() + SAY_START;
         // Frustum culling counters of the last frame, per pass (a skipped far cascade keeps its last values).
         CullStats geometryStats, minimapStats, shadowStats[ShadowsCaster::CASCADES];
         applySsaoLevel(*ssao, ssaoLevel);
@@ -199,13 +241,14 @@ namespace {
                                applySsaoLevel(*ssao, ssaoLevel);
                            }});
 
-        // The world geometry of every pass: the map and the crates; the player's own body only where it
-        // is seen from outside (shadows, minimap).
+        // The world geometry of every pass: the map, the crates and the other players; the player's own
+        // body only where it is seen from outside (shadows, minimap).
         const auto drawScene = [&](Engine::Shader *shader, const Frustum &frustum, CullStats &stats, bool withPlayer) {
             map->draw(shader, &frustum, &stats);
             for (auto &target: targets) {
                 target->draw(shader, &frustum, &stats);
             }
+            multiplayer->drawScene(shader, &frustum, &stats);
             if (withPlayer) {
                 player->body->draw(shader, &frustum, &stats);
             }
@@ -241,6 +284,13 @@ namespace {
                 testShotsLeft--;
                 nextTestShot = now + TEST_SHOT_INTERVAL;
             }
+            if (sayAt >= 0. && now >= sayAt) {
+                Chat::i->submit(options.say.c_str());
+                sayAt = -1.;
+            }
+            // Send the state and the shot, receive, move the other players; remote shots and hits become
+            // effects, sounds and console lines in here.
+            multiplayer->update(now, delta, events, *effects, *audio);
 
             const bool aiming = player->state.aiming;
             if (aiming != wasAiming) {
@@ -261,7 +311,9 @@ namespace {
                 const glm::vec3 muzzle = weapon->getMuzzleWorld(camera->getProjection(), glm::inverse(camera->getView()),
                                                                 aspect);
                 if (shot.hit) {
-                    effects->addDecal(shot.point, shot.normal);
+                    if (multiplayer->shouldDecal(shot)) {
+                        effects->addDecal(shot.point, shot.normal);
+                    }
                     effects->addTracer(muzzle, shot.point);
                     if (shot.dynamic) {
                         audio->play("hit", 0.6f, 0.1f);
@@ -410,6 +462,7 @@ namespace {
                         }
                         ImGui::Text("Point lights: %d / %d", pointLights->drawn, pointLights->culled);
                         ImGui::Text("Sun on screen: %.2f", sun->getFade());
+                        multiplayer->drawDebugUi();
                         ImGui::TreePop();
                     }
                     if (ImGui::TreeNode("General")) {
@@ -526,7 +579,10 @@ namespace {
                                      ImGuiWindowFlags_NoFocusOnAppearing |
                                      ImGuiWindowFlags_NoNav | ImGuiWindowFlags_NoMove |
                                      ImGuiWindowFlags_NoInputs)) {
-                        ImGui::Text("Health: %d / %d", 100, 100);
+                        ImGui::Text("Health: %d / %d", multiplayer->getLocalHealth(), net::MAX_HEALTH);
+                        if (multiplayer->isActive()) {
+                            ImGui::Text("Kills: %d, deaths: %d", multiplayer->getKills(), multiplayer->getDeaths());
+                        }
                         ImGui::NewLine();
                         ImGui::Text("Name: %s", "Glock 17");
                         ImGui::Text("Ammo: %d / %d", player->state.ammo, player->state.reserve);
@@ -536,6 +592,9 @@ namespace {
                     }
                     ImGui::End();
                     ImGui::PopStyleVar();
+
+                    // Nameplates of the other players, the damage flash and the death fade.
+                    multiplayer->drawOverlay(camera->getProjection(), camera->getView());
 
                     // Crosshair: a dot that shrinks while aiming.
                     ImDrawList *draw = ImGui::GetForegroundDrawList();

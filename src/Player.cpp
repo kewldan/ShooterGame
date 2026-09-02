@@ -104,7 +104,7 @@ PlayerEvents Player::update(const Engine::Input &input, glm::vec2 mouseDelta, bo
 
     // Walk: the wanted horizontal velocity from WASD, approached quickly on the ground and slowly in the air.
     glm::vec2 wish(0.f);
-    if (controlsActive) {
+    if (controlsActive && alive) {
         const float slowWalk = input.isKeyPressed(GLFW_KEY_LEFT_SHIFT) ? 0.8f : 1.5f;
         const float moveSpeed = 5.f * speed * slowWalk;
         const glm::vec3 forward = getForward(), right = getRight();
@@ -125,7 +125,7 @@ PlayerEvents Player::update(const Engine::Input &input, glm::vec2 mouseDelta, bo
 
     // Jump: only from the ground (or just after leaving it); a set vertical speed, not an impulse, so
     // it is the same whether the body was falling a little or not.
-    if (controlsActive && input.isKeyJustPressed(GLFW_KEY_SPACE) && coyoteTimer > 0.f) {
+    if (controlsActive && alive && input.isKeyJustPressed(GLFW_KEY_SPACE) && coyoteTimer > 0.f) {
         state.velocity.y = JUMP_SPEED;
         coyoteTimer = 0.f;
         state.grounded = false;
@@ -169,7 +169,7 @@ PlayerEvents Player::update(const Engine::Input &input, glm::vec2 mouseDelta, bo
 }
 
 bool Player::canFire() const {
-    return !state.reloading && fireTimer <= 0.f;
+    return alive && !state.reloading && fireTimer <= 0.f;
 }
 
 bool Player::fire(glm::vec3 direction, PlayerEvents &events) {

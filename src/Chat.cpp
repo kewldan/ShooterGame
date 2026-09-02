@@ -22,7 +22,7 @@ void Chat::Draw() {
 	ImGui::SetNextWindowPos(ImVec2(600, 20), ImGuiCond_Once);
 	ImGui::SetNextWindowSize(ImVec2(300, 200), ImGuiCond_Once);
 	// Starts folded: opened it covers the crosshair.
-	ImGui::SetNextWindowCollapsed(true, ImGuiCond_Once);
+	ImGui::SetNextWindowCollapsed(!startExpanded, ImGuiCond_Once);
 	if (!ImGui::Begin("Console", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings))
 	{
 		ImGui::End();
@@ -88,22 +88,32 @@ void Chat::Draw() {
 	ImGui::End();
 }
 
+void Chat::submit(const char* line) {
+	if (line && line[0]) ExecCommand(line);
+}
+
 void Chat::ExecCommand(const char* command_line) {
 	if (command_line[0] == '?') {
         print("# %s", command_line);
-		if (strcmp(command_line, "?help") == 0)
+		if (onCommand && onCommand(command_line)) {
+			// handled by the game
+		}
+		else if (strcmp(command_line, "?help") == 0)
 		{
             print("Commands:");
-            print("- help");
+            print("- ?help");
+            print("- ?players: who is connected, with ping");
 		}
 		else
 		{
             print("Unknown command: '%s'", command_line);
 		}
 	}
+	else if (onMessage) {
+		onMessage(command_line);
+	}
 	else {
-		strncpy(message, command_line, sizeof(message) - 1);
-		message[sizeof(message) - 1] = 0;
+		print("%s", command_line);
 	}
 
 	ScrollToBottom = true;
