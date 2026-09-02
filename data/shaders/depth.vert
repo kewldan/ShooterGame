@@ -1,7 +1,8 @@
 #version 330 core
 layout (location = 0) in vec3 vPos;
 
-uniform mat4 lightSpaceMatrix, mvp;
+uniform mat4 lightSpaceMatrix;
+uniform mat4 mvp; // model matrix
 
 void main()
 {

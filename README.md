@@ -16,7 +16,7 @@ A sandbox for graphics and gameplay experiments: walk around CS's de_dust2 as a 
 - 🗺️ **de_dust2 map** — the classic map as an OBJ mesh with its original textures, plus weapon models (Glock 17, sniper rifle) and a player model
 - 🎨 **Deferred rendering** — a G-buffer geometry pass followed by a lighting pass with light volumes
 - 🌑 **SSAO** — screen-space ambient occlusion with a blur pass and quality presets (None / Low / Medium / High)
-- ☀️ **Shadow mapping** — a 4096×4096 depth map rendered from the sun (marked WIP in-game)
+- ☀️ **Shadow mapping** — a 4096×4096 PCF-filtered depth map rendered from the sun, toggleable in-game
 - 🌅 **Skybox** — cubemap sky rendered in its own pass
 - 🧭 **Live minimap** — a top-down render-to-texture pass that rotates with the camera, shown in the settings window
 - 🏃 **Physics-driven player** — Bullet capsule rigid body with walking, slow-walk, jumping and a teleport-reset

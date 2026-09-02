@@ -26,6 +26,11 @@ namespace {
     constexpr float JUMP_SPEED = 5.f;    // m/s
     constexpr float FOV_NORMAL = 60.f, FOV_AIM = 25.f;
 
+    // The one directional light of the scene: the direction the sunlight travels in (world space) and its
+    // colour. Shared by the shadow pass, the lighting pass and the minimap so shadows match the shading.
+    const glm::vec3 SUN_DIRECTION = glm::normalize(glm::vec3(3.5f, -7.f, 1.5f));
+    const glm::vec3 SUN_COLOR(0.8f, 0.76f, 0.68f);
+
     void applySsaoLevel(SSAO &ssao, int level) {
         ssao.visible = level > 0;
         if (level == 1) {
@@ -68,7 +73,7 @@ namespace {
         auto world = std::make_unique<World>();
 
         auto skyShader = std::make_unique<Engine::Shader>("sky");
-        auto shadows = std::make_unique<ShadowsCaster>(4096, 4096, "depth", 25.f);
+        auto shadows = std::make_unique<ShadowsCaster>(4096, 4096, "depth", SUN_DIRECTION, 40.f);
 
         auto map = std::make_unique<GameObject>(world->dynamicsWorld.get(), "dust.obj", 0.f,
                                                 new btBoxShape(btVector3(100.f, 1.f, 100.f)),
@@ -211,6 +216,7 @@ namespace {
 
             // 2. Minimap pass
             minimap->pass(camera->rotation.y, [&](Engine::Shader *shader) {
+                shader->upload("sunDir", -SUN_DIRECTION);
                 sniperRifle->draw(shader);
                 map->draw(shader);
                 player->draw(shader);
@@ -238,6 +244,9 @@ namespace {
             // 6. Lighting pass [GBuffer]
             gBuffer->lightingPass(lights, [&](Engine::Shader *shader) {
                 shader->upload("SSAO", ssao->visible ? 1 : 0);
+                // The G-buffer is in view space, so is the sun direction handed to the shader.
+                shader->upload("sunDir", glm::normalize(glm::mat3(camera->getView()) * -SUN_DIRECTION));
+                shader->upload("sunColor", SUN_COLOR);
                 shader->upload("CastShadows", shadows->visible ? 1 : 0);
                 if (shadows->visible) {
                     // The G-buffer stores view-space positions, the light matrix expects world space.
@@ -280,11 +289,6 @@ namespace {
                         }
 
                         ImGui::Checkbox("Cast shadows", &shadows->visible);
-                        if (ImGui::IsItemHovered()) {
-                            ImGui::BeginTooltip();
-                            ImGui::Text("WIP");
-                            ImGui::EndTooltip();
-                        }
                         ImGui::TreePop();
                     }
                 }

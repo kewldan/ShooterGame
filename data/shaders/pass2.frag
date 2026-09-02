@@ -5,11 +5,12 @@ in Vertex {
     vec2 texCoord;
 } vertex;
 
+// G-buffer, everything in view space (see pass1.vert).
 uniform sampler2D gPosition;
 uniform sampler2D gNormal;
 uniform sampler2D gAlbedoSpec;
 uniform sampler2D ssao;
-uniform sampler2D shadowMap;
+uniform sampler2DShadow shadowMap;
 
 struct Light {
     vec3 Position;
@@ -17,59 +18,68 @@ struct Light {
     
     float Linear;
     float Quadratic;
-    float Radius;
 };
 
 const int NR_LIGHTS = 32;
 uniform int nbLights;
 uniform Light lights[NR_LIGHTS];
 uniform int SSAO, CastShadows;
+// View space -> light clip space (the CPU side folds inverse(view) into it).
 uniform mat4 lightSpaceMat;
+// Direction TOWARDS the sun and its colour (view space).
+uniform vec3 sunDir;
+uniform vec3 sunColor;
 
-float ShadowCalculation(vec3 in_normal, vec3 in_mvPos, vec4 in_fragPosLightSpace)
+const float AMBIENT = 0.4;
+
+float ShadowCalculation(vec3 normal, vec3 fragPos, float NdotL)
 {
-    vec3 projCoords = in_fragPosLightSpace.xyz / in_fragPosLightSpace.w;
+    // Push the lookup point off the surface along the normal (more where the light is grazing):
+    // hides self-shadowing without the peter-panning a large depth bias causes.
+    vec3 pos = fragPos + normal * (0.03 + 0.06 * (1.0 - NdotL));
+    vec4 fragPosLightSpace = lightSpaceMat * vec4(pos, 1.0);
+    vec3 projCoords = fragPosLightSpace.xyz / fragPosLightSpace.w;
     projCoords = projCoords * 0.5 + 0.5;
-    float closestDepth = texture(shadowMap, projCoords.xy).r; 
-    // get depth of current fragment from light's perspective
-    float currentDepth = projCoords.z;
-    // calculate bias (based on depth map resolution and slope)
-    vec3 normal = normalize(in_normal);
-    //float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
-    // check whether current frag pos is in shadow
-    float bias = 0.02;
-    
-    // PCF
+    // Behind the far plane of the light frustum: no shadow information, treat as lit.
+    if (projCoords.z > 1.0)
+        return 0.0;
+
+    // Slope-scaled depth bias (depth range is 0..1 over the whole frustum depth).
+    float bias = max(0.0015 * (1.0 - NdotL), 0.0003);
+    float depth = projCoords.z - bias;
+
+    // 3x3 PCF; the sampler compares depth in hardware and its linear filter adds a 2x2 tap.
     float shadow = 0.0;
-    vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
+    vec2 texelSize = 1.0 / vec2(textureSize(shadowMap, 0));
     for(int x = -1; x <= 1; ++x)
     {
         for(int y = -1; y <= 1; ++y)
         {
-            float pcfDepth = texture(shadowMap, projCoords.xy + vec2(x, y) * texelSize).r; 
-            shadow += currentDepth - bias > pcfDepth  ? 1.0 : 0.0;        
-        }    
+            shadow += 1.0 - texture(shadowMap, vec3(projCoords.xy + vec2(x, y) * texelSize, depth));
+        }
     }
-    shadow /= 9.0;
-    
-    if(projCoords.z > 1.0)
-        shadow = 0.0;
-        
-    return shadow;
+    return shadow / 9.0;
 }
 
 void main()
 {             
     vec3 FragPos = texture(gPosition, vertex.texCoord).rgb;
-    vec3 Normal = texture(gNormal, vertex.texCoord).rgb;
+    vec3 Normal = normalize(texture(gNormal, vertex.texCoord).rgb);
     vec3 Diffuse = texture(gAlbedoSpec, vertex.texCoord).rgb;
     float Specular = texture(gAlbedoSpec, vertex.texCoord).a;
-    float AmbientOcclusion = SSAO == 1 ? texture(ssao, vertex.texCoord).r : 1;
-    
-    vec3 lighting  = Diffuse * 0.4 * AmbientOcclusion;
-    if(CastShadows == 1){
-        lighting *= 1.0 - ShadowCalculation(Normal, FragPos, lightSpaceMat * vec4(FragPos, 1));
+    float AmbientOcclusion = SSAO == 1 ? texture(ssao, vertex.texCoord).r : 1.0;
+
+    // Ambient: never shadowed (only occluded by SSAO).
+    vec3 lighting = Diffuse * AMBIENT * AmbientOcclusion;
+
+    // Sun: the only term the shadow map darkens.
+    float NdotL = max(dot(Normal, sunDir), 0.0);
+    float shadow = 0.0;
+    if(CastShadows == 1 && NdotL > 0.0){
+        shadow = ShadowCalculation(Normal, FragPos, NdotL);
     }
+    lighting += (1.0 - shadow) * NdotL * Diffuse * sunColor;
+
     // FragPos is in view space, so the camera sits at the origin.
     vec3 viewDir  = normalize(-FragPos);
     for(int i = 0; i < nbLights && i < NR_LIGHTS; ++i)

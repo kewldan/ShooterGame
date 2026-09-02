@@ -1,13 +1,14 @@
-#version 330
+#version 330 core
 
 in Vertex {
     vec3 normal;
     vec2 texCoord;
-    vec3 position;
 } vertex;
 
 uniform sampler2D aTexture;
 uniform int hasTexture = 0;
+// Direction TOWARDS the sun, world space (the same sun as the main view).
+uniform vec3 sunDir;
 
 out vec4 fragColor;
 
@@ -22,8 +23,7 @@ void main()
 
     vec3 ambient = 0.15 * lightColor;
 
-    vec3 lightDir = normalize(vec3(-3.5, 10, -1.5) - vertex.position);
-    float diff = max(dot(lightDir, normal), 0.0);
+    float diff = max(dot(sunDir, normal), 0.0);
     vec3 diffuse = diff * lightColor;
 
     vec3 lighting = (ambient + diffuse) * color;

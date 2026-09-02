@@ -1,9 +1,7 @@
 #version 330 core
 
-#define BIAS 0.01
-
+// Depth-only pass: the bias lives in glPolygonOffset (ShadowsCaster::pass) and pass2.frag,
+// writing gl_FragDepth here would only disable early depth testing.
 void main()
 {
-     gl_FragDepth = gl_FragCoord.z;
-     gl_FragDepth += gl_FrontFacing ? BIAS : 0.0;
 }
