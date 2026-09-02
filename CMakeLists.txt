@@ -37,15 +37,18 @@ find_path(MINIAUDIO_INCLUDE_DIR miniaudio.h REQUIRED)
 add_executable(${PROJECT_NAME}
         src/Audio.cpp
         src/Chat.cpp
+        src/Effects.cpp
         src/Frustum.cpp
         src/GameObject.cpp
         src/GBuffer.cpp
         src/main.cpp
         src/Mesh.cpp
         src/Minimap.cpp
+        src/Player.cpp
         src/ShadowsCaster.cpp
         src/Skybox.cpp
         src/SSAO.cpp
+        src/Weapon.cpp
         src/World.cpp
         # vendored: https://github.com/hnOsmium0001/imgui-command-palette (MIT)
         thirdparty/imcmd/imcmd_command_palette.cpp
