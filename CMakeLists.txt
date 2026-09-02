@@ -51,6 +51,7 @@ add_executable(${PROJECT_NAME}
         src/ShadowsCaster.cpp
         src/Skybox.cpp
         src/SSAO.cpp
+        src/Sun.cpp
         src/Weapon.cpp
         src/World.cpp
         # vendored: https://github.com/hnOsmium0001/imgui-command-palette (MIT)

@@ -24,6 +24,7 @@
 #include "PostProcess.h"
 #include "Skybox.h"
 #include "SSAO.h"
+#include "Sun.h"
 #include "Weapon.h"
 #include "World.h"
 
@@ -81,7 +82,7 @@ namespace {
     }
 
     // The one directional light of the scene: the direction the sunlight travels in (world space) and its
-    // colour. Shared by the shadow pass, the lighting pass, the minimap and the view-model
+    // colour. Shared by the shadow pass, the lighting pass, the minimap, the sun sprite and the view-model
     // so they match. The scene is lit in linear HDR units (see PostProcess): the sun is a few times
     // brighter than white, the sky light reaching shadowed surfaces well below it.
     const glm::vec3 SUN_DIRECTION = glm::normalize(glm::vec3(3.5f, -7.f, 1.5f));
@@ -173,6 +174,7 @@ namespace {
         auto gBuffer = std::make_unique<GBuffer>("pass1", "pass2", window->width, window->height,
                                                  ssao->ssaoColorBufferBlur, shadows->getMap());
         auto post = std::make_unique<PostProcess>(window->width, window->height, gBuffer->rboDepth);
+        auto sun = std::make_unique<Sun>(-SUN_DIRECTION, SUN_COLOR * SUN_INTENSITY, window->width, window->height);
         auto pointLights = std::make_unique<PointLights>(gBuffer->gPosition, gBuffer->gNormal, gBuffer->gAlbedo);
         pointLights->lights = PointLights::mapLights();
 
@@ -317,6 +319,7 @@ namespace {
                 gBuffer->resize(window->width, window->height);
                 ssao->resize(window->width, window->height);
                 post->resize(window->width, window->height);
+                sun->resize(window->width, window->height);
             }
 
             // 5. Geometry pass [GBuffer], culled with the camera frustum
@@ -367,21 +370,24 @@ namespace {
             // 10. Skybox draw
             skybox->draw(skyShader.get(), camera.get(), SKY_INTENSITY);
 
-            // 11. Forward geometry and effects over the lit scene, tested against its depth: the light
+            // 11. Sun sprite and god rays [Sun]
+            sun->draw(camera.get(), post->getHdrFBO(), post->getHdrTexture(), gBuffer->gNormal);
+
+            // 12. Forward geometry and effects over the lit scene, tested against its depth: the light
             //     bulbs, then the decals and tracers
             pointLights->drawBulbs(camera.get());
             effects->draw(camera->getProjection(), camera->getView(), camera->position);
 
-            // 12. View-model: own projection on a cleared depth buffer, so it never intersects the walls
+            // 13. View-model: own projection on a cleared depth buffer, so it never intersects the walls
             glClear(GL_DEPTH_BUFFER_BIT);
             weapon->draw(aspect, sunDirView, sunColor, AMBIENT_COLOR);
 
-            // 13. Post-processing [PostProcess]: bloom, tone mapping and FXAA into the default framebuffer
+            // 14. Post-processing [PostProcess]: bloom, tone mapping and FXAA into the default framebuffer
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             window->reset();
             post->render();
 
-            // 14. HUD
+            // 15. HUD
             {
                 Engine::HUD::begin();
                 ImGui::SetNextWindowPos(ImVec2(15, 200), ImGuiCond_Once);
@@ -403,6 +409,7 @@ namespace {
                                         shadowStats[i].culled, shadowStats[i].drawCalls);
                         }
                         ImGui::Text("Point lights: %d / %d", pointLights->drawn, pointLights->culled);
+                        ImGui::Text("Sun on screen: %.2f", sun->getFade());
                         ImGui::TreePop();
                     }
                     if (ImGui::TreeNode("General")) {
@@ -447,6 +454,13 @@ namespace {
                             ImGui::SliderFloat("Bloom threshold", &post->bloomThreshold, 0.f, 5.f, "%.2f");
                         }
                         ImGui::Checkbox("FXAA", &post->fxaa);
+
+                        ImGui::SeparatorText("Sun");
+                        ImGui::Checkbox("God rays", &sun->godRays);
+                        if (sun->godRays) {
+                            ImGui::SliderFloat("God rays strength", &sun->raysStrength, 0.f, 2.f, "%.2f");
+                            ImGui::SliderFloat("God rays density", &sun->raysDensity, 0.1f, 1.f, "%.2f");
+                        }
 
                         ImGui::SeparatorText("Point lights");
                         ImGui::Checkbox("Point lights", &pointLights->visible);
