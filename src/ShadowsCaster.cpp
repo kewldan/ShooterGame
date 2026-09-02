@@ -1,12 +1,12 @@
 #include "ShadowsCaster.h"
 
-ShadowsCaster::ShadowsCaster(int width, int height, const char* shaderName, glm::vec3 position, float distance) {
+ShadowsCaster::ShadowsCaster(int width, int height, const char* shaderName, float distance) {
 	w = width;
 	h = height;
 	glGenFramebuffers(1, &FBO);
 	glGenTextures(1, &map);
 	glBindTexture(GL_TEXTURE_2D, map);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT,
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT24,
 		w, h, 0, GL_DEPTH_COMPONENT, GL_FLOAT, nullptr);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -19,11 +19,14 @@ ShadowsCaster::ShadowsCaster(int width, int height, const char* shaderName, glm:
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, map, 0);
 	glDrawBuffer(GL_NONE);
 	glReadBuffer(GL_NONE);
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+		PLOGE << "Shadow map framebuffer not complete!";
+	}
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
 	proj = glm::ortho(-distance, distance, -distance, distance, 5.f, 50.f);
 
-	shader = new Engine::Shader(shaderName);
+	shader = std::make_unique<Engine::Shader>(shaderName);
 }
 
 void ShadowsCaster::pass(glm::vec3 cam, const std::function<void(Engine::Shader *)> &useFunction) {
@@ -43,19 +46,18 @@ void ShadowsCaster::pass(glm::vec3 cam, const std::function<void(Engine::Shader 
 	shader->bind();
 	shader->upload("lightSpaceMatrix", lightSpaceMatrix);
 
-    useFunction(shader);
+    useFunction(shader.get());
 
     glEnable(GL_CULL_FACE);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-glm::mat4 ShadowsCaster::getLightSpaceMatrix() {
+const glm::mat4& ShadowsCaster::getLightSpaceMatrix() const {
 	return lightSpaceMatrix;
 }
 
 ShadowsCaster::~ShadowsCaster()
 {
-	delete shader;
 	glDeleteFramebuffers(1, &FBO);
 	glDeleteTextures(1, &map);
 }

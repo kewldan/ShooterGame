@@ -1,47 +1,88 @@
 #include "Mesh.h"
 
+#include "Engine.h"
+#include <cassert>
+#include <utility>
+
 void Mesh::draw() const {
-    ASSERT("Draw non uploaded mesh", VAO > 0 && EBO > 0 && VBO > 0);
-	glBindVertexArray(VAO);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-	glDrawElements(GL_TRIANGLES, indicesCount, GL_UNSIGNED_INT, nullptr);
+    ASSERT("Draw non uploaded mesh", isUploaded());
+    // The element buffer binding is part of the VAO state, no need to rebind it here.
+    glBindVertexArray(VAO);
+    glDrawElements(GL_TRIANGLES, indicesCount, GL_UNSIGNED_INT, nullptr);
 }
 
 void Mesh::addParameter(int location, int size, bool normalized) {
-    ASSERT("Add parameter to non uploaded mesh", VAO > 0 && EBO > 0 && VBO > 0);
-	glEnableVertexAttribArray(location);
-	glVertexAttribPointer(location, size, GL_FLOAT, normalized,
-		stride, (void*)(vertexOffset));
-	vertexOffset += sizeof(float) * size;
+    ASSERT("Add parameter to non uploaded mesh", isUploaded());
+    glBindVertexArray(VAO);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    glEnableVertexAttribArray(location);
+    glVertexAttribPointer(location, size, GL_FLOAT, normalized,
+                          stride, reinterpret_cast<const void *>(vertexOffset));
+    vertexOffset += sizeof(float) * size;
 }
 
-bool Mesh::hasTexture() const
-{
-	return texture != nullptr;
+bool Mesh::hasTexture() const {
+    return texture != nullptr;
+}
+
+bool Mesh::isUploaded() const {
+    return VAO != 0 && EBO != 0 && VBO != 0;
 }
 
 void Mesh::upload() {
-    ASSERT("Mesh already uploaded to GPU memory", VAO == -1 && EBO == -1 && VBO == -1);
+    ASSERT("Mesh already uploaded to GPU memory", !isUploaded());
     glGenVertexArrays(1, &VAO);
     glBindVertexArray(VAO);
 
     glGenBuffers(1, &EBO);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indicesCount * sizeof(unsigned int), indices,
-                 GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, static_cast<GLsizeiptr>(indices.size() * sizeof(unsigned int)),
+                 indices.data(), GL_STATIC_DRAW);
 
     glGenBuffers(1, &VBO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, vertexCount * vertexSize * sizeof(float), data, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(data.size() * sizeof(float)), data.data(),
+                 GL_STATIC_DRAW);
+
+    // The data now lives on the GPU; drop the CPU copies (dust.obj is several MB).
+    std::vector<float>().swap(data);
+    std::vector<unsigned int>().swap(indices);
 }
 
-Mesh::Mesh(unsigned int vertexCount, unsigned int vertexSize, int indicesCount) : vertexCount(vertexCount), vertexSize(vertexSize), indicesCount(indicesCount) {
+Mesh::Mesh(unsigned int vertexCount, unsigned int vertexSize, int indicesCount)
+        : data(static_cast<size_t>(vertexCount) * vertexSize), indices(static_cast<size_t>(indicesCount)),
+          vertexCount(vertexCount), vertexSize(vertexSize), indicesCount(indicesCount),
+          stride(static_cast<int>(vertexSize * sizeof(float))) {
     ASSERT("Indices count <= 0", indicesCount > 0);
-    stride = static_cast<int>(vertexSize * sizeof(float));
-    vertexOffset = 0;
+}
 
-    data = new float[vertexCount * vertexSize];
-    indices = new unsigned int[indicesCount];
+Mesh::~Mesh() {
+    if (VAO) glDeleteVertexArrays(1, &VAO);
+    if (VBO) glDeleteBuffers(1, &VBO);
+    if (EBO) glDeleteBuffers(1, &EBO);
+}
 
-    texture = nullptr;
+Mesh::Mesh(Mesh &&other) noexcept
+        : VAO(other.VAO), EBO(other.EBO), VBO(other.VBO), vertexOffset(other.vertexOffset),
+          data(std::move(other.data)), indices(std::move(other.indices)), texture(std::move(other.texture)),
+          vertexCount(other.vertexCount), vertexSize(other.vertexSize), indicesCount(other.indicesCount),
+          stride(other.stride) {
+    other.VAO = other.EBO = other.VBO = 0;
+}
+
+Mesh &Mesh::operator=(Mesh &&other) noexcept {
+    if (this != &other) {
+        std::swap(VAO, other.VAO);
+        std::swap(EBO, other.EBO);
+        std::swap(VBO, other.VBO);
+        std::swap(vertexOffset, other.vertexOffset);
+        data.swap(other.data);
+        indices.swap(other.indices);
+        texture.swap(other.texture);
+        std::swap(vertexCount, other.vertexCount);
+        std::swap(vertexSize, other.vertexSize);
+        std::swap(indicesCount, other.indicesCount);
+        std::swap(stride, other.stride);
+    }
+    return *this;
 }

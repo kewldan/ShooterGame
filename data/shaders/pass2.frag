@@ -23,7 +23,6 @@ struct Light {
 const int NR_LIGHTS = 32;
 uniform int nbLights;
 uniform Light lights[NR_LIGHTS];
-uniform vec3 viewPos;
 uniform int SSAO, CastShadows;
 uniform mat4 lightSpaceMat;
 
@@ -71,7 +70,8 @@ void main()
     if(CastShadows == 1){
         lighting *= 1.0 - ShadowCalculation(Normal, FragPos, lightSpaceMat * vec4(FragPos, 1));
     }
-    vec3 viewDir  = normalize(viewPos - FragPos);
+    // FragPos is in view space, so the camera sits at the origin.
+    vec3 viewDir  = normalize(-FragPos);
     for(int i = 0; i < nbLights && i < NR_LIGHTS; ++i)
     {
         // diffuse

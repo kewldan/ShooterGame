@@ -1,32 +1,21 @@
 #include "Chat.h"
 
-
-Chat::Chat() {
-	ClearLog();
-    inputBuffer = new char[256];
-	AutoScroll = true;
-	ScrollToBottom = false;
-    message = new char[256];
-}
-
-Chat::~Chat() {
-	ClearLog();
-}
+#include <cstdarg>
+#include <cstdio>
+#include <cstring>
 
 void Chat::ClearLog() {
-	for (auto & Item : Items)
-		free(Item);
 	Items.clear();
 }
 
 void Chat::print(const char* fmt, ...) {
-	char* buf = new char[1024];
+	char buf[1024];
 	va_list args;
 	va_start(args, fmt);
-	vsnprintf(buf, 1024, fmt, args);
-	buf[1023] = 0;
+	vsnprintf(buf, sizeof(buf), fmt, args);
+	buf[sizeof(buf) - 1] = 0;
 	va_end(args);
-	Items.push_back(buf);
+	Items.emplace_back(buf);
 }
 
 void Chat::Draw() {
@@ -55,16 +44,16 @@ void Chat::Draw() {
 		ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 1)); // Tighten spacing
 		if (copy_to_clipboard)
 			ImGui::LogToClipboard();
-		for (auto item : Items)
+		for (const auto& item : Items)
 		{
-				ImVec4 color;
+			ImVec4 color;
 			bool has_color = false;
-			if (strstr(item, "[error]")) { color = ImVec4(1.0f, 0.4f, 0.4f, 1.0f); has_color = true; }
-			else if (strstr(item, "[success]")) { color = ImVec4(0.2f, 1.f, 0.2f, 1.0f); has_color = true; }
-			else if (strncmp(item, "# ", 2) == 0) { color = ImVec4(1.0f, 0.8f, 0.6f, 1.0f); has_color = true; }
+			if (item.find("[error]") != std::string::npos) { color = ImVec4(1.0f, 0.4f, 0.4f, 1.0f); has_color = true; }
+			else if (item.find("[success]") != std::string::npos) { color = ImVec4(0.2f, 1.f, 0.2f, 1.0f); has_color = true; }
+			else if (item.compare(0, 2, "# ") == 0) { color = ImVec4(1.0f, 0.8f, 0.6f, 1.0f); has_color = true; }
 			if (has_color)
 				ImGui::PushStyleColor(ImGuiCol_Text, color);
-			ImGui::TextUnformatted(item);
+			ImGui::TextUnformatted(item.c_str());
 			if (has_color)
 				ImGui::PopStyleColor();
 		}
@@ -82,7 +71,7 @@ void Chat::Draw() {
 
 	// Command-line
 	bool reclaim_focus = false;
-	if (ImGui::InputText("##InputCommand", inputBuffer, 256, ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_EscapeClearsAll))
+	if (ImGui::InputText("##InputCommand", inputBuffer, sizeof(inputBuffer), ImGuiInputTextFlags_EnterReturnsTrue | ImGuiInputTextFlags_EscapeClearsAll))
 	{
 		if (inputBuffer[0])
 			ExecCommand(inputBuffer);
@@ -99,7 +88,7 @@ void Chat::Draw() {
 
 void Chat::ExecCommand(const char* command_line) {
 	if (command_line[0] == '?') {
-        print("# %s\n", command_line);
+        print("# %s", command_line);
 		if (strcmp(command_line, "?help") == 0)
 		{
             print("Commands:");
@@ -107,18 +96,21 @@ void Chat::ExecCommand(const char* command_line) {
 		}
 		else
 		{
-            print("Unknown command: '%s'\n", command_line);
+            print("Unknown command: '%s'", command_line);
 		}
 	}
 	else {
-		strcpy_s(message, 256, command_line);
+		strncpy(message, command_line, sizeof(message) - 1);
+		message[sizeof(message) - 1] = 0;
 	}
 
 	ScrollToBottom = true;
 }
 
 void Chat::init() {
-    Chat::i = new Chat();
+    if (!Chat::i) {
+        Chat::i = std::make_unique<Chat>();
+    }
 }
 
-Chat* Chat::i = nullptr;
+std::unique_ptr<Chat> Chat::i;

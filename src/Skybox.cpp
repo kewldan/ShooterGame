@@ -1,22 +1,27 @@
 #include "Skybox.h"
 
+#include "io/Filesystem.h"
 #include "stb_image.h"
+#include <cstdio>
+#include <numeric>
 
-Skybox::Skybox(const char *filename) {
+Skybox::Skybox(const char *filename) : mesh(36, 3, 36) {
     glGenTextures(1, &texture);
     bind();
 
     int width, height, nrChannels;
-    char *path = new char[256];
-    strcpy_s(path, 256, "./data/textures/");
-    strcat_s(path, 256, filename);
-    char n[2];
-    n[1] = 0;
+    char path[256];
     for (unsigned int i = 0; i < 6; i++) {
-        n[0] = 0x30 + i;
-        strcat_s(path, 256, n);
-        strcat_s(path, 256, ".jpg");
-        unsigned char *data = stbi_load(path, &width, &height, &nrChannels, 0);
+        std::snprintf(path, sizeof(path), "data/textures/%s%u.jpg", filename, i);
+        // Force 3 channels so the GL_RGB upload below is always right.
+#ifndef NDEBUG
+        unsigned char *data = stbi_load(path, &width, &height, &nrChannels, 3);
+#else
+        // Release builds read the data embedded as RCDATA resources (see Engine::Texture).
+        int size = 0;
+        auto *raw = reinterpret_cast<unsigned char *>(Engine::Filesystem::readResourceFile(path, &size));
+        unsigned char *data = raw ? stbi_load_from_memory(raw, size, &width, &height, &nrChannels, 3) : nullptr;
+#endif
         if (data) {
             glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
                          0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data
@@ -25,7 +30,6 @@ Skybox::Skybox(const char *filename) {
             PLOGE << "Cube map tex failed to load at path: " << path;
         }
         stbi_image_free(data);
-        path[strlen(path) - 5] = 0;
     }
 
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -34,7 +38,7 @@ Skybox::Skybox(const char *filename) {
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
 
-    std::vector<float> vertices = {
+    mesh.data = {
             -1.0f, 1.0f, -1.0f,
             -1.0f, -1.0f, -1.0f,
             1.0f, -1.0f, -1.0f,
@@ -77,18 +81,10 @@ Skybox::Skybox(const char *filename) {
             -1.0f, -1.0f, 1.0f,
             1.0f, -1.0f, 1.0f
     };
-    std::vector<int> indices = {
-            0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28,
-            29, 30, 31, 32, 33, 34, 35
-    };
+    std::iota(mesh.indices.begin(), mesh.indices.end(), 0u); // 0, 1, 2, ... 35
 
-    mesh = new Mesh(36, 3, 36);
-
-    memcpy(mesh->data, vertices.data(), 36 * 3 * sizeof(float));
-    memcpy(mesh->indices, indices.data(), 36 * sizeof(unsigned int));
-
-    mesh->upload();
-    mesh->addParameter(0, 3);
+    mesh.upload();
+    mesh.addParameter(0, 3);
 }
 
 Skybox::~Skybox() {
@@ -100,11 +96,11 @@ void Skybox::draw(Engine::Shader *shader, Engine::Camera3D *camera) {
     shader->bind();
     shader->upload("proj", camera->getProjection());
     shader->upload("view", camera->getViewRotation());
-    glActiveTexture(GL_TEXTURE0);
-    shader->bind();
-
     shader->upload("skybox", 0);
-    mesh->draw();
+    glActiveTexture(GL_TEXTURE0);
+    bind();
+
+    mesh.draw();
     glDepthFunc(GL_LESS);
 }
 

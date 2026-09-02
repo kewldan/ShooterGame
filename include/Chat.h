@@ -1,20 +1,20 @@
 #pragma once
 
-#include <iostream>
+#include <memory>
+#include <string>
 #include <vector>
 #include "imgui.h"
 
 class Chat
 {
-	char* inputBuffer;
-	std::vector<char*> Items;
-	bool AutoScroll;
-	bool ScrollToBottom;
+	char inputBuffer[256]{};
+	std::vector<std::string> Items;
+	bool AutoScroll = true;
+	bool ScrollToBottom = false;
 	void ExecCommand(const char* command_line);
 public:
     bool visible = true;
-	Chat();
-	~Chat();
+	Chat() = default;
 
 	void ClearLog();
 	void print(const char* fmt, ...);
@@ -22,6 +22,7 @@ public:
 
     static void init();
 
-	char* message;
-	static Chat* i;
+	// Last non-command line typed into the console (was meant to be sent over the network).
+	char message[256]{};
+	static std::unique_ptr<Chat> i;
 };

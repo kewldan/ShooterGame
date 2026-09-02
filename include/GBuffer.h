@@ -2,8 +2,11 @@
 
 #include "Shader.h"
 #include <functional>
+#include <memory>
+#include <vector>
 #include "Camera3D.h"
 
+// NOTE: the lighting pass works in view space (see pass1.vert), so light positions are view-space too.
 struct Light {
 	glm::vec3 pos;
 	glm::vec3 color;
@@ -12,14 +15,18 @@ struct Light {
 class GBuffer {
 	int w, h;
     unsigned int ssao, shadow;
-	Engine::Shader* gShader, * lShader;
+	std::unique_ptr<Engine::Shader> gShader, lShader;
 public:
-	unsigned int FBO, gPosition, gNormal, gAlbedo, rboDepth, VAO, VBO;
+	unsigned int FBO = 0, gPosition = 0, gNormal = 0, gAlbedo = 0, rboDepth = 0, VAO = 0, VBO = 0;
 	GBuffer(const char* gShaderPath, const char* lShaderPath, int width, int height, unsigned int ssao, unsigned int shadowMap);
+	~GBuffer();
+
+	GBuffer(const GBuffer&) = delete;
+	GBuffer& operator=(const GBuffer&) = delete;
 
 	void resize(int nw, int nh);
 
     void geometryPass(Engine::Camera3D* camera, const std::function<void(Engine::Shader *)> &useFunction);
 
-    void lightingPass(std::vector<Light>* lights, Engine::Camera3D* camera, const std::function<void(Engine::Shader *)> &useFunction);
+    void lightingPass(const std::vector<Light>& lights, const std::function<void(Engine::Shader *)> &useFunction);
 };

@@ -7,12 +7,14 @@
 #include "Camera3D.h"
 
 class Skybox {
-	int width, height;
-	unsigned int texture;
-	Mesh* mesh;
+	unsigned int texture = 0;
+	Mesh mesh;
 public:
 	explicit Skybox(const char* filename);
 	~Skybox();
+
+	Skybox(const Skybox&) = delete;
+	Skybox& operator=(const Skybox&) = delete;
 
 	void draw(Engine::Shader* shader, Engine::Camera3D* camera);
 
