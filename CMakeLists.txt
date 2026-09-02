@@ -84,10 +84,14 @@ if (WIN32)
     set(_rc_content "")
     foreach (_file IN LISTS _resource_files)
         string(APPEND _rc_content "${_file} RCDATA \"${CMAKE_CURRENT_SOURCE_DIR}/${_file}\"\n")
+        list(APPEND _rc_deps "${CMAKE_CURRENT_SOURCE_DIR}/${_file}")
     endforeach ()
     file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/resources.rc.in" "${_rc_content}")
     configure_file("${CMAKE_CURRENT_BINARY_DIR}/resources.rc.in" "${CMAKE_CURRENT_BINARY_DIR}/resources.rc" COPYONLY)
     target_sources(${PROJECT_NAME} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/resources.rc")
+    # The .rc only names the files, so the resource compiler is not re-run when a shader or texture
+    # changes; tell the build system about the real dependencies.
+    set_source_files_properties("${CMAKE_CURRENT_BINARY_DIR}/resources.rc" PROPERTIES OBJECT_DEPENDS "${_rc_deps}")
 endif ()
 
 # Keep data/ next to the executable so it can be started from the build directory too.
