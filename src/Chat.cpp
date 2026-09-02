@@ -21,6 +21,8 @@ void Chat::print(const char* fmt, ...) {
 void Chat::Draw() {
 	ImGui::SetNextWindowPos(ImVec2(600, 20), ImGuiCond_Once);
 	ImGui::SetNextWindowSize(ImVec2(300, 200), ImGuiCond_Once);
+	// Starts folded: opened it covers the crosshair.
+	ImGui::SetNextWindowCollapsed(true, ImGuiCond_Once);
 	if (!ImGui::Begin("Console", nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings))
 	{
 		ImGui::End();

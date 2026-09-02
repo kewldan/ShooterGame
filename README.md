@@ -19,8 +19,11 @@ A sandbox for graphics and gameplay experiments: walk around CS's de_dust2 as a 
 - ☀️ **Shadow mapping** — a 4096×4096 PCF-filtered depth map rendered from the sun, toggleable in-game
 - 🌅 **Skybox** — cubemap sky rendered in its own pass
 - 🧭 **Live minimap** — a top-down render-to-texture pass that rotates with the camera, shown in the settings window
-- 🏃 **Physics-driven player** — Bullet capsule rigid body with walking, slow-walk, jumping and a teleport-reset
-- 🔭 **Aim-down-sights** — right mouse button smoothly narrows the FOV from 60° to 25°
+- 🏃 **Physics-driven player** — Bullet capsule rigid body with walking, slow-walk, a raycast ground check (jump only when grounded, coyote time, reduced air control) and a teleport-reset; the map collides with its real triangles
+- 🔫 **Shooting** — hitscan shots via Bullet raycasts with bullet-hole decals, tracers, a muzzle flash, a 17-round magazine with reloads and shootable physics crates
+- 🔦 **View-model weapon** — the Glock drawn in its own forward pass with sway, walk bob and recoil
+- 🔭 **Aim-down-sights** — right mouse button smoothly narrows the horizontal FOV from 90° to 45° and centres the sights
+- 🔊 **Sound** — miniaudio playback of procedurally generated effects (`tools/gen_sounds.py`): shots, reloads, footsteps, jumps, landings, hits
 - 💬 **In-game chat & command palette** — an ImGui chat console and a fuzzy-search command palette (`imgui-command-palette`)
 - 🛠️ **Debug UI** — FPS/position/facing overlay, ammo & health HUD, sensitivity/speed sliders, VSync toggle
 
@@ -30,7 +33,9 @@ A sandbox for graphics and gameplay experiments: walk around CS's de_dust2 as a 
 |---|---|
 | `W` `A` `S` `D` | Move |
 | Mouse | Look around |
+| `LMB` | Fire |
 | `RMB` (hold) | Aim down sights (zoom) |
+| `R` | Reload |
 | `Shift` | Slow walk |
 | `Space` | Jump |
 | `Backspace` | Reset player to spawn |
@@ -45,6 +50,7 @@ A sandbox for graphics and gameplay experiments: walk around CS's de_dust2 as a 
 | [Bullet3](https://github.com/bulletphysics/bullet3) | Physics (dynamics world, rigid bodies) |
 | [Dear ImGui](https://github.com/ocornut/imgui) + [imgui-command-palette](https://github.com/hnOsmium0001/imgui-command-palette) | UI, chat, command palette |
 | [stb](https://github.com/nothings/stb) | Image loading |
+| [miniaudio](https://miniaud.io/) | Sound playback |
 | FreeType, libpng, zlib, bz2, Brotli, Turbo-Base64 | Fonts, textures, compression |
 | Author's in-house `Engine` | Window, input, shaders, camera, HUD |
 

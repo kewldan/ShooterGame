@@ -15,31 +15,42 @@
 #include <cstdlib>
 #include <cstring>
 #include <memory>
-#include "Skybox.h"
-#include "Minimap.h"
+#include "Audio.h"
+#include "Effects.h"
 #include "GBuffer.h"
+#include "Minimap.h"
+#include "Player.h"
+#include "Skybox.h"
 #include "SSAO.h"
+#include "Weapon.h"
 #include "World.h"
 
 namespace {
-    constexpr float TWO_PI = 6.2831853f;
-    constexpr float HALF_PI = 1.5707963f;
-    constexpr float EYE_HEIGHT = 1.5f;   // camera offset above the capsule centre
-    constexpr float JUMP_SPEED = 5.f;    // m/s
-    constexpr float FOV_NORMAL = 60.f, FOV_AIM = 25.f;
+    // Horizontal field of view, degrees (Engine::Camera3D converts it to the vertical one).
+    constexpr float FOV_NORMAL = 90.f, FOV_AIM = 45.f;
     // The static map is split into cells of this size (world units, XZ) for frustum culling; dust.obj
     // (~224x246 units, 9.8k triangles, 27 materials) gives ~380 chunks with 32.
     constexpr float MAP_CHUNK_SIZE = 32.f;
     constexpr int SHADOW_MAP_SIZE = 2048; // per cascade
+    // Shootable crates in front of the spawn point.
+    constexpr int TARGET_COUNT = 3;
+    constexpr float TARGET_HALF_SIZE = 0.5f, TARGET_MASS = 5.f;
+    // Scripted test shots (--test-shots): interval and the fan they are spread over.
+    constexpr double TEST_SHOT_INTERVAL = 0.35, TEST_SHOT_START = 1.0;
+    constexpr float TEST_SHOT_SPREAD = 4.f; // degrees between two shots
 
     // Optional start state from the command line (see parseArgs): handy for reproducible screenshots.
     struct Options {
         glm::vec3 position{0.f};
         float yaw = 0.f, pitch = 0.f; // radians
         bool vsync = true;
+        int testShots = 0;            // fire this many shots in a fixed fan after start-up
+        bool aim = false;             // keep the sights up
+        float tracerLife = -1.f;      // override Effects::tracerLife (seconds) when >= 0
     };
 
-    // --pos x y z (camera position), --yaw deg, --pitch deg, --novsync
+    // --pos x y z (camera position), --yaw deg, --pitch deg, --novsync,
+    // --test-shots N, --aim, --tracer-life seconds (debugging aids)
     Options parseArgs(int argc, char **argv) {
         Options options;
         for (int i = 1; i < argc; i++) {
@@ -54,6 +65,12 @@ namespace {
                 options.pitch = glm::radians(std::strtof(argv[++i], nullptr));
             } else if (std::strcmp(argv[i], "--novsync") == 0) {
                 options.vsync = false;
+            } else if (std::strcmp(argv[i], "--test-shots") == 0 && hasOne) {
+                options.testShots = std::atoi(argv[++i]);
+            } else if (std::strcmp(argv[i], "--aim") == 0) {
+                options.aim = true;
+            } else if (std::strcmp(argv[i], "--tracer-life") == 0 && hasOne) {
+                options.tracerLife = std::strtof(argv[++i], nullptr);
             } else {
                 PLOGW << "Unknown argument: " << argv[i];
             }
@@ -62,7 +79,7 @@ namespace {
     }
 
     // The one directional light of the scene: the direction the sunlight travels in (world space) and its
-    // colour. Shared by the shadow pass, the lighting pass and the minimap so shadows match the shading.
+    // colour. Shared by the shadow pass, the lighting pass, the minimap and the view-model so they match.
     const glm::vec3 SUN_DIRECTION = glm::normalize(glm::vec3(3.5f, -7.f, 1.5f));
     const glm::vec3 SUN_COLOR(0.8f, 0.76f, 0.68f);
 
@@ -80,16 +97,22 @@ namespace {
         }
     }
 
-    // Puts the player so that the camera (EYE_HEIGHT above the capsule centre) sits at `cameraPosition`.
-    void resetPlayer(GameObject &player, glm::vec3 cameraPosition = glm::vec3(0.f)) {
-        btTransform transform;
-        transform.setIdentity();
-        transform.setOrigin(btVector3(cameraPosition.x, cameraPosition.y - EYE_HEIGHT, cameraPosition.z));
-        player.rb->setWorldTransform(transform);
-        player.motionState->setWorldTransform(transform);
-        player.rb->setLinearVelocity(btVector3(0.f, 0.f, 0.f));
-        player.rb->setAngularVelocity(btVector3(0.f, 0.f, 0.f));
-        player.rb->clearForces();
+    // Dynamic crates a few units ahead of the player; they drop onto whatever the map has there.
+    std::vector<std::unique_ptr<GameObject>> spawnTargets(btDynamicsWorld *world, const Player &player) {
+        std::vector<std::unique_ptr<GameObject>> targets;
+        const glm::vec3 forward = glm::normalize(glm::vec3(player.getForward().x, 0.f, player.getForward().z));
+        const glm::vec3 right = player.getRight();
+        for (int i = 0; i < TARGET_COUNT; i++) {
+            const float side = static_cast<float>(i - TARGET_COUNT / 2) * 2.5f;
+            const glm::vec3 p = player.getEyePosition() + forward * (9.f + static_cast<float>(i % 2) * 2.f) +
+                                right * side;
+            const float h = TARGET_HALF_SIZE;
+            auto crate = std::make_unique<GameObject>(world, nullptr, TARGET_MASS, new btBoxShape(btVector3(h, h, h)),
+                                                      btVector3(p.x, p.y, p.z));
+            crate->setBoxMesh(glm::vec3(h), "de_dust2_material_12.png");
+            targets.push_back(std::move(crate));
+        }
+        return targets;
     }
 
     // Everything that owns GL objects lives inside this function so that it is destroyed
@@ -100,7 +123,7 @@ namespace {
         auto input = std::make_unique<Engine::Input>(window->getId());
         input->registerCallbacks();
         auto camera = std::make_unique<Engine::Camera3D>(window.get());
-        camera->setFov(FOV_NORMAL);
+        camera->setFov(options.aim ? FOV_AIM : FOV_NORMAL);
 
         glEnable(GL_DEPTH_TEST);
 
@@ -112,17 +135,25 @@ namespace {
         auto skyShader = std::make_unique<Engine::Shader>("sky");
         auto shadows = std::make_unique<ShadowsCaster>(SHADOW_MAP_SIZE, "depth", SUN_DIRECTION);
 
-        auto map = std::make_unique<GameObject>(world->dynamicsWorld.get(), "dust.obj", 0.f,
-                                                new btBoxShape(btVector3(100.f, 1.f, 100.f)),
-                                                btVector3(0.f, -10.f, 0.f), MAP_CHUNK_SIZE);
-        auto sniperRifle = std::make_unique<GameObject>(world->dynamicsWorld.get(), "g17.obj", 1.5f,
-                                                        new btBoxShape(btVector3(1.f, 1.f, 1.f)));
-        auto player = std::make_unique<GameObject>(world->dynamicsWorld.get(), "player.obj", 60.f,
-                                                   new btCapsuleShape(1.f, 2.f));
-        player->rb->setAngularFactor(0.f);
-        player->rb->setSleepingThresholds(0.f, 0.f);
-        resetPlayer(*player, options.position);
-        camera->rotation = glm::vec2(options.pitch, options.yaw);
+        // The map collides with its own triangles; the flat box below it catches whatever falls through.
+        auto map = std::make_unique<GameObject>(world->dynamicsWorld.get(), "dust.obj", 0.f, nullptr,
+                                                btVector3(0.f, 0.f, 0.f), MAP_CHUNK_SIZE);
+        auto catchFloor = std::make_unique<GameObject>(world->dynamicsWorld.get(), nullptr, 0.f,
+                                                  new btBoxShape(btVector3(150.f, 1.f, 150.f)),
+                                                  btVector3(0.f, -20.f, 0.f));
+        auto player = std::make_unique<Player>(world->dynamicsWorld.get(), options.position, options.yaw, options.pitch);
+        player->forceAim = options.aim;
+        auto targets = spawnTargets(world->dynamicsWorld.get(), *player);
+
+        auto weapon = std::make_unique<Weapon>("g17.obj");
+        auto effects = std::make_unique<Effects>();
+        if (options.tracerLife >= 0.f) {
+            effects->tracerLife = options.tracerLife;
+        }
+        auto audio = std::make_unique<Audio>();
+        for (const char *clip: {"gunshot", "dryfire", "reload", "footstep", "jump", "land", "hit"}) {
+            audio->load(clip);
+        }
 
         auto skybox = std::make_unique<Skybox>("sky");
 
@@ -137,19 +168,20 @@ namespace {
 
         std::vector<Light> lights;
 
-        float speed = 5.f;
-        float sensitivity = 1.f;
         bool show_debugMenu = true, lockMouse = false, show_command_palette = false;
         bool vsync = options.vsync;
         bool visualizeCascades = false;
+        bool wasAiming = options.aim;
         int ssaoLevel = 3;
+        int testShotsLeft = options.testShots;
+        double nextTestShot = glfwGetTime() + TEST_SHOT_START;
         // Frustum culling counters of the last frame, per pass (a skipped far cascade keeps its last values).
         CullStats geometryStats, minimapStats, shadowStats[ShadowsCaster::CASCADES];
         applySsaoLevel(*ssao, ssaoLevel);
 
         ImCmd::AddCommand({"Toggle chat", [] { Chat::i->visible = !Chat::i->visible; }});
         ImCmd::AddCommand({"Toggle debug overlay", [&] { show_debugMenu = !show_debugMenu; }});
-        ImCmd::AddCommand({"Reset player", [&] { resetPlayer(*player); }});
+        ImCmd::AddCommand({"Reset player", [&] { player->reset(glm::vec3(0.f)); }});
         ImCmd::AddCommand({"SSAO level",
                            [] { ImCmd::Prompt({"None", "Low", "Medium", "High"}); },
                            [&](int selected) {
@@ -157,69 +189,83 @@ namespace {
                                applySsaoLevel(*ssao, ssaoLevel);
                            }});
 
+        // The world geometry of every pass: the map and the crates; the player's own body only where it
+        // is seen from outside (shadows, minimap).
+        const auto drawScene = [&](Engine::Shader *shader, const Frustum &frustum, CullStats &stats, bool withPlayer) {
+            map->draw(shader, &frustum, &stats);
+            for (auto &target: targets) {
+                target->draw(shader, &frustum, &stats);
+            }
+            if (withPlayer) {
+                player->body->draw(shader, &frustum, &stats);
+            }
+        };
+
         double lastTime = glfwGetTime();
 
         do {
             input->update();
-            camera->update();
 
             const double now = glfwGetTime();
             const float delta = static_cast<float>(now - lastTime);
             lastTime = now;
 
+            glm::vec2 mouseDelta(0.f);
             if (lockMouse) {
                 const glm::vec2 center(window->width / 2, window->height / 2);
-                glm::vec2 p = center - input->getCursorPosition();
+                mouseDelta = input->getCursorPosition() - center;
                 input->setCursorPosition(center);
-
-                camera->rotation.x -= p.y * 0.001f * sensitivity;
-                camera->rotation.x = std::clamp(camera->rotation.x, -1.5f, 1.5f);
-                camera->rotation.y -= p.x * 0.001f * sensitivity;
-
-                //fmod faster version
-                if (camera->rotation.y >= TWO_PI) {
-                    camera->rotation.y -= TWO_PI;
-                }
-                if (camera->rotation.y <= -TWO_PI) {
-                    camera->rotation.y += TWO_PI;
-                }
-
-                if (input->isMouseButtonJustPressed(GLFW_MOUSE_BUTTON_RIGHT)) {
-                    camera->setFov(FOV_AIM);
-                }
-                if (input->isMouseButtonJustReleased(GLFW_MOUSE_BUTTON_RIGHT)) {
-                    camera->setFov(FOV_NORMAL);
-                }
             }
 
-            const float slowWalk = input->isKeyPressed(GLFW_KEY_LEFT_SHIFT) ? 0.8f : 1.5f;
-            const float moveSpeed = 5.f * speed * slowWalk;
-
-            glm::vec3 vel(0.f);
-            if (input->isKeyPressed(GLFW_KEY_W)) {
-                vel.x -= std::cos(camera->rotation.y + HALF_PI) * moveSpeed;
-                vel.z -= std::sin(camera->rotation.y + HALF_PI) * moveSpeed;
-            } else if (input->isKeyPressed(GLFW_KEY_S)) {
-                vel.x += std::cos(camera->rotation.y + HALF_PI) * moveSpeed;
-                vel.z += std::sin(camera->rotation.y + HALF_PI) * moveSpeed;
+            // 1. Simulate the player (look, walk, jump, trigger) and the scripted test shots.
+            PlayerEvents events = player->update(*input, mouseDelta, lockMouse, delta);
+            if (testShotsLeft > 0 && now >= nextTestShot) {
+                const int index = options.testShots - testShotsLeft;
+                const float spread = glm::radians(TEST_SHOT_SPREAD);
+                const float yawOffset = static_cast<float>(index - options.testShots / 2) * spread;
+                const float pitchOffset = static_cast<float>(index % 3 - 1) * spread * 0.5f;
+                const glm::vec3 forward = player->getForward(), right = player->getRight();
+                const glm::vec3 up = glm::cross(right, forward);
+                const glm::vec3 direction = glm::normalize(forward + right * std::tan(yawOffset) + up * std::tan(pitchOffset));
+                player->fire(direction, events);
+                testShotsLeft--;
+                nextTestShot = now + TEST_SHOT_INTERVAL;
             }
 
-            if (input->isKeyPressed(GLFW_KEY_A)) {
-                vel.x -= std::cos(camera->rotation.y) * moveSpeed;
-                vel.z -= std::sin(camera->rotation.y) * moveSpeed;
-            } else if (input->isKeyPressed(GLFW_KEY_D)) {
-                vel.x += std::cos(camera->rotation.y) * moveSpeed;
-                vel.z += std::sin(camera->rotation.y) * moveSpeed;
+            const bool aiming = player->state.aiming;
+            if (aiming != wasAiming) {
+                camera->setFov(aiming ? FOV_AIM : FOV_NORMAL);
+                wasAiming = aiming;
             }
-            btVector3 current = player->rb->getLinearVelocity(); //Get current velocity (To save Y Axis velocity)
-            current.setX(vel.x);
-            current.setZ(vel.z);
-            player->rb->setLinearVelocity(current);
+            camera->position = player->getEyePosition();
+            camera->rotation = glm::vec2(player->state.pitch, player->state.yaw);
+            camera->update();
+            const float aspect = static_cast<float>(window->width) / static_cast<float>(std::max(window->height, 1));
+            weapon->update(mouseDelta, player->getHorizontalSpeed(), player->state.grounded, aiming, delta);
 
-            if (input->isKeyJustPressed(GLFW_KEY_SPACE)) {
-                // An impulse (N*s) gives an instant velocity change; a force applied for one step does not.
-                player->rb->applyCentralImpulse(btVector3(0.f, player->rb->getMass() * JUMP_SPEED, 0.f));
+            // 2. Turn the events into sounds and effects.
+            if (events.shot) {
+                weapon->kick();
+                audio->play("gunshot", 0.8f, 0.06f);
+                const ShotResult &shot = events.lastShot;
+                const glm::vec3 muzzle = weapon->getMuzzleWorld(camera->getProjection(), glm::inverse(camera->getView()),
+                                                                aspect);
+                if (shot.hit) {
+                    effects->addDecal(shot.point, shot.normal);
+                    effects->addTracer(muzzle, shot.point);
+                    if (shot.dynamic) {
+                        audio->play("hit", 0.6f, 0.1f);
+                    }
+                } else {
+                    effects->addTracer(muzzle, shot.origin + shot.direction * Player::SHOT_RANGE);
+                }
             }
+            if (events.dryFire) audio->play("dryfire", 0.5f);
+            if (events.reloadStarted) audio->play("reload", 0.7f);
+            if (events.jumped) audio->play("jump", 0.4f, 0.05f);
+            if (events.landed) audio->play("land", 0.5f, 0.05f);
+            if (events.footstep) audio->play("footstep", 0.35f, 0.15f);
+            effects->update(delta);
 
             if (input->isKeyJustPressed(GLFW_KEY_ESCAPE)) {
                 lockMouse = !lockMouse;
@@ -239,34 +285,24 @@ namespace {
             }
 
             if (input->isKeyJustPressed(GLFW_KEY_BACKSPACE)) {
-                resetPlayer(*player);
+                player->reset(glm::vec3(0.f));
             }
-
-            btVector3 pos = player->rb->getWorldTransform().getOrigin();
-            camera->position.x = pos.x();
-            camera->position.y = pos.y() + EYE_HEIGHT;
-            camera->position.z = pos.z();
 
             world->update(delta);
 
-            // 1. Shadows pass: one depth layer per cascade, culled with the light's ortho frustum
+            // 3. Shadows pass: one depth layer per cascade, culled with the light's ortho frustum
             if (shadows->visible) {
                 shadows->pass(camera.get(), [&](Engine::Shader *shader, const Frustum &frustum, int cascade) {
-                    CullStats &stats = shadowStats[cascade];
-                    stats.reset();
-                    sniperRifle->draw(shader, &frustum, &stats);
-                    map->draw(shader, &frustum, &stats);
-                    player->draw(shader, &frustum, &stats);
+                    shadowStats[cascade].reset();
+                    drawScene(shader, frustum, shadowStats[cascade], true);
                 });
             }
 
-            // 2. Minimap pass
+            // 4. Minimap pass
             minimapStats.reset();
             minimap->pass(camera->rotation.y, [&](Engine::Shader *shader, const Frustum &frustum) {
                 shader->upload("sunDir", -SUN_DIRECTION);
-                sniperRifle->draw(shader, &frustum, &minimapStats);
-                map->draw(shader, &frustum, &minimapStats);
-                player->draw(shader, &frustum, &minimapStats);
+                drawScene(shader, frustum, minimapStats, true);
             });
 
             if (window->isResized()) {
@@ -274,22 +310,21 @@ namespace {
                 ssao->resize(window->width, window->height);
             }
 
-            // 3. Geometry pass [GBuffer], culled with the camera frustum
+            // 5. Geometry pass [GBuffer], culled with the camera frustum
             geometryStats.reset();
             gBuffer->geometryPass(camera.get(), [&](Engine::Shader *shader, const Frustum &frustum) {
-                map->draw(shader, &frustum, &geometryStats);
-                sniperRifle->draw(shader, &frustum, &geometryStats);
+                drawScene(shader, frustum, geometryStats, false);
             });
 
-            // 4. SSAO pass [SSAO]
+            // 6. SSAO pass [SSAO]
             ssao->renderSSAOTexture(gBuffer->gPosition, gBuffer->gNormal, camera.get());
 
-            // 5. SSAO blur [SSAO]
+            // 7. SSAO blur [SSAO]
             ssao->blurSSAOTexture();
 
             window->reset();
 
-            // 6. Lighting pass [GBuffer]
+            // 8. Lighting pass [GBuffer]; also copies the scene depth to the default framebuffer
             gBuffer->lightingPass(lights, [&](Engine::Shader *shader) {
                 shader->upload("SSAO", ssao->visible ? 1 : 0);
                 // The G-buffer is in view space, so is the sun direction handed to the shader.
@@ -311,16 +346,26 @@ namespace {
                 }
             });
 
-            // 7. Skybox draw
+            // 9. Skybox draw
             skybox->draw(skyShader.get(), camera.get());
 
+            // 10. Forward effects (decals, tracers): blended over the lit scene, tested against its depth
+            effects->draw(camera->getProjection(), camera->getView(), camera->position);
+
+            // 11. View-model: own projection on a cleared depth buffer, so it never intersects the walls
+            glClear(GL_DEPTH_BUFFER_BIT);
+            weapon->draw(aspect, glm::normalize(glm::mat3(camera->getView()) * -SUN_DIRECTION), SUN_COLOR);
+
+            // 12. HUD
             {
                 Engine::HUD::begin();
                 ImGui::SetNextWindowPos(ImVec2(15, 200), ImGuiCond_Once);
 
                 if (ImGui::Begin("Settings", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
                     if (ImGui::TreeNode("Debug")) {
-                        ImGui::SliderFloat("Speed", &speed, 0.1f, 10.f, "%.1f");
+                        ImGui::SliderFloat("Speed", &player->speed, 0.1f, 10.f, "%.1f");
+                        ImGui::Text("Grounded: %s, velocity: %.1f / %.1f", player->state.grounded ? "yes" : "no",
+                                    player->getHorizontalSpeed(), player->state.velocity.y);
                         ImGui::SeparatorText("Frustum culling: drawn / culled chunks (draw calls)");
                         ImGui::Text("Map chunks: %d", static_cast<int>(map->chunks.size()));
                         ImGui::Text("Geometry: %d / %d (%d)", geometryStats.drawn, geometryStats.culled,
@@ -335,7 +380,11 @@ namespace {
                         ImGui::TreePop();
                     }
                     if (ImGui::TreeNode("General")) {
-                        ImGui::SliderFloat("Sensitivity", &sensitivity, 0.1f, 4.f, "%.1f");
+                        ImGui::SliderFloat("Sensitivity", &player->sensitivity, 0.1f, 4.f, "%.1f");
+                        float volume = audio->getMasterVolume();
+                        if (ImGui::SliderFloat("Volume", &volume, 0.f, 1.f, "%.2f")) {
+                            audio->setMasterVolume(volume);
+                        }
                         ImGui::Checkbox("Show minimap", &minimap->visible);
                         if (minimap->visible) {
                             ImGui::Image((ImTextureID) (intptr_t) minimap->map, ImVec2(512, 512), ImVec2(0, 1),
@@ -362,6 +411,25 @@ namespace {
                             ImGui::SliderInt("Update far cascades every N frames", &shadows->farCascadeInterval, 1, 8);
                             ImGui::SliderFloat("Shadow distance", &shadows->shadowDistance, 50.f, 300.f, "%.0f m");
                         }
+                        ImGui::TreePop();
+                    }
+                    if (ImGui::TreeNode("Weapon")) {
+                        ImGui::SliderFloat("View-model FOV", &weapon->fov, 30.f, 90.f, "%.0f");
+                        ImGui::SliderFloat("Scale", &weapon->scale, 0.02f, 0.5f, "%.3f");
+                        ImGui::SliderFloat3("Hip offset", &weapon->hipOffset.x, -1.f, 1.f, "%.3f");
+                        ImGui::SliderFloat3("Aim offset", &weapon->aimOffset.x, -1.f, 1.f, "%.3f");
+                        ImGui::SliderFloat3("Base rotation", &weapon->baseRotation.x, -180.f, 180.f, "%.0f");
+                        ImGui::SliderFloat("Sway", &weapon->swayAmount, 0.f, 0.0002f, "%.5f");
+                        ImGui::SliderFloat("Bob", &weapon->bobAmount, 0.f, 0.05f, "%.3f");
+                        ImGui::SliderFloat("Recoil angle", &weapon->recoilAngle, 0.f, 20.f, "%.1f");
+                        ImGui::TreePop();
+                    }
+                    if (ImGui::TreeNode("Effects")) {
+                        ImGui::SliderFloat("Decal size", &effects->decalSize, 0.01f, 0.5f, "%.3f");
+                        ImGui::SliderFloat("Tracer life", &effects->tracerLife, 0.02f, 2.f, "%.2f s");
+                        ImGui::SliderFloat("Tracer width", &effects->tracerWidth, 0.002f, 0.1f, "%.3f");
+                        ImGui::Text("Decals: %d / %d, tracers: %d", effects->getDecalCount(), Effects::MAX_DECALS,
+                                    effects->getTracerCount());
                         ImGui::TreePop();
                     }
                 }
@@ -401,10 +469,19 @@ namespace {
                         ImGui::Text("Health: %d / %d", 100, 100);
                         ImGui::NewLine();
                         ImGui::Text("Name: %s", "Glock 17");
-                        ImGui::Text("Ammo: %d / %d", 17, 17);
+                        ImGui::Text("Ammo: %d / %d", player->state.ammo, player->state.reserve);
+                        if (player->state.reloading) {
+                            ImGui::Text("Reloading... %.1f s", player->state.reloadTimer);
+                        }
                     }
                     ImGui::End();
                     ImGui::PopStyleVar();
+
+                    // Crosshair: a dot that shrinks while aiming.
+                    ImDrawList *draw = ImGui::GetForegroundDrawList();
+                    const ImVec2 centre(viewport->WorkPos.x + viewport->WorkSize.x * 0.5f,
+                                        viewport->WorkPos.y + viewport->WorkSize.y * 0.5f);
+                    draw->AddCircleFilled(centre, 2.5f - weapon->getAim(), IM_COL32(255, 255, 255, 200));
 
                     if (Chat::i->visible) {
                         Chat::i->Draw();
