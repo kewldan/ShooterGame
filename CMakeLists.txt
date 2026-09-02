@@ -45,6 +45,10 @@ add_executable(${PROJECT_NAME}
         src/main.cpp
         src/Mesh.cpp
         src/Minimap.cpp
+        src/net/Connection.cpp
+        src/net/Packet.cpp
+        src/net/Protocol.cpp
+        src/net/UdpSocket.cpp
         src/Player.cpp
         src/PostProcess.cpp
         src/ScreenQuad.cpp
@@ -76,6 +80,11 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
         plog::plog
         OpenGL::GL
 )
+
+if (WIN32)
+    # UDP networking (src/net/UdpSocket.cpp) talks to Winsock directly.
+    target_link_libraries(${PROJECT_NAME} PRIVATE ws2_32)
+endif ()
 
 if (MSVC)
     target_compile_options(${PROJECT_NAME} PRIVATE /W3 /utf-8)
