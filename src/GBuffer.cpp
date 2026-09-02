@@ -1,7 +1,5 @@
 #include "GBuffer.h"
 
-#include <cstdio>
-
 GBuffer::GBuffer(const char* gShaderPath, const char* lShaderPath, int width, int height, unsigned int ssao, unsigned int shadowMap) : w(width), h(height), ssao(ssao), shadow(shadowMap)
 {
 	glGenFramebuffers(1, &FBO);
@@ -104,7 +102,7 @@ void GBuffer::geometryPass(Engine::Camera3D* camera, const std::function<void(En
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
-void GBuffer::lightingPass(const std::vector<Light>& lights, const std::function<void(Engine::Shader *)> &useFunction)
+void GBuffer::lightingPass(const std::function<void(Engine::Shader *)> &useFunction)
 {
 	lShader->bind();
 
@@ -119,26 +117,6 @@ void GBuffer::lightingPass(const std::vector<Light>& lights, const std::function
 	glActiveTexture(GL_TEXTURE4);
 	glBindTexture(GL_TEXTURE_2D_ARRAY, shadow);
 
-	constexpr int MAX_LIGHTS = 32; // NR_LIGHTS in pass2.frag
-	const int nbLights = static_cast<int>(std::min<size_t>(lights.size(), MAX_LIGHTS));
-	lShader->upload("nbLights", nbLights);
-
-	const float linear = 0.7f;
-	const float quadratic = 1.8f;
-	char name[64];
-	for (int i = 0; i < nbLights; i++)
-	{
-		const Light& light = lights[i];
-
-		std::snprintf(name, sizeof(name), "lights[%d].Position", i);
-		lShader->upload(name, light.pos);
-		std::snprintf(name, sizeof(name), "lights[%d].Color", i);
-		lShader->upload(name, light.color);
-		std::snprintf(name, sizeof(name), "lights[%d].Linear", i);
-		lShader->upload(name, linear);
-		std::snprintf(name, sizeof(name), "lights[%d].Quadratic", i);
-		lShader->upload(name, quadratic);
-	}
 	useFunction(lShader.get());
 
 	// The target shares the scene depth (already filled by the geometry pass): the quad must not be

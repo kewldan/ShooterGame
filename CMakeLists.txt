@@ -41,6 +41,7 @@ add_executable(${PROJECT_NAME}
         src/Frustum.cpp
         src/GameObject.cpp
         src/GBuffer.cpp
+        src/Lights.cpp
         src/main.cpp
         src/Mesh.cpp
         src/Minimap.cpp

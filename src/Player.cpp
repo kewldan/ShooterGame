@@ -217,6 +217,22 @@ glm::vec3 Player::getEyePosition() const {
     return state.position + glm::vec3(0.f, EYE_HEIGHT, 0.f);
 }
 
+ShotResult Player::probe() const {
+    ShotResult result;
+    result.origin = getEyePosition();
+    result.direction = getForward();
+    const btVector3 from = toBullet(result.origin), to = toBullet(result.origin + result.direction * SHOT_RANGE);
+    RayCallback callback(from, to, body->rb.get());
+    world->rayTest(from, to, callback);
+    if (callback.hasHit()) {
+        result.hit = true;
+        result.point = toGlm(callback.m_hitPointWorld);
+        result.normal = glm::normalize(toGlm(callback.m_hitNormalWorld));
+        result.object = static_cast<GameObject *>(callback.m_collisionObject->getUserPointer());
+    }
+    return result;
+}
+
 glm::vec3 Player::getForward() const {
     // Matches Engine::Camera3D: view = Rx(pitch) * Ry(yaw), looking down -Z.
     const float cosPitch = std::cos(state.pitch);

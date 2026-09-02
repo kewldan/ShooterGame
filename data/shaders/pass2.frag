@@ -5,7 +5,8 @@ in Vertex {
     vec2 texCoord;
 } vertex;
 
-// Lighting of the G-buffer in linear HDR (tone mapping happens later, see tonemap.frag).
+// Sun + ambient lighting of the G-buffer, in linear HDR (the point lights are separate light volumes,
+// see pointlight.frag; tone mapping happens later, see tonemap.frag).
 // G-buffer, everything in view space (see pass1.vert). The albedo is an sRGB texture: linear here.
 uniform sampler2D gPosition;
 uniform sampler2D gNormal;
@@ -13,18 +14,6 @@ uniform sampler2D gAlbedoSpec;
 uniform sampler2D ssao;
 // One layer per shadow cascade (ShadowsCaster).
 uniform sampler2DArrayShadow shadowMaps;
-
-struct Light {
-    vec3 Position;
-    vec3 Color;
-
-    float Linear;
-    float Quadratic;
-};
-
-const int NR_LIGHTS = 32;
-uniform int nbLights;
-uniform Light lights[NR_LIGHTS];
 
 uniform int SSAO, CastShadows;
 
@@ -134,7 +123,6 @@ void main()
     vec3 FragPos = texture(gPosition, vertex.texCoord).rgb;
     vec3 Normal = normalize(texture(gNormal, vertex.texCoord).rgb);
     vec3 Diffuse = texture(gAlbedoSpec, vertex.texCoord).rgb;
-    float Specular = texture(gAlbedoSpec, vertex.texCoord).a;
     float AmbientOcclusion = SSAO == 1 ? texture(ssao, vertex.texCoord).r : 1.0;
 
     // Ambient: never shadowed (only occluded by SSAO).
@@ -148,25 +136,6 @@ void main()
         shadow = ShadowCalculation(Normal, FragPos, NdotL, cascade);
     }
     lighting += (1.0 - shadow) * NdotL * Diffuse * sunColor;
-
-    // FragPos is in view space, so the camera sits at the origin.
-    vec3 viewDir  = normalize(-FragPos);
-    for(int i = 0; i < nbLights && i < NR_LIGHTS; ++i)
-    {
-        // diffuse
-        vec3 lightDir = normalize(lights[i].Position - FragPos);
-        vec3 diffuse = max(dot(Normal, lightDir), 0.0) * Diffuse * lights[i].Color;
-        // specular
-        vec3 halfwayDir = normalize(lightDir + viewDir);
-        float spec = pow(max(dot(Normal, halfwayDir), 0.0), 16.0);
-        vec3 specular = lights[i].Color * spec * Specular;
-        // attenuation
-        float distance = length(lights[i].Position - FragPos);
-        float attenuation = 1.0 / (1.0 + lights[i].Linear * distance + lights[i].Quadratic * distance * distance);
-        diffuse *= attenuation;
-        specular *= attenuation;
-        lighting += diffuse + specular;
-    }
 
     if (visualizeCascades == 1 && cascade >= 0) {
         vec3 tints[NUM_CASCADES] = vec3[](vec3(1, 0.2, 0.2), vec3(0.2, 1, 0.2), vec3(0.2, 0.2, 1), vec3(1, 1, 0.2));

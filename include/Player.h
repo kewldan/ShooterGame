@@ -87,6 +87,10 @@ public:
 
     [[nodiscard]] bool canFire() const;
 
+    // What the player is looking at: the shot ray without a shot (nothing is pushed or consumed).
+    // A debugging aid, e.g. to read world coordinates off the map.
+    [[nodiscard]] ShotResult probe() const;
+
     [[nodiscard]] glm::vec3 getEyePosition() const;
 
     [[nodiscard]] glm::vec3 getForward() const;

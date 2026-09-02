@@ -18,6 +18,7 @@
 #include "Audio.h"
 #include "Effects.h"
 #include "GBuffer.h"
+#include "Lights.h"
 #include "Minimap.h"
 #include "Player.h"
 #include "PostProcess.h"
@@ -172,8 +173,8 @@ namespace {
         auto gBuffer = std::make_unique<GBuffer>("pass1", "pass2", window->width, window->height,
                                                  ssao->ssaoColorBufferBlur, shadows->getMap());
         auto post = std::make_unique<PostProcess>(window->width, window->height, gBuffer->rboDepth);
-
-        std::vector<Light> lights;
+        auto pointLights = std::make_unique<PointLights>(gBuffer->gPosition, gBuffer->gNormal, gBuffer->gAlbedo);
+        pointLights->lights = PointLights::mapLights();
 
         bool show_debugMenu = true, lockMouse = false, show_command_palette = false;
         bool vsync = options.vsync;
@@ -336,8 +337,8 @@ namespace {
             const glm::vec3 sunColor = SUN_COLOR * SUN_INTENSITY;
             post->beginHdr();
 
-            // 8. Lighting pass [GBuffer]: sun, ambient, point lights, SSAO and shadows, fullscreen
-            gBuffer->lightingPass(lights, [&](Engine::Shader *shader) {
+            // 8. Lighting pass [GBuffer]: sun, ambient, SSAO and shadows, fullscreen
+            gBuffer->lightingPass([&](Engine::Shader *shader) {
                 shader->upload("SSAO", ssao->visible ? 1 : 0);
                 // The G-buffer is in view space, so is the sun direction handed to the shader.
                 shader->upload("sunDir", sunDirView);
@@ -359,22 +360,28 @@ namespace {
                 }
             });
 
-            // 9. Skybox draw
+            // 9. Point lights [PointLights]: additive light volumes over the sunlit scene
+            pointLights->drawVolumes(camera.get(), Frustum(camera->getProjection() * camera->getView()),
+                                     window->width, window->height);
+
+            // 10. Skybox draw
             skybox->draw(skyShader.get(), camera.get(), SKY_INTENSITY);
 
-            // 10. Forward effects (decals, tracers): blended over the lit scene, tested against its depth
+            // 11. Forward geometry and effects over the lit scene, tested against its depth: the light
+            //     bulbs, then the decals and tracers
+            pointLights->drawBulbs(camera.get());
             effects->draw(camera->getProjection(), camera->getView(), camera->position);
 
-            // 11. View-model: own projection on a cleared depth buffer, so it never intersects the walls
+            // 12. View-model: own projection on a cleared depth buffer, so it never intersects the walls
             glClear(GL_DEPTH_BUFFER_BIT);
             weapon->draw(aspect, sunDirView, sunColor, AMBIENT_COLOR);
 
-            // 12. Post-processing [PostProcess]: bloom, tone mapping and FXAA into the default framebuffer
+            // 13. Post-processing [PostProcess]: bloom, tone mapping and FXAA into the default framebuffer
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             window->reset();
             post->render();
 
-            // 13. HUD
+            // 14. HUD
             {
                 Engine::HUD::begin();
                 ImGui::SetNextWindowPos(ImVec2(15, 200), ImGuiCond_Once);
@@ -395,6 +402,7 @@ namespace {
                                         shadows->getCascade(i).splitFar, shadowStats[i].drawn,
                                         shadowStats[i].culled, shadowStats[i].drawCalls);
                         }
+                        ImGui::Text("Point lights: %d / %d", pointLights->drawn, pointLights->culled);
                         ImGui::TreePop();
                     }
                     if (ImGui::TreeNode("General")) {
@@ -439,6 +447,12 @@ namespace {
                             ImGui::SliderFloat("Bloom threshold", &post->bloomThreshold, 0.f, 5.f, "%.2f");
                         }
                         ImGui::Checkbox("FXAA", &post->fxaa);
+
+                        ImGui::SeparatorText("Point lights");
+                        ImGui::Checkbox("Point lights", &pointLights->visible);
+                        if (pointLights->visible) {
+                            ImGui::SliderFloat("Point light intensity", &pointLights->intensityScale, 0.f, 4.f, "%.2f");
+                        }
                         ImGui::TreePop();
                     }
                     if (ImGui::TreeNode("Weapon")) {
@@ -477,6 +491,10 @@ namespace {
                                         camera->position.y,
                                         camera->position.z);
                             ImGui::Text("Facing: %.1f / %.1f", camera->rotation.x, camera->rotation.y);
+                            if (const ShotResult look = player->probe(); look.hit) {
+                                ImGui::Text("Looking at: X: %.1f, Y: %.1f, Z: %.1f (%.1f away)", look.point.x,
+                                            look.point.y, look.point.z, glm::distance(look.origin, look.point));
+                            }
                         }
                         ImGui::End();
                     }

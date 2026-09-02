@@ -3,20 +3,15 @@
 #include "Shader.h"
 #include <functional>
 #include <memory>
-#include <vector>
 #include "Camera3D.h"
 #include "Frustum.h"
 #include "ScreenQuad.h"
 
-// The deferred geometry pass and the fullscreen lighting pass. Everything in the G-buffer is view space
-// (see pass1.vert), so light positions are view-space too. The albedo target is sRGB: pass1.frag writes
-// the texture samples as they are (sRGB bytes, no encoding since GL_FRAMEBUFFER_SRGB stays off) and
-// every pass that samples it gets linear light back from the hardware decode for free.
-struct Light {
-	glm::vec3 pos;
-	glm::vec3 color;
-};
-
+// The deferred geometry pass and the fullscreen sun/ambient lighting pass. Everything in the G-buffer is
+// view space (see pass1.vert). The albedo target is sRGB: pass1.frag writes the texture samples as they
+// are (sRGB bytes, no encoding since GL_FRAMEBUFFER_SRGB stays off) and every pass that samples it gets
+// linear light back from the hardware decode for free. Point lights are not part of the lighting pass,
+// they are light volumes (PointLights) added on top of its output.
 class GBuffer {
 	int w, h;
     unsigned int ssao, shadow;
@@ -38,7 +33,7 @@ public:
     // `useFunction` gets the bound geometry shader and the camera frustum for culling.
     void geometryPass(Engine::Camera3D* camera, const std::function<void(Engine::Shader *, const Frustum &)> &useFunction);
 
-    // Draws the lit scene (sun, ambient, point lights, SSAO, shadows) as a fullscreen quad into whatever framebuffer is
+    // Draws the lit scene (sun, ambient, SSAO, shadows) as a fullscreen quad into whatever framebuffer is
     // bound; `useFunction` gets the bound lighting shader to upload the sun and shadow uniforms.
-    void lightingPass(const std::vector<Light>& lights, const std::function<void(Engine::Shader *)> &useFunction);
+    void lightingPass(const std::function<void(Engine::Shader *)> &useFunction);
 };
