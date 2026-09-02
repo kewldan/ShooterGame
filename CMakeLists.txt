@@ -45,6 +45,8 @@ add_executable(${PROJECT_NAME}
         src/Mesh.cpp
         src/Minimap.cpp
         src/Player.cpp
+        src/PostProcess.cpp
+        src/ScreenQuad.cpp
         src/ShadowsCaster.cpp
         src/Skybox.cpp
         src/SSAO.cpp

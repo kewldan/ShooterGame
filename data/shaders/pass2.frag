@@ -5,7 +5,8 @@ in Vertex {
     vec2 texCoord;
 } vertex;
 
-// G-buffer, everything in view space (see pass1.vert).
+// Lighting of the G-buffer in linear HDR (tone mapping happens later, see tonemap.frag).
+// G-buffer, everything in view space (see pass1.vert). The albedo is an sRGB texture: linear here.
 uniform sampler2D gPosition;
 uniform sampler2D gNormal;
 uniform sampler2D gAlbedoSpec;
@@ -24,6 +25,7 @@ struct Light {
 const int NR_LIGHTS = 32;
 uniform int nbLights;
 uniform Light lights[NR_LIGHTS];
+
 uniform int SSAO, CastShadows;
 
 // Cascaded shadow maps.
@@ -38,11 +40,12 @@ uniform float cascadeTexelSizes[NUM_CASCADES];
 uniform float cascadeDepthRanges[NUM_CASCADES];
 // Debug: tint the output with the cascade the pixel was shadowed from.
 uniform int visualizeCascades;
-// Direction TOWARDS the sun and its colour (view space).
+// Direction TOWARDS the sun (view space) and its linear colour times intensity.
 uniform vec3 sunDir;
 uniform vec3 sunColor;
+// Linear sky/bounce light reaching every surface (only SSAO darkens it).
+uniform vec3 ambientColor;
 
-const float AMBIENT = 0.4;
 // Blend between two cascades over this fraction of the cascade's depth range to hide the seam.
 const float CASCADE_BLEND = 0.1;
 
@@ -135,7 +138,7 @@ void main()
     float AmbientOcclusion = SSAO == 1 ? texture(ssao, vertex.texCoord).r : 1.0;
 
     // Ambient: never shadowed (only occluded by SSAO).
-    vec3 lighting = Diffuse * AMBIENT * AmbientOcclusion;
+    vec3 lighting = Diffuse * ambientColor * AmbientOcclusion;
 
     // Sun: the only term the shadow map darkens.
     float NdotL = max(dot(Normal, sunDir), 0.0);

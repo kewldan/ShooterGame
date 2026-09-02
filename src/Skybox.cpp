@@ -23,8 +23,9 @@ Skybox::Skybox(const char *filename) : mesh(36, 3, 36) {
         unsigned char *data = raw ? stbi_load_from_memory(raw, size, &width, &height, &nrChannels, 3) : nullptr;
 #endif
         if (data) {
+            // The photos are sRGB encoded; the sampler decodes them to linear light for the HDR image.
             glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
-                         0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data
+                         0, GL_SRGB8, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data
             );
         } else {
             PLOGE << "Cube map tex failed to load at path: " << path;
@@ -91,12 +92,13 @@ Skybox::~Skybox() {
     glDeleteTextures(1, &texture);
 }
 
-void Skybox::draw(Engine::Shader *shader, Engine::Camera3D *camera) {
+void Skybox::draw(Engine::Shader *shader, Engine::Camera3D *camera, float intensity) {
     glDepthFunc(GL_LEQUAL);
     shader->bind();
     shader->upload("proj", camera->getProjection());
     shader->upload("view", camera->getViewRotation());
     shader->upload("skybox", 0);
+    shader->upload("intensity", intensity);
     glActiveTexture(GL_TEXTURE0);
     bind();
 

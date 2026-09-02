@@ -6,8 +6,12 @@
 #include <vector>
 #include "Camera3D.h"
 #include "Frustum.h"
+#include "ScreenQuad.h"
 
-// NOTE: the lighting pass works in view space (see pass1.vert), so light positions are view-space too.
+// The deferred geometry pass and the fullscreen lighting pass. Everything in the G-buffer is view space
+// (see pass1.vert), so light positions are view-space too. The albedo target is sRGB: pass1.frag writes
+// the texture samples as they are (sRGB bytes, no encoding since GL_FRAMEBUFFER_SRGB stays off) and
+// every pass that samples it gets linear light back from the hardware decode for free.
 struct Light {
 	glm::vec3 pos;
 	glm::vec3 color;
@@ -17,8 +21,9 @@ class GBuffer {
 	int w, h;
     unsigned int ssao, shadow;
 	std::unique_ptr<Engine::Shader> gShader, lShader;
+	ScreenQuad quad;
 public:
-	unsigned int FBO = 0, gPosition = 0, gNormal = 0, gAlbedo = 0, rboDepth = 0, VAO = 0, VBO = 0;
+	unsigned int FBO = 0, gPosition = 0, gNormal = 0, gAlbedo = 0, rboDepth = 0;
 	// `shadowMap` is a GL_TEXTURE_2D_ARRAY with one layer per shadow cascade (see ShadowsCaster).
 	GBuffer(const char* gShaderPath, const char* lShaderPath, int width, int height, unsigned int ssao, unsigned int shadowMap);
 	~GBuffer();
@@ -26,10 +31,14 @@ public:
 	GBuffer(const GBuffer&) = delete;
 	GBuffer& operator=(const GBuffer&) = delete;
 
+	// Re-allocates the targets in place: the texture and renderbuffer names stay the same, so whoever
+	// attached or bound them (the HDR target shares rboDepth) needs no update.
 	void resize(int nw, int nh);
 
     // `useFunction` gets the bound geometry shader and the camera frustum for culling.
     void geometryPass(Engine::Camera3D* camera, const std::function<void(Engine::Shader *, const Frustum &)> &useFunction);
 
+    // Draws the lit scene (sun, ambient, point lights, SSAO, shadows) as a fullscreen quad into whatever framebuffer is
+    // bound; `useFunction` gets the bound lighting shader to upload the sun and shadow uniforms.
     void lightingPass(const std::vector<Light>& lights, const std::function<void(Engine::Shader *)> &useFunction);
 };

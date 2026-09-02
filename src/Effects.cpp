@@ -180,7 +180,7 @@ void Effects::draw(const glm::mat4 &proj, const glm::mat4 &view, const glm::vec3
             if (length < 1e-6f) continue;
             side *= tracerWidth * 0.5f / length;
             const float fade = 1.f - tracer.age / tracerLife;
-            const glm::vec4 color(tracerColor, fade);
+            const glm::vec4 color(tracerColor * tracerIntensity, fade);
             const Vertex a{tracer.from - side, {0.f, 0.f}, color}, b{tracer.from + side, {1.f, 0.f}, color};
             const Vertex c{tracer.to + side, {1.f, 1.f}, color}, d{tracer.to - side, {0.f, 1.f}, color};
             vertices.insert(vertices.end(), {a, b, c, a, c, d});

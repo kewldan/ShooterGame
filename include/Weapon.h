@@ -44,6 +44,7 @@ public:
     float recoilAngle = 7.f;                    // muzzle rise, degrees
     float recoilRecovery = 12.f;                // 1/s
     float flashSize = 0.09f, flashDuration = 0.035f;
+    float flashIntensity = 10.f;                // linear HDR brightness of the muzzle flash (blooms)
 
     explicit Weapon(const char *meshPath);
 
@@ -64,8 +65,9 @@ public:
     // with `aspect`), then taken back to world space with `inverseView`.
     [[nodiscard]] glm::vec3 getMuzzleWorld(const glm::mat4 &proj, const glm::mat4 &inverseView, float aspect) const;
 
-    // Draws the weapon and the muzzle flash. `sunDir` points TOWARDS the sun, in view space.
-    void draw(float aspect, const glm::vec3 &sunDir, const glm::vec3 &sunColor);
+    // Draws the weapon and the muzzle flash into the HDR image. `sunDir` points TOWARDS the sun, in view
+    // space; `sunColor` and `ambientColor` are the linear colours of the lighting pass.
+    void draw(float aspect, const glm::vec3 &sunDir, const glm::vec3 &sunColor, const glm::vec3 &ambientColor);
 
     [[nodiscard]] float getAim() const;
 };

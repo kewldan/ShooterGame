@@ -132,12 +132,13 @@ glm::vec3 Weapon::getMuzzleWorld(const glm::mat4 &proj, const glm::mat4 &inverse
     return glm::vec3(inverseView * glm::vec4(remapped, 1.f));
 }
 
-void Weapon::draw(float aspect, const glm::vec3 &sunDir, const glm::vec3 &sunColor) {
+void Weapon::draw(float aspect, const glm::vec3 &sunDir, const glm::vec3 &sunColor, const glm::vec3 &ambientColor) {
     shader->bind();
     shader->upload("proj", viewModelProjection(fov, aspect));
     shader->upload("model", model);
     shader->upload("sunDir", sunDir);
     shader->upload("sunColor", sunColor);
+    shader->upload("ambientColor", ambientColor);
     shader->upload("unlit", 0);
     glActiveTexture(GL_TEXTURE0);
     for (const Mesh &mesh: meshes) {
@@ -156,6 +157,7 @@ void Weapon::draw(float aspect, const glm::vec3 &sunDir, const glm::vec3 &sunCol
         flash = glm::scale(flash, glm::vec3(flashSize * (1.f + aim * 0.3f)));
         shader->upload("model", flash);
         shader->upload("unlit", 1);
+        shader->upload("emissive", flashIntensity);
         shader->upload("hasTexture", 1);
         glBindTexture(GL_TEXTURE_2D, flashTexture);
         glEnable(GL_BLEND);

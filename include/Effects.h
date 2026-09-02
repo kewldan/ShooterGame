@@ -8,8 +8,8 @@
 
 // Short-lived, forward-rendered hit effects: bullet-hole decals (a ring buffer of textured quads glued
 // to the hit surface, the oldest is overwritten) and tracers (camera-facing strips from the muzzle to
-// the hit point that fade out). Drawn into the default framebuffer after the lighting pass, depth tested
-// against the scene depth but never writing it.
+// the hit point that fade out). Drawn into the HDR image after the lighting pass, depth tested against
+// the scene depth but never writing it.
 class Effects {
 public:
     static constexpr int MAX_DECALS = 128;
@@ -43,6 +43,7 @@ public:
     float tracerLife = 0.08f;   // seconds until a tracer has faded out
     float tracerWidth = 0.015f; // world units
     glm::vec3 tracerColor{1.f, 0.85f, 0.55f};
+    float tracerIntensity = 6.f; // linear HDR brightness of a fresh tracer (blooms)
 
     Effects();
 

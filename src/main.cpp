@@ -20,6 +20,7 @@
 #include "GBuffer.h"
 #include "Minimap.h"
 #include "Player.h"
+#include "PostProcess.h"
 #include "Skybox.h"
 #include "SSAO.h"
 #include "Weapon.h"
@@ -79,9 +80,14 @@ namespace {
     }
 
     // The one directional light of the scene: the direction the sunlight travels in (world space) and its
-    // colour. Shared by the shadow pass, the lighting pass, the minimap and the view-model so they match.
+    // colour. Shared by the shadow pass, the lighting pass, the minimap and the view-model
+    // so they match. The scene is lit in linear HDR units (see PostProcess): the sun is a few times
+    // brighter than white, the sky light reaching shadowed surfaces well below it.
     const glm::vec3 SUN_DIRECTION = glm::normalize(glm::vec3(3.5f, -7.f, 1.5f));
-    const glm::vec3 SUN_COLOR(0.8f, 0.76f, 0.68f);
+    const glm::vec3 SUN_COLOR(1.f, 0.95f, 0.85f);
+    constexpr float SUN_INTENSITY = 4.f;
+    const glm::vec3 AMBIENT_COLOR(0.5f, 0.54f, 0.62f);
+    constexpr float SKY_INTENSITY = 1.8f;
 
     void applySsaoLevel(SSAO &ssao, int level) {
         ssao.visible = level > 0;
@@ -165,6 +171,7 @@ namespace {
 
         auto gBuffer = std::make_unique<GBuffer>("pass1", "pass2", window->width, window->height,
                                                  ssao->ssaoColorBufferBlur, shadows->getMap());
+        auto post = std::make_unique<PostProcess>(window->width, window->height, gBuffer->rboDepth);
 
         std::vector<Light> lights;
 
@@ -308,6 +315,7 @@ namespace {
             if (window->isResized()) {
                 gBuffer->resize(window->width, window->height);
                 ssao->resize(window->width, window->height);
+                post->resize(window->width, window->height);
             }
 
             // 5. Geometry pass [GBuffer], culled with the camera frustum
@@ -322,14 +330,19 @@ namespace {
             // 7. SSAO blur [SSAO]
             ssao->blurSSAOTexture();
 
-            window->reset();
+            // Everything from here to the post-processing is drawn in linear HDR into the HDR target,
+            // which shares the depth of the G-buffer, so the forward passes are tested against the scene.
+            const glm::vec3 sunDirView = glm::normalize(glm::mat3(camera->getView()) * -SUN_DIRECTION);
+            const glm::vec3 sunColor = SUN_COLOR * SUN_INTENSITY;
+            post->beginHdr();
 
-            // 8. Lighting pass [GBuffer]; also copies the scene depth to the default framebuffer
+            // 8. Lighting pass [GBuffer]: sun, ambient, point lights, SSAO and shadows, fullscreen
             gBuffer->lightingPass(lights, [&](Engine::Shader *shader) {
                 shader->upload("SSAO", ssao->visible ? 1 : 0);
                 // The G-buffer is in view space, so is the sun direction handed to the shader.
-                shader->upload("sunDir", glm::normalize(glm::mat3(camera->getView()) * -SUN_DIRECTION));
-                shader->upload("sunColor", SUN_COLOR);
+                shader->upload("sunDir", sunDirView);
+                shader->upload("sunColor", sunColor);
+                shader->upload("ambientColor", AMBIENT_COLOR);
                 shader->upload("CastShadows", shadows->visible ? 1 : 0);
                 shader->upload("visualizeCascades", visualizeCascades ? 1 : 0);
                 if (shadows->visible) {
@@ -347,16 +360,21 @@ namespace {
             });
 
             // 9. Skybox draw
-            skybox->draw(skyShader.get(), camera.get());
+            skybox->draw(skyShader.get(), camera.get(), SKY_INTENSITY);
 
             // 10. Forward effects (decals, tracers): blended over the lit scene, tested against its depth
             effects->draw(camera->getProjection(), camera->getView(), camera->position);
 
             // 11. View-model: own projection on a cleared depth buffer, so it never intersects the walls
             glClear(GL_DEPTH_BUFFER_BIT);
-            weapon->draw(aspect, glm::normalize(glm::mat3(camera->getView()) * -SUN_DIRECTION), SUN_COLOR);
+            weapon->draw(aspect, sunDirView, sunColor, AMBIENT_COLOR);
 
-            // 12. HUD
+            // 12. Post-processing [PostProcess]: bloom, tone mapping and FXAA into the default framebuffer
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            window->reset();
+            post->render();
+
+            // 13. HUD
             {
                 Engine::HUD::begin();
                 ImGui::SetNextWindowPos(ImVec2(15, 200), ImGuiCond_Once);
@@ -411,6 +429,16 @@ namespace {
                             ImGui::SliderInt("Update far cascades every N frames", &shadows->farCascadeInterval, 1, 8);
                             ImGui::SliderFloat("Shadow distance", &shadows->shadowDistance, 50.f, 300.f, "%.0f m");
                         }
+
+                        ImGui::SeparatorText("HDR");
+                        ImGui::SliderFloat("Exposure", &post->exposure, 0.1f, 4.f, "%.2f");
+                        ImGui::Combo("Tone mapping", &post->tonemapper, "ACES\0Uncharted 2\0None\0");
+                        ImGui::Checkbox("Bloom", &post->bloom);
+                        if (post->bloom) {
+                            ImGui::SliderFloat("Bloom strength", &post->bloomStrength, 0.f, 0.5f, "%.3f");
+                            ImGui::SliderFloat("Bloom threshold", &post->bloomThreshold, 0.f, 5.f, "%.2f");
+                        }
+                        ImGui::Checkbox("FXAA", &post->fxaa);
                         ImGui::TreePop();
                     }
                     if (ImGui::TreeNode("Weapon")) {
