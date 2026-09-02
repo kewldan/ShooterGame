@@ -31,8 +31,11 @@ find_package(imgui CONFIG REQUIRED)
 find_package(glad CONFIG REQUIRED)
 find_package(plog CONFIG REQUIRED)
 find_package(Stb REQUIRED)
+# miniaudio is a single header (see Audio.cpp for the implementation unit).
+find_path(MINIAUDIO_INCLUDE_DIR miniaudio.h REQUIRED)
 
 add_executable(${PROJECT_NAME}
+        src/Audio.cpp
         src/Chat.cpp
         src/Frustum.cpp
         src/GameObject.cpp
@@ -55,6 +58,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
         thirdparty/objloader   # vendored: https://github.com/Bly7/OBJ-Loader (MIT)
         ${BULLET_INCLUDE_DIRS}
         ${Stb_INCLUDE_DIR}
+        ${MINIAUDIO_INCLUDE_DIR}
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE

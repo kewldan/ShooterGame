@@ -11,6 +11,7 @@
     "glad",
     "plog",
     "bullet3",
+    "miniaudio",
     {
       "name": "imgui",
       "features": [
