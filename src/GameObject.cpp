@@ -13,24 +13,39 @@
 GameObject::GameObject(btDynamicsWorld *world, const char *path, float mass, btCollisionShape *shape,
                        btVector3 position, float chunkSize) : world(world), collisionShape(shape) {
     ASSERT("World is nullptr", world != nullptr);
-    // Bullet dereferences the shape when the body is added to the world, so a null shape would crash.
-    ASSERT("Collision shape is nullptr", shape != nullptr);
+
+    if (!collisionShape) {
+        // Bullet dereferences the shape when the body is added to the world, so a null shape would crash;
+        // build one from the model instead (static only: a moving triangle mesh is not supported).
+        ASSERT("A mesh collider needs a mesh", path != nullptr);
+        ASSERT("A mesh collider must be static", mass == 0.f);
+        triangleMesh = std::make_unique<btTriangleMesh>();
+    }
+    if (path) loadMeshes(path, chunkSize);
+    if (!collisionShape) {
+        if (triangleMesh->getNumTriangles() == 0) {
+            PLOGE << "No triangles for the mesh collider of [" << path << "], using a unit box";
+            collisionShape = std::make_unique<btBoxShape>(btVector3(0.5f, 0.5f, 0.5f));
+        } else {
+            collisionShape = std::make_unique<btBvhTriangleMeshShape>(triangleMesh.get(), true);
+        }
+    }
 
     btTransform transform;
     transform.setIdentity();
     transform.setOrigin(position);
 
-    if (collisionShape && mass > 0.f) {
+    if (mass > 0.f) {
         collisionShape->calculateLocalInertia(mass, localInertia);
     }
 
     motionState = std::make_unique<btDefaultMotionState>(transform);
     btRigidBody::btRigidBodyConstructionInfo rbInfo(mass, motionState.get(), collisionShape.get(), localInertia);
     rb = std::make_unique<btRigidBody>(rbInfo);
+    // Lets a raycast hit be traced back to the object (see Player::fire).
+    rb->setUserPointer(this);
 
     world->addRigidBody(rb.get());
-
-    if (path) loadMeshes(path, chunkSize);
 }
 
 GameObject::~GameObject() {
@@ -97,18 +112,18 @@ void GameObject::draw(Engine::Shader *shader, const Frustum *frustum, CullStats 
     }
 }
 
-void GameObject::loadMeshes(const char *path, float chunkSize) {
+bool GameObject::loadObj(const char *path, float chunkSize, std::vector<Mesh> &meshes, std::vector<Chunk> &chunks,
+                         btTriangleMesh *triangles) {
     const std::string file = std::string("./data/meshes/") + path;
     objl::Loader loader;
 
     if (!loader.LoadFile(file)) {
         PLOGE << "Failed to load mesh [" << file << "]";
-        return;
+        return false;
     }
 
     meshes.clear();
     chunks.clear();
-    worldBounds.clear();
     meshes.reserve(loader.LoadedMeshes.size());
     for (const auto &curMesh: loader.LoadedMeshes) {
         if (curMesh.Indices.empty()) continue;
@@ -133,22 +148,25 @@ void GameObject::loadMeshes(const char *path, float chunkSize) {
         // std::map keeps the cells in (x, z) order so that neighbouring cells are neighbouring index ranges.
         std::map<std::pair<int, int>, std::vector<unsigned int>> cells;
         for (size_t triangle = 0; triangle + 2 < curMesh.Indices.size(); triangle += 3) {
+            const auto &a = curMesh.Vertices[curMesh.Indices[triangle]].Position;
+            const auto &b = curMesh.Vertices[curMesh.Indices[triangle + 1]].Position;
+            const auto &c = curMesh.Vertices[curMesh.Indices[triangle + 2]].Position;
             std::pair<int, int> cell{0, 0};
             if (chunkSize > 0.f) {
-                const auto &a = curMesh.Vertices[curMesh.Indices[triangle]].Position;
-                const auto &b = curMesh.Vertices[curMesh.Indices[triangle + 1]].Position;
-                const auto &c = curMesh.Vertices[curMesh.Indices[triangle + 2]].Position;
                 cell.first = static_cast<int>(std::floor((a.X + b.X + c.X) / 3.f / chunkSize));
                 cell.second = static_cast<int>(std::floor((a.Z + b.Z + c.Z) / 3.f / chunkSize));
             }
             cells[cell].push_back(static_cast<unsigned int>(triangle));
+            if (triangles) {
+                triangles->addTriangle(btVector3(a.X, a.Y, a.Z), btVector3(b.X, b.Y, b.Z), btVector3(c.X, c.Y, c.Z));
+            }
         }
 
         // Write the indices cell by cell; every cell becomes a chunk with the bounds of its triangles.
         size_t indexOffset = 0;
-        for (const auto &[cell, triangles]: cells) {
-            Chunk chunk{meshes.size() - 1, static_cast<int>(indexOffset), static_cast<int>(triangles.size() * 3), {}};
-            for (const unsigned int triangle: triangles) {
+        for (const auto &[cell, cellTriangles]: cells) {
+            Chunk chunk{meshes.size() - 1, static_cast<int>(indexOffset), static_cast<int>(cellTriangles.size() * 3), {}};
+            for (const unsigned int triangle: cellTriangles) {
                 for (int k = 0; k < 3; k++) {
                     const unsigned int index = curMesh.Indices[triangle + k];
                     mesh.indices[indexOffset++] = index;
@@ -173,7 +191,55 @@ void GameObject::loadMeshes(const char *path, float chunkSize) {
         mesh.addParameter(1, 2);
         mesh.addParameter(2, 3);
     }
-    PLOGI << "Loaded [" << file << "]: " << meshes.size() << " meshes, " << chunks.size() << " chunks";
+    PLOGI << "Loaded [" << file << "]: " << meshes.size() << " meshes, " << chunks.size() << " chunks"
+          << (triangles ? ", " + std::to_string(triangles->getNumTriangles()) + " collision triangles" : "");
+    return true;
+}
+
+void GameObject::loadMeshes(const char *path, float chunkSize) {
+    worldBounds.clear();
+    loadObj(path, chunkSize, meshes, chunks, triangleMesh.get());
+}
+
+void GameObject::setBoxMesh(const glm::vec3 &half, const char *texture) {
+    meshes.clear();
+    chunks.clear();
+    worldBounds.clear();
+    // 4 vertices per face (own normal and UVs), 6 faces.
+    Mesh &mesh = meshes.emplace_back(24u, 8u, 36);
+    const glm::vec3 normals[6] = {{1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}, {0, 0, 1}, {0, 0, -1}};
+    size_t d = 0;
+    for (int face = 0; face < 6; face++) {
+        const glm::vec3 n = normals[face];
+        // Two tangents spanning the face, with a winding that faces outwards.
+        const glm::vec3 helper = std::abs(n.y) > 0.5f ? glm::vec3(0, 0, 1) : glm::vec3(0, 1, 0);
+        const glm::vec3 t = glm::normalize(glm::cross(helper, n)), b = glm::cross(n, t);
+        const glm::vec2 uvs[4] = {{0, 0}, {1, 0}, {1, 1}, {0, 1}};
+        for (int v = 0; v < 4; v++) {
+            const float sx = (v == 1 || v == 2) ? 1.f : -1.f, sy = (v >= 2) ? 1.f : -1.f;
+            const glm::vec3 p = (n + t * sx + b * sy) * half;
+            mesh.data[d++] = p.x;
+            mesh.data[d++] = p.y;
+            mesh.data[d++] = p.z;
+            mesh.data[d++] = uvs[v].x;
+            mesh.data[d++] = uvs[v].y;
+            mesh.data[d++] = n.x;
+            mesh.data[d++] = n.y;
+            mesh.data[d++] = n.z;
+        }
+        const unsigned int base = face * 4;
+        const unsigned int quad[6] = {base, base + 1, base + 2, base, base + 2, base + 3};
+        std::copy(std::begin(quad), std::end(quad), mesh.indices.begin() + face * 6);
+    }
+    if (texture) {
+        mesh.texture = std::make_unique<Engine::Texture>(texture);
+    }
+    mesh.computeBounds();
+    chunks.push_back({0, 0, 36, mesh.bounds});
+    mesh.upload();
+    mesh.addParameter(0, 3);
+    mesh.addParameter(1, 2);
+    mesh.addParameter(2, 3);
 }
 
 void GameObject::setCastShadows(bool value) {
