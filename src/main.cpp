@@ -12,6 +12,8 @@
 #include <Input.h>
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
+#include <cstring>
 #include <memory>
 #include "Skybox.h"
 #include "Minimap.h"
@@ -29,6 +31,35 @@ namespace {
     // (~224x246 units, 9.8k triangles, 27 materials) gives ~380 chunks with 32.
     constexpr float MAP_CHUNK_SIZE = 32.f;
     constexpr int SHADOW_MAP_SIZE = 2048; // per cascade
+
+    // Optional start state from the command line (see parseArgs): handy for reproducible screenshots.
+    struct Options {
+        glm::vec3 position{0.f};
+        float yaw = 0.f, pitch = 0.f; // radians
+        bool vsync = true;
+    };
+
+    // --pos x y z (camera position), --yaw deg, --pitch deg, --novsync
+    Options parseArgs(int argc, char **argv) {
+        Options options;
+        for (int i = 1; i < argc; i++) {
+            const bool hasThree = i + 3 < argc, hasOne = i + 1 < argc;
+            if (std::strcmp(argv[i], "--pos") == 0 && hasThree) {
+                options.position = glm::vec3(std::strtof(argv[i + 1], nullptr), std::strtof(argv[i + 2], nullptr),
+                                             std::strtof(argv[i + 3], nullptr));
+                i += 3;
+            } else if (std::strcmp(argv[i], "--yaw") == 0 && hasOne) {
+                options.yaw = glm::radians(std::strtof(argv[++i], nullptr));
+            } else if (std::strcmp(argv[i], "--pitch") == 0 && hasOne) {
+                options.pitch = glm::radians(std::strtof(argv[++i], nullptr));
+            } else if (std::strcmp(argv[i], "--novsync") == 0) {
+                options.vsync = false;
+            } else {
+                PLOGW << "Unknown argument: " << argv[i];
+            }
+        }
+        return options;
+    }
 
     // The one directional light of the scene: the direction the sunlight travels in (world space) and its
     // colour. Shared by the shadow pass, the lighting pass and the minimap so shadows match the shading.
@@ -49,9 +80,11 @@ namespace {
         }
     }
 
-    void resetPlayer(GameObject &player) {
+    // Puts the player so that the camera (EYE_HEIGHT above the capsule centre) sits at `cameraPosition`.
+    void resetPlayer(GameObject &player, glm::vec3 cameraPosition = glm::vec3(0.f)) {
         btTransform transform;
         transform.setIdentity();
+        transform.setOrigin(btVector3(cameraPosition.x, cameraPosition.y - EYE_HEIGHT, cameraPosition.z));
         player.rb->setWorldTransform(transform);
         player.motionState->setWorldTransform(transform);
         player.rb->setLinearVelocity(btVector3(0.f, 0.f, 0.f));
@@ -61,9 +94,9 @@ namespace {
 
     // Everything that owns GL objects lives inside this function so that it is destroyed
     // before Engine::Window::destroy() tears the context down.
-    void run() {
+    void run(const Options &options) {
         auto window = std::make_unique<Engine::Window>(1280, 720, "Shooter game");
-        window->setVsync(true);
+        window->setVsync(options.vsync);
         auto input = std::make_unique<Engine::Input>(window->getId());
         input->registerCallbacks();
         auto camera = std::make_unique<Engine::Camera3D>(window.get());
@@ -88,6 +121,8 @@ namespace {
                                                    new btCapsuleShape(1.f, 2.f));
         player->rb->setAngularFactor(0.f);
         player->rb->setSleepingThresholds(0.f, 0.f);
+        resetPlayer(*player, options.position);
+        camera->rotation = glm::vec2(options.pitch, options.yaw);
 
         auto skybox = std::make_unique<Skybox>("sky");
 
@@ -105,7 +140,7 @@ namespace {
         float speed = 5.f;
         float sensitivity = 1.f;
         bool show_debugMenu = true, lockMouse = false, show_command_palette = false;
-        bool vsync = true;
+        bool vsync = options.vsync;
         bool visualizeCascades = false;
         int ssaoLevel = 3;
         // Frustum culling counters of the last frame, per pass (a skipped far cascade keeps its last values).
@@ -390,9 +425,9 @@ namespace {
     }
 }
 
-int main() {
+int main(int argc, char **argv) {
     Engine::Window::init();
-    run();
+    run(parseArgs(argc, argv));
     Engine::Window::destroy();
     return EXIT_SUCCESS;
 }
