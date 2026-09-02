@@ -26,6 +26,12 @@ void main()
 {
     vec3 fragPos = texture(gPosition, TexCoords).xyz;
     vec3 normal = texture(gNormal, TexCoords).rgb;
+    // Sky pixels have no geometry (zero normal): fully lit, do not build a TBN from a zero vector.
+    if (dot(normal, normal) < 0.001) {
+        FragColor = 1.0;
+        return;
+    }
+    normal = normalize(normal);
     vec3 randomVec = texture(texNoise, TexCoords * noiseScale).xyz;
 
     vec3 tangent = normalize(randomVec - normal * dot(randomVec, normal));

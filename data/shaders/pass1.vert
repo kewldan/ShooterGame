@@ -13,12 +13,12 @@ uniform mat4 proj; //Projection (Only for screen)
 
 void main()
 {
-    vec4 worldPos = view * mvp * vec4(aPos, 1.0);
-    FragPos = worldPos.xyz; 
+    vec4 viewPos = view * mvp * vec4(aPos, 1.0);
+    FragPos = viewPos.xyz; // view space
     TexCoords = aTexCoords;
     
     mat3 normalMatrix = transpose(inverse(mat3(view * mvp)));
     Normal = normalMatrix * aNormal;
 
-    gl_Position = proj * worldPos;
+    gl_Position = proj * viewPos;
 }
