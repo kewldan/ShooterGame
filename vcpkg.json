@@ -1,0 +1,23 @@
+{
+  "name": "shootergame",
+  "version-string": "0.1.0",
+  "builtin-baseline": "8586ecbf125a36cb372920bc58ea7e23ad83776c",
+  "dependencies": [
+    "glm",
+    "glfw3",
+    "nlohmann-json",
+    "stb",
+    "zlib",
+    "glad",
+    "plog",
+    "bullet3",
+    {
+      "name": "imgui",
+      "features": [
+        "freetype",
+        "glfw-binding",
+        "opengl3-binding"
+      ]
+    }
+  ]
+}

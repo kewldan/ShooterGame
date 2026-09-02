@@ -1,20 +1,27 @@
+# IDE
 /.idea/
-/cmake-build-debug/
-/cmake-build-release/
-.gitignore
-*.log
+/.vs/
+/.vscode/
+/out/
+
+# Build
+/build/
+/build-*/
+/cmake-build-*/
+/vcpkg_installed/
+CMakeUserPresets.json
 *.exe
 *.bin
 *.pdb
 *.ilk
 *.manifest
-/.vs
-*.ini
-/de_dust2-cs-map
-*.zip
 *.dll
+*.log
+*.cache
+
+# Local junk
+*.ini
+*.zip
+/de_dust2-cs-map
 /libraries
 /blender
-*.cache
-/out
-/build

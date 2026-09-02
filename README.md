@@ -50,16 +50,20 @@ A sandbox for graphics and gameplay experiments: walk around CS's de_dust2 as a 
 
 ## 🔨 Building
 
-Requirements: **CMake ≥ 3.23** and a C++20 MSVC toolchain.
+Requirements: **CMake ≥ 3.26**, a C++20 MSVC toolchain and [vcpkg](https://github.com/microsoft/vcpkg) (dependencies are declared in `vcpkg.json`).
 
-> **Note:** the project is built around the author's in-house engine — `CMakeLists.txt` does `include("C:/Users/kewldan/Desktop/Engine/Import.cmake")`, which supplies the engine sources, include paths and prebuilt third-party libraries. That engine is **not part of this repository**, so you must have a local copy and update the `include()` path before configuring.
+The game links against the author's [Engine](https://github.com/kewldan/Engine). CMake looks for it in `../Engine` next to this repository (override with `-DENGINE_DIR=<path>`); if it is not there it is fetched from GitHub automatically.
 
 ```powershell
+git clone https://github.com/kewldan/Engine.git
 git clone https://github.com/kewldan/ShooterGame.git
 cd ShooterGame
 
-cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
-cmake --build build --config Release
+cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release ^
+      -DCMAKE_TOOLCHAIN_FILE=<vcpkg root>/scripts/buildsystems/vcpkg.cmake
+cmake --build build
 ```
 
-The executable is emitted into the repository root; run it from there so it can find the `data/` folder (meshes, shaders, textures).
+`data/` (meshes, shaders, textures) is copied next to the executable after each build, so `build/ShooterGame.exe` can be started directly. Release builds additionally embed the shaders and textures as Windows resources, which is how the Engine loads them when `NDEBUG` is defined.
+
+The command palette ([imgui-command-palette](https://github.com/hnOsmium0001/imgui-command-palette)) and the OBJ loader ([OBJ-Loader](https://github.com/Bly7/OBJ-Loader)) are vendored under `thirdparty/`.
