@@ -19,6 +19,7 @@ class GBuffer {
 	std::unique_ptr<Engine::Shader> gShader, lShader;
 public:
 	unsigned int FBO = 0, gPosition = 0, gNormal = 0, gAlbedo = 0, rboDepth = 0, VAO = 0, VBO = 0;
+	// `shadowMap` is a GL_TEXTURE_2D_ARRAY with one layer per shadow cascade (see ShadowsCaster).
 	GBuffer(const char* gShaderPath, const char* lShaderPath, int width, int height, unsigned int ssao, unsigned int shadowMap);
 	~GBuffer();
 

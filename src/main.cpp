@@ -28,6 +28,7 @@ namespace {
     // The static map is split into cells of this size (world units, XZ) for frustum culling; dust.obj
     // (~224x246 units, 9.8k triangles, 27 materials) gives ~380 chunks with 32.
     constexpr float MAP_CHUNK_SIZE = 32.f;
+    constexpr int SHADOW_MAP_SIZE = 2048; // per cascade
 
     // The one directional light of the scene: the direction the sunlight travels in (world space) and its
     // colour. Shared by the shadow pass, the lighting pass and the minimap so shadows match the shading.
@@ -76,7 +77,7 @@ namespace {
         auto world = std::make_unique<World>();
 
         auto skyShader = std::make_unique<Engine::Shader>("sky");
-        auto shadows = std::make_unique<ShadowsCaster>(4096, 4096, "depth", SUN_DIRECTION, 40.f);
+        auto shadows = std::make_unique<ShadowsCaster>(SHADOW_MAP_SIZE, "depth", SUN_DIRECTION);
 
         auto map = std::make_unique<GameObject>(world->dynamicsWorld.get(), "dust.obj", 0.f,
                                                 new btBoxShape(btVector3(100.f, 1.f, 100.f)),
@@ -105,9 +106,10 @@ namespace {
         float sensitivity = 1.f;
         bool show_debugMenu = true, lockMouse = false, show_command_palette = false;
         bool vsync = true;
+        bool visualizeCascades = false;
         int ssaoLevel = 3;
-        // Frustum culling counters of the last frame, per pass.
-        CullStats geometryStats, minimapStats;
+        // Frustum culling counters of the last frame, per pass (a skipped far cascade keeps its last values).
+        CullStats geometryStats, minimapStats, shadowStats[ShadowsCaster::CASCADES];
         applySsaoLevel(*ssao, ssaoLevel);
 
         ImCmd::AddCommand({"Toggle chat", [] { Chat::i->visible = !Chat::i->visible; }});
@@ -212,12 +214,16 @@ namespace {
 
             world->update(delta);
 
-            // 1. Shadows pass TODO: Cascade shadow maps
-            shadows->pass(camera->position, [&](Engine::Shader *shader) {
-                sniperRifle->draw(shader);
-                map->draw(shader);
-                player->draw(shader);
-            });
+            // 1. Shadows pass: one depth layer per cascade, culled with the light's ortho frustum
+            if (shadows->visible) {
+                shadows->pass(camera.get(), [&](Engine::Shader *shader, const Frustum &frustum, int cascade) {
+                    CullStats &stats = shadowStats[cascade];
+                    stats.reset();
+                    sniperRifle->draw(shader, &frustum, &stats);
+                    map->draw(shader, &frustum, &stats);
+                    player->draw(shader, &frustum, &stats);
+                });
+            }
 
             // 2. Minimap pass
             minimapStats.reset();
@@ -255,9 +261,18 @@ namespace {
                 shader->upload("sunDir", glm::normalize(glm::mat3(camera->getView()) * -SUN_DIRECTION));
                 shader->upload("sunColor", SUN_COLOR);
                 shader->upload("CastShadows", shadows->visible ? 1 : 0);
+                shader->upload("visualizeCascades", visualizeCascades ? 1 : 0);
                 if (shadows->visible) {
-                    // The G-buffer stores view-space positions, the light matrix expects world space.
-                    shader->upload("lightSpaceMat", shadows->getLightSpaceMatrix() * glm::inverse(camera->getView()));
+                    // The G-buffer stores view-space positions, the light matrices expect world space.
+                    const glm::mat4 inverseView = glm::inverse(camera->getView());
+                    for (int i = 0; i < ShadowsCaster::CASCADES; i++) {
+                        const ShadowsCaster::Cascade &cascade = shadows->getCascade(i);
+                        shader->upload(Engine::Shader::getElementName("lightSpaceMats", i),
+                                       cascade.lightSpaceMatrix * inverseView);
+                        shader->upload(Engine::Shader::getElementName("cascadeSplits", i), cascade.splitFar);
+                        shader->upload(Engine::Shader::getElementName("cascadeTexelSizes", i), cascade.texelSize);
+                        shader->upload(Engine::Shader::getElementName("cascadeDepthRanges", i), cascade.depthRange);
+                    }
                 }
             });
 
@@ -277,6 +292,11 @@ namespace {
                                     geometryStats.drawCalls);
                         ImGui::Text("Minimap: %d / %d (%d)", minimapStats.drawn, minimapStats.culled,
                                     minimapStats.drawCalls);
+                        for (int i = 0; i < ShadowsCaster::CASCADES; i++) {
+                            ImGui::Text("Shadow cascade %d (to %.0f m): %d / %d (%d)", i,
+                                        shadows->getCascade(i).splitFar, shadowStats[i].drawn,
+                                        shadowStats[i].culled, shadowStats[i].drawCalls);
+                        }
                         ImGui::TreePop();
                     }
                     if (ImGui::TreeNode("General")) {
@@ -302,6 +322,11 @@ namespace {
                         }
 
                         ImGui::Checkbox("Cast shadows", &shadows->visible);
+                        if (shadows->visible) {
+                            ImGui::Checkbox("Visualize cascades", &visualizeCascades);
+                            ImGui::SliderInt("Update far cascades every N frames", &shadows->farCascadeInterval, 1, 8);
+                            ImGui::SliderFloat("Shadow distance", &shadows->shadowDistance, 50.f, 300.f, "%.0f m");
+                        }
                         ImGui::TreePop();
                     }
                 }

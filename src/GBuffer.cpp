@@ -56,7 +56,7 @@ GBuffer::GBuffer(const char* gShaderPath, const char* lShaderPath, int width, in
 	lShader->upload("gNormal", 1);
 	lShader->upload("gAlbedoSpec", 2);
 	lShader->upload("ssao", 3);
-	lShader->upload("shadowMap", 4);
+	lShader->upload("shadowMaps", 4);
 
 	static const float quadVertices[] = {
 		// positions        // texture Coords
@@ -137,7 +137,7 @@ void GBuffer::lightingPass(const std::vector<Light>& lights, const std::function
 	glActiveTexture(GL_TEXTURE3);
 	glBindTexture(GL_TEXTURE_2D, ssao);
 	glActiveTexture(GL_TEXTURE4);
-	glBindTexture(GL_TEXTURE_2D, shadow);
+	glBindTexture(GL_TEXTURE_2D_ARRAY, shadow);
 
 	constexpr int MAX_LIGHTS = 32; // NR_LIGHTS in pass2.frag
 	const int nbLights = static_cast<int>(std::min<size_t>(lights.size(), MAX_LIGHTS));
