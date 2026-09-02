@@ -14,9 +14,11 @@ A sandbox for graphics and gameplay experiments: walk around CS's de_dust2 as a 
 ## ✨ Features
 
 - 🗺️ **de_dust2 map** — the classic map as an OBJ mesh with its original textures, plus weapon models (Glock 17, sniper rifle) and a player model
-- 🎨 **Deferred rendering** — a G-buffer geometry pass followed by a lighting pass with light volumes
+- 🎨 **Deferred rendering** — a G-buffer geometry pass (sRGB albedo), a fullscreen sun/ambient lighting pass and warm point lights drawn as light volumes (frustum culled spheres shading the G-buffer)
+- 🌈 **HDR pipeline** — the scene is lit in linear HDR (RGBA16F), then bloom (soft-knee threshold, 5-mip down/upsample chain), ACES / Uncharted 2 tone mapping with exposure and FXAA 3.11, all tweakable in the Graphics tree
+- 🌞 **Sun & god rays** — a depth-tested sun sprite and screen-space radial light shafts (half resolution, 64 taps) that fade as the sun leaves the screen
 - 🌑 **SSAO** — screen-space ambient occlusion with a blur pass and quality presets (None / Low / Medium / High)
-- ☀️ **Shadow mapping** — a 4096×4096 PCF-filtered depth map rendered from the sun, toggleable in-game
+- ☀️ **Cascaded shadow maps** — four 2048×2048 PCF-filtered cascades rendered from the sun, frustum culled per cascade, toggleable in-game
 - 🌅 **Skybox** — cubemap sky rendered in its own pass
 - 🧭 **Live minimap** — a top-down render-to-texture pass that rotates with the camera, shown in the settings window
 - 🏃 **Physics-driven player** — Bullet capsule rigid body with walking, slow-walk, a raycast ground check (jump only when grounded, coyote time, reduced air control) and a teleport-reset; the map collides with its real triangles
@@ -25,7 +27,7 @@ A sandbox for graphics and gameplay experiments: walk around CS's de_dust2 as a 
 - 🔭 **Aim-down-sights** — right mouse button smoothly narrows the horizontal FOV from 90° to 45° and centres the sights
 - 🔊 **Sound** — miniaudio playback of procedurally generated effects (`tools/gen_sounds.py`): shots, reloads, footsteps, jumps, landings, hits
 - 💬 **In-game chat & command palette** — an ImGui chat console and a fuzzy-search command palette (`imgui-command-palette`)
-- 🛠️ **Debug UI** — FPS/position/facing overlay, ammo & health HUD, sensitivity/speed sliders, VSync toggle
+- 🛠️ **Debug UI** — FPS/position/facing overlay, ammo & health HUD, sensitivity/speed sliders, VSync toggle, culling counters; start options `--pos x y z --yaw deg --pitch deg --novsync --test-shots N --aim --tracer-life s` for reproducible views
 
 ## 🎮 Controls
 
