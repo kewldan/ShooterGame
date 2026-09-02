@@ -46,8 +46,11 @@ add_executable(${PROJECT_NAME}
         src/Mesh.cpp
         src/Minimap.cpp
         src/net/Connection.cpp
+        src/net/NetClient.cpp
+        src/net/NetServer.cpp
         src/net/Packet.cpp
         src/net/Protocol.cpp
+        src/net/Replication.cpp
         src/net/UdpSocket.cpp
         src/Player.cpp
         src/PostProcess.cpp
