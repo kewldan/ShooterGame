@@ -105,8 +105,10 @@ void GBuffer::resize(int nw, int nh)
 	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, w, h);
 }
 
-void GBuffer::geometryPass(Engine::Camera3D* camera, const std::function<void(Engine::Shader *)> &useFunction)
+void GBuffer::geometryPass(Engine::Camera3D* camera, const std::function<void(Engine::Shader *, const Frustum &)> &useFunction)
 {
+	const Frustum frustum(camera->getProjection() * camera->getView());
+
 	glViewport(0, 0, w, h);
 	glBindFramebuffer(GL_FRAMEBUFFER, FBO);
 	glClearColor(0, 0, 0, 0);
@@ -117,7 +119,7 @@ void GBuffer::geometryPass(Engine::Camera3D* camera, const std::function<void(En
 	gShader->upload("proj", camera->getProjection());
 	gShader->upload("view", camera->getView());
 
-    useFunction(gShader.get());
+    useFunction(gShader.get(), frustum);
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }

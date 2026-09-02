@@ -25,6 +25,9 @@ namespace {
     constexpr float EYE_HEIGHT = 1.5f;   // camera offset above the capsule centre
     constexpr float JUMP_SPEED = 5.f;    // m/s
     constexpr float FOV_NORMAL = 60.f, FOV_AIM = 25.f;
+    // The static map is split into cells of this size (world units, XZ) for frustum culling; dust.obj
+    // (~224x246 units, 9.8k triangles, 27 materials) gives ~380 chunks with 32.
+    constexpr float MAP_CHUNK_SIZE = 32.f;
 
     // The one directional light of the scene: the direction the sunlight travels in (world space) and its
     // colour. Shared by the shadow pass, the lighting pass and the minimap so shadows match the shading.
@@ -77,7 +80,7 @@ namespace {
 
         auto map = std::make_unique<GameObject>(world->dynamicsWorld.get(), "dust.obj", 0.f,
                                                 new btBoxShape(btVector3(100.f, 1.f, 100.f)),
-                                                btVector3(0.f, -10.f, 0.f));
+                                                btVector3(0.f, -10.f, 0.f), MAP_CHUNK_SIZE);
         auto sniperRifle = std::make_unique<GameObject>(world->dynamicsWorld.get(), "g17.obj", 1.5f,
                                                         new btBoxShape(btVector3(1.f, 1.f, 1.f)));
         auto player = std::make_unique<GameObject>(world->dynamicsWorld.get(), "player.obj", 60.f,
@@ -103,6 +106,8 @@ namespace {
         bool show_debugMenu = true, lockMouse = false, show_command_palette = false;
         bool vsync = true;
         int ssaoLevel = 3;
+        // Frustum culling counters of the last frame, per pass.
+        CullStats geometryStats, minimapStats;
         applySsaoLevel(*ssao, ssaoLevel);
 
         ImCmd::AddCommand({"Toggle chat", [] { Chat::i->visible = !Chat::i->visible; }});
@@ -215,11 +220,12 @@ namespace {
             });
 
             // 2. Minimap pass
-            minimap->pass(camera->rotation.y, [&](Engine::Shader *shader) {
+            minimapStats.reset();
+            minimap->pass(camera->rotation.y, [&](Engine::Shader *shader, const Frustum &frustum) {
                 shader->upload("sunDir", -SUN_DIRECTION);
-                sniperRifle->draw(shader);
-                map->draw(shader);
-                player->draw(shader);
+                sniperRifle->draw(shader, &frustum, &minimapStats);
+                map->draw(shader, &frustum, &minimapStats);
+                player->draw(shader, &frustum, &minimapStats);
             });
 
             if (window->isResized()) {
@@ -227,10 +233,11 @@ namespace {
                 ssao->resize(window->width, window->height);
             }
 
-            // 3. Geometry pass [GBuffer]
-            gBuffer->geometryPass(camera.get(), [&](Engine::Shader *shader) {
-                map->draw(shader);
-                sniperRifle->draw(shader);
+            // 3. Geometry pass [GBuffer], culled with the camera frustum
+            geometryStats.reset();
+            gBuffer->geometryPass(camera.get(), [&](Engine::Shader *shader, const Frustum &frustum) {
+                map->draw(shader, &frustum, &geometryStats);
+                sniperRifle->draw(shader, &frustum, &geometryStats);
             });
 
             // 4. SSAO pass [SSAO]
@@ -264,6 +271,12 @@ namespace {
                 if (ImGui::Begin("Settings", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
                     if (ImGui::TreeNode("Debug")) {
                         ImGui::SliderFloat("Speed", &speed, 0.1f, 10.f, "%.1f");
+                        ImGui::SeparatorText("Frustum culling: drawn / culled chunks (draw calls)");
+                        ImGui::Text("Map chunks: %d", static_cast<int>(map->chunks.size()));
+                        ImGui::Text("Geometry: %d / %d (%d)", geometryStats.drawn, geometryStats.culled,
+                                    geometryStats.drawCalls);
+                        ImGui::Text("Minimap: %d / %d (%d)", minimapStats.drawn, minimapStats.culled,
+                                    minimapStats.drawCalls);
                         ImGui::TreePop();
                     }
                     if (ImGui::TreeNode("General")) {

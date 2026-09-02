@@ -40,7 +40,7 @@ Minimap::~Minimap() {
     glDeleteTextures(1, &map);
 }
 
-void Minimap::pass(float rotation_y, const std::function<void(Engine::Shader *)> &useFunction) {
+void Minimap::pass(float rotation_y, const std::function<void(Engine::Shader *, const Frustum &)> &useFunction) {
     static const glm::mat4 proj = glm::ortho(-100.f, 100.f, -100.f, 100.f, 0.1f, 300.f);
 
     if(visible) {
@@ -59,7 +59,7 @@ void Minimap::pass(float rotation_y, const std::function<void(Engine::Shader *)>
         glClearColor(0.5f, 0.8f, 1.f, 0.f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        useFunction(shader.get());
+        useFunction(shader.get(), Frustum(proj * view));
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }

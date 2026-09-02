@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Frustum.h"
 #include "Shader.h"
 #include <functional>
 #include <memory>
@@ -19,5 +20,6 @@ public:
 	Minimap(const Minimap&) = delete;
 	Minimap& operator=(const Minimap&) = delete;
 
-    void pass(float rotation_y, const std::function<void(Engine::Shader *)> &useFunction);
+    // `useFunction` gets the bound map shader and the minimap's ortho frustum for culling.
+    void pass(float rotation_y, const std::function<void(Engine::Shader *, const Frustum &)> &useFunction);
 };

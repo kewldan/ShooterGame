@@ -5,6 +5,7 @@
 #include <memory>
 #include <vector>
 #include "Camera3D.h"
+#include "Frustum.h"
 
 // NOTE: the lighting pass works in view space (see pass1.vert), so light positions are view-space too.
 struct Light {
@@ -26,7 +27,8 @@ public:
 
 	void resize(int nw, int nh);
 
-    void geometryPass(Engine::Camera3D* camera, const std::function<void(Engine::Shader *)> &useFunction);
+    // `useFunction` gets the bound geometry shader and the camera frustum for culling.
+    void geometryPass(Engine::Camera3D* camera, const std::function<void(Engine::Shader *, const Frustum &)> &useFunction);
 
     void lightingPass(const std::vector<Light>& lights, const std::function<void(Engine::Shader *)> &useFunction);
 };

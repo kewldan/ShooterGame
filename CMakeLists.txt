@@ -34,6 +34,7 @@ find_package(Stb REQUIRED)
 
 add_executable(${PROJECT_NAME}
         src/Chat.cpp
+        src/Frustum.cpp
         src/GameObject.cpp
         src/GBuffer.cpp
         src/main.cpp

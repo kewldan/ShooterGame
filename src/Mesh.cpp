@@ -11,6 +11,14 @@ void Mesh::draw() const {
     glDrawElements(GL_TRIANGLES, indicesCount, GL_UNSIGNED_INT, nullptr);
 }
 
+void Mesh::drawRange(int first, int count) const {
+    ASSERT("Draw non uploaded mesh", isUploaded());
+    ASSERT("Index range out of bounds", first >= 0 && count >= 0 && first + count <= indicesCount);
+    glBindVertexArray(VAO);
+    glDrawElements(GL_TRIANGLES, count, GL_UNSIGNED_INT,
+                   reinterpret_cast<const void *>(static_cast<size_t>(first) * sizeof(unsigned int)));
+}
+
 void Mesh::addParameter(int location, int size, bool normalized) {
     ASSERT("Add parameter to non uploaded mesh", isUploaded());
     glBindVertexArray(VAO);
@@ -27,6 +35,14 @@ bool Mesh::hasTexture() const {
 
 bool Mesh::isUploaded() const {
     return VAO != 0 && EBO != 0 && VBO != 0;
+}
+
+void Mesh::computeBounds() {
+    ASSERT("Bounds need the CPU-side vertex data", !data.empty());
+    bounds = AABB();
+    for (size_t i = 0; i + 2 < data.size(); i += vertexSize) {
+        bounds.extend(glm::vec3(data[i], data[i + 1], data[i + 2]));
+    }
 }
 
 void Mesh::upload() {
@@ -65,7 +81,7 @@ Mesh::~Mesh() {
 Mesh::Mesh(Mesh &&other) noexcept
         : VAO(other.VAO), EBO(other.EBO), VBO(other.VBO), vertexOffset(other.vertexOffset),
           data(std::move(other.data)), indices(std::move(other.indices)), texture(std::move(other.texture)),
-          vertexCount(other.vertexCount), vertexSize(other.vertexSize), indicesCount(other.indicesCount),
+          bounds(other.bounds), vertexCount(other.vertexCount), vertexSize(other.vertexSize), indicesCount(other.indicesCount),
           stride(other.stride) {
     other.VAO = other.EBO = other.VBO = 0;
 }
@@ -79,6 +95,7 @@ Mesh &Mesh::operator=(Mesh &&other) noexcept {
         data.swap(other.data);
         indices.swap(other.indices);
         texture.swap(other.texture);
+        std::swap(bounds, other.bounds);
         std::swap(vertexCount, other.vertexCount);
         std::swap(vertexSize, other.vertexSize);
         std::swap(indicesCount, other.indicesCount);

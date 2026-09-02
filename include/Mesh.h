@@ -3,6 +3,7 @@
 #include "glad/glad.h"
 #include <memory>
 #include <vector>
+#include "Frustum.h"
 #include "Texture.h"
 
 class Mesh {
@@ -14,6 +15,8 @@ public:
 	std::vector<float> data;
 	std::vector<unsigned int> indices;
 	std::unique_ptr<Engine::Texture> texture;
+	// Local-space bounds of the vertices, see computeBounds(). Used for frustum culling.
+	AABB bounds;
 	unsigned int vertexCount, vertexSize;
 	int indicesCount, stride;
 
@@ -28,7 +31,14 @@ public:
 
 	void draw() const;
 
+	// Draws `count` indices starting at index `first` (a chunk of the mesh, see GameObject).
+	void drawRange(int first, int count) const;
+
 	void addParameter(int location, int size, bool normalized = GL_FALSE);
+
+	// Fills `bounds` from `data`, assuming the position is the first 3 floats of each vertex.
+	// Must be called before upload() (which drops the CPU copy).
+	void computeBounds();
 
 	void upload();
 
