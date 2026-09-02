@@ -26,8 +26,9 @@ A sandbox for graphics and gameplay experiments: walk around CS's de_dust2 as a 
 - 🔦 **View-model weapon** — the Glock drawn in its own forward pass with sway, walk bob and recoil
 - 🔭 **Aim-down-sights** — right mouse button smoothly narrows the horizontal FOV from 90° to 45° and centres the sights
 - 🔊 **Sound** — miniaudio playback of procedurally generated effects (`tools/gen_sounds.py`): shots, reloads, footsteps, jumps, landings, hits
-- 💬 **In-game chat & command palette** — an ImGui chat console and a fuzzy-search command palette (`imgui-command-palette`)
-- 🛠️ **Debug UI** — FPS/position/facing overlay, ammo & health HUD, sensitivity/speed sliders, VSync toggle, culling counters; start options `--pos x y z --yaw deg --pitch deg --novsync --test-shots N --aim --tracer-life s` for reproducible views
+- 🌐 **UDP multiplayer** — a listen server (`--host`) and clients (`--connect`) on a small custom protocol: client-authoritative movement, server-validated hits with health, kills and respawns, interpolated remote players with nameplates, host-driven crates, chat, ping and a loss/latency simulator (see [Multiplayer](#-multiplayer))
+- 💬 **In-game chat & command palette** — an ImGui chat console (`?players` lists who is connected) and a fuzzy-search command palette (`imgui-command-palette`)
+- 🛠️ **Debug UI** — FPS/position/facing overlay, ammo/health/K-D HUD, sensitivity/speed sliders, VSync toggle, culling and network counters; start options `--pos x y z --yaw deg --pitch deg --novsync --test-shots N --aim --tracer-life s --say TEXT --console` for reproducible views
 
 ## 🎮 Controls
 
@@ -44,6 +45,26 @@ A sandbox for graphics and gameplay experiments: walk around CS's de_dust2 as a 
 | `Esc` | Toggle mouse capture |
 | `Ctrl` + `Shift` + `P` | Command palette |
 
+## 🌐 Multiplayer
+
+One player hosts, the others connect; the host is an ordinary player whose process also runs the server. Without `--host`/`--connect` the game is single-player.
+
+```powershell
+ShooterGame.exe --host [23403] --name Alice          # listen server on UDP port 23403 (default)
+ShooterGame.exe --connect 192.168.1.10[:23403] --name Bob
+ShooterGame.exe --connect 127.0.0.1 --simulate-loss 0.3 --simulate-latency 150   # a bad link, for testing
+```
+
+Protocol (`include/net/Protocol.h`):
+
+1. UDP datagrams of at most 1200 bytes: `magic u16 | version u8 | type u8 | seq u16 | ack u16 | ackBits u32`, then reliable events, then an optional unreliable payload; little-endian, every field bounds-checked, malformed packets are dropped.
+2. Unreliable channel: each client sends its `PlayerState` (position, velocity, yaw/pitch, flags) at 30 Hz; the server relays a snapshot of everybody plus the host's crate transforms at 20 Hz.
+3. Reliable channel: join/accept/leave/shot/hit/respawn/chat events carry ids, are re-sent every 100 ms until a packet containing them is acknowledged (33-packet ack window), and are delivered once, in order. Heartbeat 500 ms, timeout 5 s.
+4. Movement is client-authoritative; hits are not: the shooter sends its ray, the server tests it against the other players' capsules and the host's map/crates, applies 25 damage per hit (100 hp, respawn after 3 s) and broadcasts the outcome, which becomes tracers, decals, sounds and the damage flash on every client.
+5. Remote players are rendered 100 ms behind the newest snapshot (interpolated between two snapshots, extrapolated for up to 250 ms when one is late) as kinematic capsules with the player model, so they take part in shadows, the minimap and local raycasts.
+
+Ping (round trip from the acks) and packet rates are shown under Settings → Debug → Network.
+
 ## 🛠️ Tech stack
 
 | Dependency | Purpose |
@@ -51,6 +72,7 @@ A sandbox for graphics and gameplay experiments: walk around CS's de_dust2 as a 
 | [glad](https://github.com/Dav1dde/glad) + [GLFW](https://www.glfw.org/) | OpenGL loading & windowing |
 | [Bullet3](https://github.com/bulletphysics/bullet3) | Physics (dynamics world, rigid bodies) |
 | [Dear ImGui](https://github.com/ocornut/imgui) + [imgui-command-palette](https://github.com/hnOsmium0001/imgui-command-palette) | UI, chat, command palette |
+| Winsock 2 | UDP multiplayer (`include/net/`) |
 | [stb](https://github.com/nothings/stb) | Image loading |
 | [miniaudio](https://miniaud.io/) | Sound playback |
 | FreeType, libpng, zlib, bz2, Brotli, Turbo-Base64 | Fonts, textures, compression |
